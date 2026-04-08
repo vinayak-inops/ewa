@@ -3,17 +3,20 @@ import { Platform } from 'react-native';
 
 const ACCESS_TOKEN_KEY = 'ewa_access_token';
 const REFRESH_TOKEN_KEY = 'ewa_refresh_token';
+const ID_TOKEN_KEY = 'ewa_id_token';
 const TOKEN_TYPE_KEY = 'ewa_token_type';
 const EXPIRES_AT_KEY = 'ewa_expires_at';
 
 type StoredTokenPayload = {
   accessToken: string;
   refreshToken?: string;
+  idToken?: string;
   tokenType?: string;
   expiresIn?: number;
 };
 
 let accessTokenMemory: string | null = null;
+let idTokenMemory: string | null = null;
 
 async function setItem(key: string, value: string) {
   if (Platform.OS === 'web') {
@@ -44,6 +47,7 @@ export async function saveAuthTokens(payload: StoredTokenPayload) {
   const expiresAt = payload.expiresIn ? String(Date.now() + payload.expiresIn * 1000) : '';
 
   accessTokenMemory = payload.accessToken;
+  idTokenMemory = payload.idToken ?? null;
 
   await setItem(ACCESS_TOKEN_KEY, payload.accessToken);
   await setItem(TOKEN_TYPE_KEY, tokenType);
@@ -60,10 +64,17 @@ export async function saveAuthTokens(payload: StoredTokenPayload) {
     await deleteItem(REFRESH_TOKEN_KEY);
   }
 
+  if (payload.idToken) {
+    await setItem(ID_TOKEN_KEY, payload.idToken);
+  } else {
+    await deleteItem(ID_TOKEN_KEY);
+  }
+
   if (__DEV__) {
     console.log('[token-store] token saved', {
       hasAccessToken: Boolean(payload.accessToken),
       hasRefreshToken: Boolean(payload.refreshToken),
+      hasIdToken: Boolean(payload.idToken),
       tokenType,
       hasExpiresAt: Boolean(expiresAt),
     });
@@ -72,9 +83,11 @@ export async function saveAuthTokens(payload: StoredTokenPayload) {
 
 export async function clearAuthTokens() {
   accessTokenMemory = null;
+  idTokenMemory = null;
   await Promise.all([
     deleteItem(ACCESS_TOKEN_KEY),
     deleteItem(REFRESH_TOKEN_KEY),
+    deleteItem(ID_TOKEN_KEY),
     deleteItem(TOKEN_TYPE_KEY),
     deleteItem(EXPIRES_AT_KEY),
   ]);
@@ -91,6 +104,16 @@ export async function getAccessToken() {
     console.log('[token-store] getAccessToken', { found: Boolean(accessTokenMemory) });
   }
   return accessTokenMemory;
+}
+
+export async function getIdToken() {
+  if (idTokenMemory) return idTokenMemory;
+  const stored = await getItem(ID_TOKEN_KEY);
+  idTokenMemory = stored ?? null;
+  if (__DEV__) {
+    console.log('[token-store] getIdToken', { found: Boolean(idTokenMemory) });
+  }
+  return idTokenMemory;
 }
 
 export async function getAuthHeader() {

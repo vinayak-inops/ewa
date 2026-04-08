@@ -70,6 +70,7 @@ export default function LiteTabLayout() {
           tabBarShowLabel: false,
         }}
       />
+      <Tabs.Screen name="profile/logout" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -6,6 +6,8 @@ import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';
 import { useEffect, useMemo, useState } from 'react';
 
+const APP_FONT_FAMILY = 'Inter';
+
 function formatDate(dateString?: string) {
   if (!dateString) return 'Not provided';
   const date = new Date(dateString);
@@ -69,10 +71,10 @@ export default function LiteProfileScreen() {
       const resolvedEmployeeId =
         String(
           payload.employeeID ??
-            payload.employeeId ??
-            payload.empId ??
-            process.env.EXPO_PUBLIC_EMPLOYEE_ID ??
-            ''
+          payload.employeeId ??
+          payload.empId ??
+          process.env.EXPO_PUBLIC_EMPLOYEE_ID ??
+          ''
         ) || '';
       const resolvedTenantCode =
         String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '';
@@ -84,14 +86,28 @@ export default function LiteProfileScreen() {
     void run();
   }, []);
 
-  const { data: profileRows, loading: profileLoading, error: profileError, refetch } = useGetRequest<any[]>({
+  const { data: profileRows, loading: profileLoading, error: profileError } = useGetRequest<any[]>({
     url: 'contract_employee/search',
-    params: {
-      employeeID: employeeId,
-      tenantCode,
-    },
+    method: 'POST',
+    data: [
+      {
+        field: 'employeeID',
+        value: employeeId,
+        operator: 'eq',
+      },
+      {
+        field: 'tenantCode',
+        value: tenantCode,
+        operator: 'eq',
+      },
+    ],
     enabled: Boolean(employeeId && tenantCode),
     dependencies: [employeeId, tenantCode],
+    onSuccess: (data) => {
+      if (__DEV__) {
+        console.log('[profile] fetched employee profile data', data);
+      }
+    },
     onError: (err) => {
       if (__DEV__) {
         console.error('[profile] failed to fetch profile details', {
@@ -103,11 +119,6 @@ export default function LiteProfileScreen() {
       setEmployeeProfile(null);
     },
   });
-
-  useEffect(() => {
-    console.log('[profile] employeeId or tenantCode changed', { employeeId, tenantCode });
-     refetch();
-  }, [employeeId, tenantCode, ]);
 
   useEffect(() => {
     if (__DEV__) {
@@ -227,6 +238,20 @@ export default function LiteProfileScreen() {
             <Field label="Service Since" value={formatDate(employeeProfile?.serviceSince)} />
           </View>
         </View>
+
+        <View style={styles.logoutCard}>
+          <View style={styles.logoutCopy}>
+            <Text style={styles.logoutTitle}>Ready to sign out?</Text>
+            <Text style={styles.logoutDescription}>
+              Log out from Earned Wage Access and return to the secure sign-in screen.
+            </Text>
+          </View>
+
+          <Pressable style={styles.logoutButton} onPress={() => router.push('/(tabs-lite)/profile/logout')}>
+            <Ionicons name="log-out-outline" size={18} color="#ffffff" />
+            <Text style={styles.logoutButtonText}>Log Out</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -262,6 +287,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
   },
   greeting: {
+    fontFamily: APP_FONT_FAMILY,
     color: '#0f172a',
     fontSize: 20,
     fontWeight: '700',
@@ -335,6 +361,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 28,
     fontWeight: '700',
     color: '#e9d5ff',
@@ -346,17 +373,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   name: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 18,
     fontWeight: '700',
     color: '#0f172a',
     textAlign: 'center',
   },
   code: {
+    fontFamily: APP_FONT_FAMILY,
     marginTop: 2,
     fontSize: 12,
     color: '#475569',
   },
   location: {
+    fontFamily: APP_FONT_FAMILY,
     marginTop: 2,
     fontSize: 11,
     color: '#94a3b8',
@@ -377,6 +407,7 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   contactLabel: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 9,
     color: '#64748b',
     fontWeight: '700',
@@ -389,6 +420,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   contactText: {
+    fontFamily: APP_FONT_FAMILY,
     flex: 1,
     fontSize: 10,
     color: '#334155',
@@ -401,6 +433,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 12,
   },
+  logoutCard: {
+    borderRadius: 16,
+    backgroundColor: '#0a1c63',
+    padding: 16,
+    gap: 14,
+    shadowColor: '#0a1c63',
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  logoutCopy: {
+    gap: 6,
+  },
+  logoutTitle: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  logoutDescription: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#cbd5e1',
+  },
+  logoutButton: {
+    minHeight: 46,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  logoutButtonText: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
   panelHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -408,21 +481,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   panelKicker: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 10,
     letterSpacing: 0.8,
     color: '#94a3b8',
     fontWeight: '700',
   },
   panelLink: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 12,
     color: '#64748b',
   },
   metaInfo: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 12,
     color: '#64748b',
     marginBottom: 8,
   },
   metaError: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 12,
     color: '#b91c1c',
     marginBottom: 8,
@@ -441,10 +518,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   fieldLabel: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 12,
     color: '#64748b',
   },
   fieldValue: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 13,
     color: '#0f172a',
     fontWeight: '600',

@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+const APP_FONT_FAMILY = 'Inter';
+
 const rules = [
   'Complete at least 7 working days in the current wage cycle.',
   'Minimum net earned amount should be Rs. 500 before raising a claim.',
@@ -65,10 +67,6 @@ export default function ClaimRulesScreen() {
             Claims are subject to company policy and approval checks based on attendance and payroll status.
           </Text>
         </View>
-
-        <Pressable style={styles.ctaButton}>
-          <Text style={styles.ctaText}>Proceed To Claim</Text>
-        </Pressable>
       </ScrollView>
     </View>
   );
@@ -109,11 +107,13 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   title: {
+    fontFamily: APP_FONT_FAMILY,
     color: '#fff',
     fontSize: 19,
     fontWeight: '800',
   },
   subtitle: {
+    fontFamily: APP_FONT_FAMILY,
     color: '#dbeafe',
     fontSize: 11,
   },
@@ -137,11 +137,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   summaryTitle: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 14,
     fontWeight: '800',
     color: '#1e3a8a',
   },
   summaryText: {
+    fontFamily: APP_FONT_FAMILY,
     marginTop: 2,
     fontSize: 12,
     color: '#334155',
@@ -154,11 +156,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionTitle: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 14,
     fontWeight: '700',
     color: '#0f172a',
   },
   sectionMeta: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 11,
     color: '#64748b',
     fontWeight: '600',
@@ -190,6 +194,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   badgeText: {
+    fontFamily: APP_FONT_FAMILY,
     color: '#1d4ed8',
     fontSize: 12,
     fontWeight: '800',
@@ -198,12 +203,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ruleTitle: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 12,
     color: '#334155',
     fontWeight: '700',
     marginBottom: 2,
   },
   ruleText: {
+    fontFamily: APP_FONT_FAMILY,
     fontSize: 13,
     lineHeight: 19,
     color: '#0f172a',
@@ -220,6 +227,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   noteText: {
+    fontFamily: APP_FONT_FAMILY,
     flex: 1,
     fontSize: 12,
     lineHeight: 17,
@@ -236,6 +244,7 @@ const styles = StyleSheet.create({
     borderColor: '#1e40af',
   },
   ctaText: {
+    fontFamily: APP_FONT_FAMILY,
     color: '#fff',
     fontSize: 15,
     fontWeight: '700',

@@ -1,24 +1,195 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const transactions = [
-  { id: 'tx-1', initials: 'RK', name: 'Ricardo Kim', type: 'Sending', amount: '200.00 USD' },
-  { id: 'tx-2', initials: 'AN', name: 'Ava Nelson', type: 'Received', amount: '120.00 USD' },
-  { id: 'tx-3', initials: 'MS', name: 'Maya Singh', type: 'Payment', amount: '48.50 USD' },
-  { id: 'tx-4', initials: 'DT', name: 'Daniel Thomas', type: 'Refund', amount: '32.00 USD' },
-  { id: 'tx-5', initials: 'PL', name: 'Priya Lal', type: 'Sending', amount: '410.00 USD' },
-  { id: 'tx-6', initials: 'JH', name: 'Jason Hall', type: 'Received', amount: '89.99 USD' },
-  { id: 'tx-7', initials: 'EO', name: 'Emma Ortiz', type: 'Transfer', amount: '64.20 USD' },
-  { id: 'tx-8', initials: 'BK', name: 'Brian King', type: 'Payment', amount: '15.75 USD' },
-];
+import { AnimatedSuccessState } from '@/components/ui/animated-success-state';
+import { useGetRequest } from '@/hooks/api/useGetRequest';
+import { getAccessToken } from '@/hooks/auth/token-store';
+
+type WithdrawalTransaction = {
+  id: string;
+  reference: string;
+  appliedDate: string;
+  amount: string;
+};
+
+function decodeJwtPayload(token: string) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const json = decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join('')
+    );
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function formatCurrency(value?: unknown) {
+  const numericValue =
+    typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+
+  if (Number.isNaN(numericValue)) return 'Rs. 0';
+
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2,
+  })
+    .format(numericValue)
+    .replace('₹', 'Rs. ');
+}
+
+function formatAppliedDate(value?: unknown) {
+  if (typeof value !== 'string' || value.trim() === '') return 'Date not available';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function truncateReference(value?: unknown, maxLength = 15) {
+  const text = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+  if (!text) return 'Request';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function parseNumericValue(value?: unknown) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : 0;
+  }
+  return 0;
+}
+
+function formatAxisAmount(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+
+  return new Intl.NumberFormat('en-IN', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+}
 
 export default function LiteLaunchpadScreen() {
   const router = useRouter();
   const floatA = useRef(new Animated.Value(0)).current;
   const floatB = useRef(new Animated.Value(0)).current;
-  const todayDate = new Date().toLocaleDateString('en-US');
+  const todayDate = new Date().toLocaleDateString('en-IN');
+  const [employeeId, setEmployeeId] = useState('');
+  const [tenantCode, setTenantCode] = useState('');
+  const [ewaSummary, setEwaSummary] = useState<Record<string, any> | null>(null);
+  const [transactions, setTransactions] = useState<WithdrawalTransaction[]>([]);
+  const [selectedTransaction, setSelectedTransaction] = useState<WithdrawalTransaction | null>(null);
+
+  useEffect(() => {
+    const run = async () => {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const payload = decodeJwtPayload(token);
+      if (!payload) return;
+
+      const resolvedEmployeeId =
+        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') ||
+        '';
+      const resolvedTenantCode =
+        String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '';
+
+      setEmployeeId(resolvedEmployeeId);
+      setTenantCode(resolvedTenantCode);
+    };
+
+    void run();
+  }, []);
+
+  useGetRequest<any[]>({
+    url: 'EWA_allowed_withdrawl/search',
+    method: 'POST',
+    data: [
+      {
+        field: 'employeeID',
+        value: employeeId,
+        operator: 'eq',
+      },
+      {
+        field: 'tenantCode',
+        value: tenantCode,
+        operator: 'eq',
+      },
+    ],
+    enabled: Boolean(employeeId && tenantCode),
+    dependencies: [employeeId, tenantCode],
+    onSuccess: (data) => {
+      if (__DEV__) {
+        console.log('[launchpad] fetched EWA summary', data);
+      }
+      if (Array.isArray(data) && data.length > 0) {
+        setEwaSummary(data[0]);
+      } else {
+        setEwaSummary(null);
+      }
+    },
+    onError: () => {
+      setEwaSummary(null);
+    },
+  });
+
+  useGetRequest<any[]>({
+    url: 'EWA_withdrawl_request/search',
+    method: 'POST',
+    data: [
+      {
+        field: 'employeeID',
+        value: employeeId,
+        operator: 'eq',
+      },
+      {
+        field: 'tenantCode',
+        value: tenantCode,
+        operator: 'eq',
+      },
+      {
+        field: 'createdOn',
+        value: tenantCode,
+        operator: 'desc',
+      },
+    ],
+    enabled: Boolean(employeeId && tenantCode),
+    dependencies: [employeeId, tenantCode],
+    onSuccess: (data) => {
+      if (!Array.isArray(data) || data.length === 0) {
+        setTransactions([]);
+        return;
+      }
+
+      const mappedTransactions = data.map((item, index) => ({
+        id: String(item._id ?? item.id ?? `withdrawal-${index}`),
+        reference: truncateReference(item._id ?? item.id ?? `Request ${index + 1}`),
+        appliedDate: formatAppliedDate(item.date ?? item.createdAt ?? item.applyDate),
+        amount: formatCurrency(item.amount),
+      }));
+
+      setTransactions(mappedTransactions);
+    },
+    onError: () => {
+      setTransactions([]);
+    },
+  });
 
   useEffect(() => {
     const loopA = Animated.loop(
@@ -69,117 +240,172 @@ export default function LiteLaunchpadScreen() {
   const bubbleBTranslateX = floatB.interpolate({ inputRange: [0, 1], outputRange: [10, -8] });
   const bubbleBTranslateY = floatB.interpolate({ inputRange: [0, 1], outputRange: [-4, 8] });
 
+  const limitAmount = useMemo(() => parseNumericValue(ewaSummary?.limit), [ewaSummary]);
+  const availableAmount = useMemo(() => parseNumericValue(ewaSummary?.available), [ewaSummary]);
+  const takenAmount = useMemo(() => Math.max(limitAmount - availableAmount, 0), [limitAmount, availableAmount]);
+  const availableBalance = useMemo(() => formatCurrency(ewaSummary?.available), [ewaSummary]);
+  const limitBalance = useMemo(() => formatCurrency(ewaSummary?.limit), [ewaSummary]);
+  const takenBalance = useMemo(() => formatCurrency(takenAmount), [takenAmount]);
+  const usageRatio = limitAmount > 0 ? Math.min(takenAmount / limitAmount, 1) : 0;
+  const graphTop = 30 - usageRatio * 20;
+  const segAWidth = 42;
+  const segBHeight = Math.max(usageRatio * 20, 2);
+  const segCWidth = 44 + usageRatio * 18;
+  const segDWidth = 74 + usageRatio * 22;
+  const graphMarkerLeft = segAWidth + 4 + segCWidth + segDWidth - 4;
+  const trackStatus = takenAmount <= limitAmount ? 'On Track' : 'Above Limit';
+  const trackColor = takenAmount <= limitAmount ? '#3b82f6' : '#b91c1c';
+  const axisLabels = useMemo(() => {
+    const stepCount = 5;
+    const safeLimit = Math.max(limitAmount, 0);
+
+    return Array.from({ length: stepCount + 1 }, (_, index) => {
+      const value = safeLimit === 0 ? 0 : (safeLimit / stepCount) * index;
+      return formatAxisAmount(value);
+    });
+  }, [limitAmount]);
+
   return (
     <View style={styles.screen}>
-      <View style={styles.top}>
-        <View style={styles.topRow}>
-          <Text style={styles.greeting}>Earned Wage Access</Text>
-          <View style={styles.topIcons}>
-            <Ionicons name="notifications-outline" size={18} color="#fff" />
-            <Ionicons name="settings-outline" size={18} color="#fff" />
-          </View>
-        </View>
-
-        <View style={styles.heroCard}>
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.glowLarge,
-              { transform: [{ translateX: bubbleATranslateX }, { translateY: bubbleATranslateY }] },
-            ]}
+      {selectedTransaction ? (
+        <View style={styles.statusScreen}>
+          <AnimatedSuccessState
+            title="Request Status"
+            message="This is the saved withdrawal request status for your selected transaction."
+            referenceLabel="Request ID"
+            referenceValue={selectedTransaction.reference}
+            amountLabel="Amount"
+            amountValue={selectedTransaction.amount}
+            balanceLabel="Available Balance"
+            balanceValue={availableBalance}
+            employeeLabel="Employee ID"
+            employeeValue={employeeId || '-'}
+            reasonLabel="Applied Date"
+            reasonValue={selectedTransaction.appliedDate}
+            buttonLabel="Back to Launchpad"
+            onPressButton={() => setSelectedTransaction(null)}
           />
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.glowSmall,
-              { transform: [{ translateX: bubbleBTranslateX }, { translateY: bubbleBTranslateY }] },
-            ]}
-          />
-
-          <View style={styles.heroContent}>
-            <Text style={styles.brand}>Available Balance</Text>
-            <Text style={styles.balance}>Rs. 56813,20</Text>
-            <Text style={styles.balanceMeta}>Owning Rs. 5852,20</Text>
-            <Text style={styles.date}>{todayDate}</Text>
-          </View>
         </View>
-      </View>
-
-      <ScrollView
-        style={styles.sheet}
-        contentContainerStyle={styles.sheetContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.actions}>
-          <Pressable style={styles.actionItem} onPress={() => router.push('./information')}>
-            <View style={[styles.iconWrap, styles.iconPrimary]}>
-              <Ionicons name="document-text-outline" size={16} color="#1d4ed8" />
-            </View>
-            <Text style={styles.actionLabel}>Request</Text>
-          </Pressable>
-          <View style={styles.actionItem}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="calendar-outline" size={15} color="#334155" />
-            </View>
-            <Text style={styles.actionLabel}>Attendance</Text>
-          </View>
-          <Pressable style={styles.actionItem} onPress={() => router.push('./bank-details')}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="card-outline" size={15} color="#334155" />
-            </View>
-            <Text style={styles.actionLabel}>Bank</Text>
-          </Pressable>
-          <Link href="./claim-rules" style={styles.infoLink}>
-            Open Information
-          </Link>
-        </View>
-
-        <View style={styles.panel}>
-          <View style={styles.panelHead}>
-            <Text style={styles.panelKicker}>SPENT THIS MONTH</Text>
-            <Text style={styles.panelLink}>See Details</Text>
-          </View>
-          <View style={styles.spentRow}>
-            <Text style={styles.spentValue}>$40</Text>
-            <Text style={styles.spentRight}>$40</Text>
-          </View>
-          <Text style={styles.onTrack}>On Track</Text>
-          <View style={styles.chart}>
-            <View style={styles.chartPath}>
-              <View style={styles.segA} />
-              <View style={styles.segB} />
-              <View style={styles.segC} />
-              <View style={styles.segD} />
-            </View>
-            <View style={styles.axisRow}>
-              <Text style={styles.axisLabel}>1</Text>
-              <Text style={styles.axisLabel}>5</Text>
-              <Text style={styles.axisLabel}>10</Text>
-              <Text style={styles.axisLabel}>15</Text>
-              <Text style={styles.axisLabel}>20</Text>
-              <Text style={styles.axisLabel}>25</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.panel}>
-          <View style={styles.panelHead}>
-            <Text style={styles.panelKicker}>TRANSACTIONS</Text>
-            <Text style={styles.panelLink}>See All</Text>
-          </View>
-          {transactions.map((item) => (
-            <View key={item.id} style={styles.txRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{item.initials}</Text>
+      ) : (
+        <>
+          <View style={styles.top}>
+            <View style={styles.topRow}>
+              <Text style={styles.greeting}>Earned Wage Access</Text>
+              <View style={styles.topIcons}>
+                <Ionicons name="notifications-outline" size={18} color="#fff" />
+                <Ionicons name="settings-outline" size={18} color="#fff" />
               </View>
-              <View style={styles.txMeta}>
-                <Text style={styles.txName}>{item.name}</Text>
-                <Text style={styles.txSub}>{item.type}</Text>
-              </View>
-              <Text style={styles.txAmount}>{item.amount}</Text>
             </View>
-          ))}
-        </View>
-      </ScrollView>
+
+            <View style={styles.heroCard}>
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.glowLarge,
+                  { transform: [{ translateX: bubbleATranslateX }, { translateY: bubbleATranslateY }] },
+                ]}
+              />
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.glowSmall,
+                  { transform: [{ translateX: bubbleBTranslateX }, { translateY: bubbleBTranslateY }] },
+                ]}
+              />
+
+              <View style={styles.heroContent}>
+                <Text style={styles.brand}>Available Balance</Text>
+                <Text style={styles.balance}>{availableBalance}</Text>
+                <Text style={styles.balanceMeta}>Limit {limitBalance}</Text>
+                <Text style={styles.date}>{todayDate}</Text>
+              </View>
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.sheet}
+            contentContainerStyle={styles.sheetContent}
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.actions}>
+              <Pressable style={styles.actionItem} onPress={() => router.push('./information')}>
+                <View style={[styles.iconWrap, styles.iconPrimary]}>
+                  <Ionicons name="document-text-outline" size={16} color="#1d4ed8" />
+                </View>
+                <Text style={styles.actionLabel}>Request</Text>
+              </Pressable>
+              <View style={styles.actionItem}>
+                <View style={styles.iconWrap}>
+                  <Ionicons name="calendar-outline" size={15} color="#334155" />
+                </View>
+                <Text style={styles.actionLabel}>Attendance</Text>
+              </View>
+              <Pressable style={styles.actionItem} onPress={() => router.push('./bank-details')}>
+                <View style={styles.iconWrap}>
+                  <Ionicons name="card-outline" size={15} color="#334155" />
+                </View>
+                <Text style={styles.actionLabel}>Bank</Text>
+              </Pressable>
+              <Link href="./claim-rules" style={styles.infoLink}>
+                Open Information
+              </Link>
+            </View>
+
+            <View style={styles.panel}>
+              <View style={styles.panelHead}>
+                <Text style={styles.panelKicker}>SPENT THIS MONTH</Text>
+                <Text style={styles.panelLink}>See Details</Text>
+              </View>
+              <View style={styles.spentRow}>
+                <Text style={styles.spentValue}>{takenBalance}</Text>
+                <Text style={styles.spentRight}>Limit {limitBalance}</Text>
+              </View>
+              <Text style={[styles.onTrack, { color: trackColor }]}>{trackStatus}</Text>
+                <View style={styles.chart}>
+                  <View style={styles.chartPath}>
+                    <View style={[styles.segA, { width: segAWidth }]} />
+                    <View style={[styles.segB, { left: segAWidth + 4, top: graphTop, height: segBHeight }]} />
+                    <View style={[styles.segC, { left: segAWidth + 4, top: graphTop, width: segCWidth }]} />
+                    <View style={[styles.segD, { left: segAWidth + 4 + segCWidth, top: graphTop, width: segDWidth }]} />
+                    <View style={[styles.graphMarker, { left: graphMarkerLeft, top: graphTop - 3 }]} />
+                    <View style={[styles.graphAmountTag, { left: Math.max(graphMarkerLeft - 26, 0), top: graphTop - 28 }]}>
+                      <Text style={styles.graphAmountText}>{takenBalance}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.axisRow}>
+                    {axisLabels.map((label, index) => (
+                    <Text key={`${label}-${index}`} style={styles.axisLabel}>
+                      {label}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.panel}>
+              <View style={styles.panelHead}>
+                <Text style={styles.panelKicker}>TRANSACTIONS</Text>
+                <Text style={styles.panelLink}>See All</Text>
+              </View>
+              {transactions.length > 0 ? (
+                transactions.map((item) => (
+                  <Pressable key={item.id} style={styles.txRow} onPress={() => setSelectedTransaction(item)}>
+                    <View style={styles.avatar}>
+                      <Ionicons name="document-text-outline" size={16} color="#334155" />
+                    </View>
+                    <View style={styles.txMeta}>
+                      <Text style={styles.txName}>{item.reference}</Text>
+                      <Text style={styles.txSub}>{item.appliedDate}</Text>
+                    </View>
+                    <Text style={styles.txAmount}>{item.amount}</Text>
+                  </Pressable>
+                ))
+              ) : (
+                <Text style={styles.emptyStateText}>No withdrawal requests found.</Text>
+              )}
+            </View>
+          </ScrollView>
+        </>
+      )}
     </View>
   );
 }
@@ -188,6 +414,13 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#0a1c63',
+  },
+  statusScreen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingTop: 58,
+    paddingBottom: 24,
   },
   top: {
     paddingTop: 58,
@@ -315,6 +548,12 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
+  emptyStateText: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+    paddingVertical: 10,
+  },
   panelHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -397,6 +636,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#4f46e5',
     borderRadius: 10,
   },
+  graphMarker: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4f46e5',
+  },
+  graphAmountTag: {
+    position: 'absolute',
+    minWidth: 56,
+    borderRadius: 999,
+    backgroundColor: '#eef2ff',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignItems: 'center',
+  },
+  graphAmountText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#4338ca',
+  },
   axisRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -419,11 +679,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
-  },
-  avatarText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
   },
   txMeta: {
     flex: 1,

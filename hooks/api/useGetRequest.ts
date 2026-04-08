@@ -52,10 +52,23 @@ function toQueryString(params?: Record<string, string | number | boolean | null 
 function toAbsoluteUrl(url: string, params?: Record<string, string | number | boolean | null | undefined>) {
   const base = url.startsWith('http://') || url.startsWith('https://')
     ? url
-    : `${API_BASE_URL.replace(/\/+$/, '')}/api/query/attendance/${url.replace(/^\/+/, '')}`;
+    : `${API_BASE_URL}/api/query/attendance/${url}`;
 
   const query = toQueryString(params);
   return query ? `${base}${base.includes('?') ? '&' : '?'}${query}` : base;
+}
+
+function getLoginRedirectUrl() {
+  const baseUrl = (process.env.EXPO_PUBLIC_NEXTAUTH_URL ?? '').trim();
+  if (baseUrl) {
+    return `${baseUrl.replace(/\/+$/, '')}/login`;
+  }
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return `${window.location.origin}/login`;
+  }
+
+  return '/login';
 }
 
 export function useGetRequest<T>({
@@ -75,16 +88,34 @@ export function useGetRequest<T>({
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState<boolean>(enabled);
   const [error, setError] = useState<Error | null>(null);
+  const normalizedMethod = method.toUpperCase() as HttpMethod;
+  const shouldUseCache = normalizedMethod === 'GET';
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  const requestDataKey = JSON.stringify(requestData ?? null);
+  const requestHeadersKey = JSON.stringify(requestHeaders ?? {});
 
   const requestUrl = useMemo(() => toAbsoluteUrl(url, params), [url, JSON.stringify(params)]);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const normalizedRequestData = useMemo(() => JSON.parse(requestDataKey) as unknown, [requestDataKey]);
+  const normalizedRequestHeaders = useMemo(
+    () => JSON.parse(requestHeadersKey) as Record<string, string>,
+    [requestHeadersKey]
+  );
 
-  const cacheKey = useMemo(() => `${method}:${requestUrl}:body:${JSON.stringify(requestData ?? null)}:auth:${requireAuth ? '1' : '0'}`, [
-    method,
-    requestUrl,
-    requestData,
-    requireAuth,
-  ]);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  const cacheKey = useMemo(
+    () =>
+      `${normalizedMethod}:${requestUrl}:body:${requestDataKey}:auth:${requireAuth ? '1' : '0'}`,
+    [normalizedMethod, requestUrl, requestDataKey, requireAuth]
+  );
 
   const fetchData = useCallback(
     async (forceFetch = false) => {
@@ -94,7 +125,7 @@ export function useGetRequest<T>({
           'Missing API base URL. Set EXPO_PUBLIC_API_BASE_URL or pass absolute URL.'
         );
         setError(missingBaseUrlError);
-        onError?.(missingBaseUrlError);
+        onErrorRef.current?.(missingBaseUrlError);
         setLoading(false);
         return;
       }
@@ -104,56 +135,96 @@ export function useGetRequest<T>({
         setError(null);
 
         const cached = requestCache.get(cacheKey);
-        if (!forceFetch && cached && Date.now() - cached.timestamp < cached.expiry) {
+        if (shouldUseCache && !forceFetch && cached && Date.now() - cached.timestamp < cached.expiry) {
+          if (__DEV__) {
+            console.log('[useGetRequest] cache hit', {
+              method: normalizedMethod,
+              url: requestUrl,
+              forceFetch,
+            });
+          }
           const cachedData = cached.data as T;
           setData(cachedData);
-          onSuccess?.(cachedData);
+          onSuccessRef.current?.(cachedData);
           return;
         }
 
         const headers: Record<string, string> = {
           Accept: 'application/json',
-          ...(method === 'GET' ? {} : { 'Content-Type': 'application/json' }),
-          ...(requestHeaders ?? {}),
+          ...(normalizedMethod === 'GET' ? {} : { 'Content-Type': 'application/json' }),
+          ...normalizedRequestHeaders,
         };
 
         if (requireAuth) {
           const authHeader = await getAuthHeader();
           if (!authHeader) throw new Error('No access token available');
-          if (__DEV__) {
-            console.log('[useGetRequest] auth header:', authHeader);
-          }
           headers.Authorization = authHeader;
         }
 
+        if (__DEV__) {
+          console.log('[useGetRequest] request', {
+            method: normalizedMethod,
+            url: requestUrl,
+            requireAuth,
+            params,
+            body: normalizedMethod === 'GET' ? undefined : normalizedRequestData ?? {},
+            forceFetch,
+          });
+        }
+
         const response = await fetch(requestUrl, {
-          method,
+          method: normalizedMethod,
           headers,
-          body: method === 'GET' ? undefined : JSON.stringify(requestData ?? {}),
+          body: normalizedMethod === 'GET' ? undefined : JSON.stringify(normalizedRequestData ?? {}),
         });
 
+        if (__DEV__) {
+          console.log('[useGetRequest] response', {
+            method: normalizedMethod,
+            url: requestUrl,
+            status: response.status,
+            ok: response.ok,
+          });
+        }
+
         if (response.status === 401 && Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.location.assign('/login');
+          window.location.assign(getLoginRedirectUrl());
           return;
         }
 
         if (!response.ok) {
-          throw new Error(`${method} ${requestUrl} failed with status ${response.status}`);
+          throw new Error(`${normalizedMethod} ${requestUrl} failed with status ${response.status}`);
         }
 
         const responseData = (await response.json()) as T;
-        requestCache.set(cacheKey, { data: responseData, timestamp: Date.now(), expiry: cacheDurationMs });
+        if (shouldUseCache) {
+          requestCache.set(cacheKey, { data: responseData, timestamp: Date.now(), expiry: cacheDurationMs });
+        } else {
+          requestCache.delete(cacheKey);
+        }
         setData(responseData);
-        onSuccess?.(responseData);
+        onSuccessRef.current?.(responseData);
       } catch (err) {
         const fetchError = err instanceof Error ? err : new Error('Request failed');
         setError(fetchError);
-        onError?.(fetchError);
+        onErrorRef.current?.(fetchError);
       } finally {
         setLoading(false);
       }
     },
-    [enabled, requestUrl, url, method, requestData, requestHeaders, cacheKey, cacheDurationMs, requireAuth, onSuccess, onError]
+    [
+      enabled,
+      requestUrl,
+      url,
+      normalizedMethod,
+      normalizedRequestData,
+      normalizedRequestHeaders,
+      cacheKey,
+      cacheDurationMs,
+      requireAuth,
+      params,
+      shouldUseCache,
+    ]
   );
 
   useEffect(() => {
