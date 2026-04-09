@@ -12,6 +12,8 @@ type WithdrawalTransaction = {
   reference: string;
   appliedDate: string;
   amount: string;
+  numericAmount: number;
+  createdAt: string;
 };
 
 function decodeJwtPayload(token: string) {
@@ -83,6 +85,17 @@ function formatAxisAmount(value: number) {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(value);
+}
+
+function formatChartDate(value?: unknown) {
+  if (typeof value !== 'string' || value.trim() === '') return '--';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--';
+
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+  });
 }
 
 export default function LiteLaunchpadScreen() {
@@ -182,6 +195,8 @@ export default function LiteLaunchpadScreen() {
         reference: truncateReference(item._id ?? item.id ?? `Request ${index + 1}`),
         appliedDate: formatAppliedDate(item.date ?? item.createdAt ?? item.applyDate),
         amount: formatCurrency(item.amount),
+        numericAmount: parseNumericValue(item.amount),
+        createdAt: String(item.date ?? item.createdAt ?? item.applyDate ?? ''),
       }));
 
       setTransactions(mappedTransactions);
@@ -246,24 +261,18 @@ export default function LiteLaunchpadScreen() {
   const availableBalance = useMemo(() => formatCurrency(ewaSummary?.available), [ewaSummary]);
   const limitBalance = useMemo(() => formatCurrency(ewaSummary?.limit), [ewaSummary]);
   const takenBalance = useMemo(() => formatCurrency(takenAmount), [takenAmount]);
-  const usageRatio = limitAmount > 0 ? Math.min(takenAmount / limitAmount, 1) : 0;
-  const graphTop = 30 - usageRatio * 20;
-  const segAWidth = 42;
-  const segBHeight = Math.max(usageRatio * 20, 2);
-  const segCWidth = 44 + usageRatio * 18;
-  const segDWidth = 74 + usageRatio * 22;
-  const graphMarkerLeft = segAWidth + 4 + segCWidth + segDWidth - 4;
   const trackStatus = takenAmount <= limitAmount ? 'On Track' : 'Above Limit';
   const trackColor = takenAmount <= limitAmount ? '#3b82f6' : '#b91c1c';
-  const axisLabels = useMemo(() => {
-    const stepCount = 5;
-    const safeLimit = Math.max(limitAmount, 0);
-
-    return Array.from({ length: stepCount + 1 }, (_, index) => {
-      const value = safeLimit === 0 ? 0 : (safeLimit / stepCount) * index;
-      return formatAxisAmount(value);
-    });
-  }, [limitAmount]);
+  const recentWithdrawals = useMemo(() => transactions.slice(0, 8).reverse(), [transactions]);
+  const maxWithdrawalAmount = useMemo(
+    () => recentWithdrawals.reduce((max, item) => Math.max(max, item.numericAmount), 0),
+    [recentWithdrawals]
+  );
+  const chartMax = maxWithdrawalAmount > 0 ? maxWithdrawalAmount : 1;
+  const amountTicks = useMemo(
+    () => [chartMax, chartMax * 0.66, chartMax * 0.33, 0].map((value) => formatAxisAmount(value)),
+    [chartMax]
+  );
 
   return (
     <View style={styles.screen}>
@@ -356,27 +365,42 @@ export default function LiteLaunchpadScreen() {
                 <Text style={styles.panelLink}>See Details</Text>
               </View>
               <View style={styles.spentRow}>
-                <Text style={styles.spentValue}>{takenBalance}</Text>
-                <Text style={styles.spentRight}>Limit {limitBalance}</Text>
+                <View style={styles.spentLeftWrap}>
+                  <Text style={styles.spentValue} numberOfLines={1}>
+                    {takenBalance}
+                  </Text>
+                </View>
               </View>
               <Text style={[styles.onTrack, { color: trackColor }]}>{trackStatus}</Text>
-                <View style={styles.chart}>
-                  <View style={styles.chartPath}>
-                    <View style={[styles.segA, { width: segAWidth }]} />
-                    <View style={[styles.segB, { left: segAWidth + 4, top: graphTop, height: segBHeight }]} />
-                    <View style={[styles.segC, { left: segAWidth + 4, top: graphTop, width: segCWidth }]} />
-                    <View style={[styles.segD, { left: segAWidth + 4 + segCWidth, top: graphTop, width: segDWidth }]} />
-                    <View style={[styles.graphMarker, { left: graphMarkerLeft, top: graphTop - 3 }]} />
-                    <View style={[styles.graphAmountTag, { left: Math.max(graphMarkerLeft - 26, 0), top: graphTop - 28 }]}>
-                      <Text style={styles.graphAmountText}>{takenBalance}</Text>
-                    </View>
+              <View style={styles.withdrawChart}>
+                <View style={styles.withdrawChartBody}>
+                  <View style={styles.amountAxis}>
+                    {amountTicks.map((tick, index) => (
+                      <Text key={`tick-${tick}-${index}`} style={styles.amountAxisLabel}>
+                        {tick}
+                      </Text>
+                    ))}
                   </View>
-                  <View style={styles.axisRow}>
-                    {axisLabels.map((label, index) => (
-                    <Text key={`${label}-${index}`} style={styles.axisLabel}>
-                      {label}
-                    </Text>
-                  ))}
+                  <View style={styles.barArea}>
+                    {recentWithdrawals.length > 0 ? (
+                      recentWithdrawals.map((item) => {
+                        const heightRatio = chartMax > 0 ? item.numericAmount / chartMax : 0;
+
+                        return (
+                          <View key={item.id} style={styles.barColumn}>
+                            <View style={styles.barTrack}>
+                              <View style={[styles.barFill, { height: `${Math.max(heightRatio * 100, 6)}%` }]} />
+                            </View>
+                            <Text style={styles.dateLabel}>{formatChartDate(item.createdAt)}</Text>
+                          </View>
+                        );
+                      })
+                    ) : (
+                      <View style={styles.emptyChart}>
+                        <Text style={styles.emptyChartText}>No recent withdrawals to plot.</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
             </View>
@@ -570,20 +594,21 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   spentValue: {
-    fontSize: 30,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#0f172a',
+    letterSpacing: 0.2,
+    flexShrink: 1,
   },
   spentRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: 10,
   },
-  spentRight: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '600',
-    marginBottom: 6,
+  spentLeftWrap: {
+    flex: 1,
+    paddingTop: 2,
   },
   onTrack: {
     marginTop: -2,
@@ -591,80 +616,72 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontWeight: '500',
   },
-  chart: {
-    height: 72,
-    marginTop: 2,
-    justifyContent: 'space-between',
+  withdrawChart: {
+    marginTop: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    padding: 8,
   },
-  chartPath: {
-    height: 44,
-    position: 'relative',
-  },
-  segA: {
-    position: 'absolute',
-    left: 4,
-    top: 30,
-    width: 52,
-    height: 2,
-    backgroundColor: '#4f46e5',
-    borderRadius: 10,
-  },
-  segB: {
-    position: 'absolute',
-    left: 56,
-    top: 10,
-    width: 2,
-    height: 22,
-    backgroundColor: '#4f46e5',
-    borderRadius: 10,
-  },
-  segC: {
-    position: 'absolute',
-    left: 56,
-    top: 10,
-    width: 56,
-    height: 2,
-    backgroundColor: '#4f46e5',
-    borderRadius: 10,
-  },
-  segD: {
-    position: 'absolute',
-    left: 112,
-    top: 10,
-    width: 88,
-    height: 2,
-    backgroundColor: '#4f46e5',
-    borderRadius: 10,
-  },
-  graphMarker: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4f46e5',
-  },
-  graphAmountTag: {
-    position: 'absolute',
-    minWidth: 56,
-    borderRadius: 999,
-    backgroundColor: '#eef2ff',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    alignItems: 'center',
-  },
-  graphAmountText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#4338ca',
-  },
-  axisRow: {
+  withdrawChartBody: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 2,
+    minHeight: 140,
+    alignItems: 'flex-end',
+    gap: 8,
   },
-  axisLabel: {
+  amountAxis: {
+    width: 34,
+    height: 120,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingBottom: 18,
+  },
+  amountAxisLabel: {
     fontSize: 9,
-    color: '#a3a3a3',
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  barArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  barColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  barTrack: {
+    width: '100%',
+    maxWidth: 26,
+    height: 102,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 8,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  barFill: {
+    width: '100%',
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+  },
+  dateLabel: {
+    fontSize: 9,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  emptyChart: {
+    flex: 1,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyChartText: {
+    fontSize: 11,
+    color: '#64748b',
   },
   txRow: {
     flexDirection: 'row',
