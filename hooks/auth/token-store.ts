@@ -97,6 +97,16 @@ export async function clearAuthTokens() {
 }
 
 export async function getAccessToken() {
+  const expiresAtRaw = await getItem(EXPIRES_AT_KEY);
+  const expiresAt = expiresAtRaw ? Number(expiresAtRaw) : NaN;
+  if (Number.isFinite(expiresAt) && Date.now() >= expiresAt) {
+    await clearAuthTokens();
+    if (__DEV__) {
+      console.log('[token-store] getAccessToken -> null (expired)');
+    }
+    return null;
+  }
+
   if (accessTokenMemory) return accessTokenMemory;
   const stored = await getItem(ACCESS_TOKEN_KEY);
   accessTokenMemory = stored ?? null;

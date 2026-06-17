@@ -20,7 +20,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.ewa"
+      "package": "com.anonymous.ewa",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "output": "static",
@@ -39,6 +43,12 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow EWA to use Face ID or Touch ID to unlock your saved session."
+        }
       ]
     ],
     "experiments": {
@@ -47,8 +57,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "6a78880d-83ac-4f1d-8d45-a0d409b4650f"
+        "projectId": "63af43f4-4351-4464-9fc9-1c3175b35faa"
       }
-    }
+    },
+    "owner": "expo-tester-app"
   }
 }

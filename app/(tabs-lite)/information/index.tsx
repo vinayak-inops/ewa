@@ -1,21 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, SafeAreaView, Text, TextInput, View } from 'react-native';
 
 import { AnimatedSuccessState } from '@/components/ui/animated-success-state';
+import AutoStatusUpdate from '@/components/ui/auto-status-update';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { usePostRequest } from '@/hooks/api/usePostRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';
 
-const WITHDRAWAL_COMMAND_URL = process.env.EXPO_PUBLIC_EWA_WITHDRAWAL_COMMAND_URL ?? 'EWA_withdrawl_request';
+const WITHDRAWAL_COMMAND_URL = process.env.EXPO_PUBLIC_EWA_WITHDRAWAL_COMMAND_URL ?? 'EWA_withdrawal_application';
 const WITHDRAWAL_COLLECTION_NAME =
-  process.env.EXPO_PUBLIC_EWA_WITHDRAWAL_COLLECTION_NAME ?? 'EWA_withdrawl_request';
+  process.env.EXPO_PUBLIC_EWA_WITHDRAWAL_COLLECTION_NAME ?? 'EWA_withdrawal_application';
 const EWA_ALLOWED_WITHDRAWAL_COMMAND_URL =
   process.env.EXPO_PUBLIC_EWA_ALLOWED_WITHDRAWAL_COMMAND_URL ?? 'EWA_allowed_withdrawl';
 const EWA_ALLOWED_WITHDRAWAL_COLLECTION_NAME =
   process.env.EXPO_PUBLIC_EWA_ALLOWED_WITHDRAWAL_COLLECTION_NAME ?? 'EWA_allowed_withdrawl';
-const APP_FONT_FAMILY = 'Inter';
 
 function decodeJwtPayload(token: string) {
   try {
@@ -55,13 +55,11 @@ function formatCurrency(value?: unknown) {
 
 function resolveRecordId(record: Record<string, any> | null) {
   if (!record) return null;
-
   return record.id ?? record._id ?? record.ID ?? record.Id ?? null;
 }
 
 function resolveRequestReference(record: Record<string, any> | null) {
   if (!record) return null;
-
   return record._id ?? null;
 }
 
@@ -70,7 +68,23 @@ function getTodayDate() {
 }
 
 function getCurrentISOString() {
-  return new Date().toISOString();
+  const date = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offsetMinutes);
+  const offsetHours = pad(Math.floor(absOffset / 60));
+  const offsetMins = pad(absOffset % 60);
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.00${sign}${offsetHours}:${offsetMins}`;
 }
 
 export default function LiteInformationScreen() {
@@ -81,6 +95,7 @@ export default function LiteInformationScreen() {
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
   const [employeeId, setEmployeeId] = useState('');
   const [tenantCode, setTenantCode] = useState('');
   const [ewaSummary, setEwaSummary] = useState<Record<string, any> | null>(null);
@@ -88,20 +103,26 @@ export default function LiteInformationScreen() {
     amount: number;
     reason: string;
     reference: string;
+    workflowState?: unknown;
+    _id: string;
   } | null>(null);
+  const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
+  const [showAutoStatus, setShowAutoStatus] = useState(false);
 
   const resetFormState = useCallback(() => {
     setSuccessState(null);
     setAmount('');
     setReason('');
     setError('');
+    setConfirmed(false);
+    setCreatedRequestId(null);
+    setShowAutoStatus(false);
     pendingRequestReference.current = null;
     pendingWithdrawalAmount.current = 0;
   }, []);
 
   const redirectToLogin = useCallback(() => {
     if (isRedirectingRef.current) return;
-
     isRedirectingRef.current = true;
     resetFormState();
     router.replace('/login');
@@ -110,10 +131,7 @@ export default function LiteInformationScreen() {
   useFocusEffect(
     useCallback(() => {
       resetFormState();
-
-      return () => {
-        resetFormState();
-      };
+      return () => { resetFormState(); };
     }, [resetFormState])
   );
 
@@ -140,17 +158,23 @@ export default function LiteInformationScreen() {
         amount: pendingWithdrawalAmount.current,
         reason: reason.trim(),
         reference: pendingRequestReference.current ?? `WR-${Date.now()}`,
+        workflowState:
+          (response as Record<string, any>)?.workflowState ??
+          (response as Record<string, any>)?.data?.workflowState,
+        _id: (response as Record<string, any>)?._id ?? '',
       });
       setAmount('');
       setReason('');
       pendingRequestReference.current = null;
       pendingWithdrawalAmount.current = 0;
+      setShowAutoStatus(false);
       void refetchAvailableBalance();
     },
     onError: (postError) => {
       const message = postError.message || 'Available amount update failed';
       setError(message);
       setSuccessState(null);
+      setShowAutoStatus(false);
       pendingRequestReference.current = null;
       pendingWithdrawalAmount.current = 0;
       console.log('[allowed_withdrawal] error', message);
@@ -161,27 +185,17 @@ export default function LiteInformationScreen() {
   useEffect(() => {
     const run = async () => {
       const token = await getAccessToken();
-      if (!token) {
-        redirectToLogin();
-        return;
-      }
+      if (!token) { redirectToLogin(); return; }
 
       const payload = decodeJwtPayload(token);
-      if (!payload) {
-        redirectToLogin();
-        return;
-      }
+      if (!payload) { redirectToLogin(); return; }
 
       const resolvedEmployeeId =
-        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') ||
-        '';
+        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') || '';
       const resolvedTenantCode =
         String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '';
 
-      if (!resolvedEmployeeId || !resolvedTenantCode) {
-        redirectToLogin();
-        return;
-      }
+      if (!resolvedEmployeeId || !resolvedTenantCode) { redirectToLogin(); return; }
 
       setEmployeeId(resolvedEmployeeId);
       setTenantCode(resolvedTenantCode);
@@ -194,16 +208,8 @@ export default function LiteInformationScreen() {
     url: 'EWA_allowed_withdrawl/search',
     method: 'POST',
     data: [
-      {
-        field: 'employeeID',
-        value: employeeId,
-        operator: 'eq',
-      },
-      {
-        field: 'tenantCode',
-        value: tenantCode,
-        operator: 'eq',
-      },
+      { field: 'employeeID', value: employeeId, operator: 'eq' },
+      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
     ],
     enabled: Boolean(employeeId && tenantCode),
     dependencies: [employeeId, tenantCode],
@@ -220,11 +226,14 @@ export default function LiteInformationScreen() {
     },
   });
 
-  const { post: createWithdrawalRequest, loading: creatingWithdrawalRequest } = usePostRequest<any>({
+  const { post: createWithdrawalRequest, loading: creatingWithdrawalRequest, data } = usePostRequest<any>({
     url: WITHDRAWAL_COMMAND_URL,
     onSuccess: async (response) => {
-      console.log('[withdrawal] response', response);
-      pendingRequestReference.current = resolveRequestReference(response as Record<string, any>);
+      const requestReference = resolveRequestReference(response as Record<string, any>);
+      pendingRequestReference.current = requestReference;
+      console.log('[withdrawal] request reference', requestReference);
+      setCreatedRequestId(requestReference);
+      setShowAutoStatus(Boolean(requestReference));
 
       if (!recordId) {
         setError('Withdrawal request submitted, but available balance record was not found.');
@@ -247,8 +256,7 @@ export default function LiteInformationScreen() {
         },
       };
 
-      console.log('[allowed_withdrawal] payload', updatePayload);
-      await updateAllowedWithdrawal(updatePayload);
+      // await updateAllowedWithdrawal(updatePayload);
     },
     onError: (postError) => {
       const message = postError.message || 'Withdrawal request failed';
@@ -268,17 +276,14 @@ export default function LiteInformationScreen() {
       setError('Employee details are not available yet. Please try again in a moment.');
       return;
     }
-
     if (!recordId) {
       setError('Available balance record was not found for this employee.');
       return;
     }
-
     if (numericAmount <= 0) {
       setError('Enter a valid withdrawal amount.');
       return;
     }
-
     if (amountError) {
       setError(amountError);
       return;
@@ -288,82 +293,122 @@ export default function LiteInformationScreen() {
       tenant: tenantCode,
       action: 'insert',
       id: null,
+      event: 'application',
       collectionName: WITHDRAWAL_COLLECTION_NAME,
       data: {
         employeeID: employeeId,
         reason: reason.trim(),
         amount: numericAmount,
         date: getTodayDate(),
+        workflowName: 'ewa Application',
+        stateEvent: 'NEXT',
+        workflowState: 'INITIATED',
         createdOn: getCurrentISOString(),
         available: availableAmount,
+        createdBy: employeeId,
         organizationCode: tenantCode,
+        uploadedBy: employeeId,
+        uploadTime: getCurrentISOString(),
         tenantCode,
+        appliedDate: getTodayDate(),
       },
     };
 
-    console.log('[withdrawal] payload', payload);
     setError('');
     pendingWithdrawalAmount.current = numericAmount;
     await createWithdrawalRequest(payload);
   };
 
+  useEffect(() => {
+    setSuccessState(data);
+  }, [data]);
+
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.phoneFrame}>
+    <SafeAreaView className="flex-1 bg-[#f8fafc]">
+      <View className="flex-1 bg-[#f8fafc] px-3.5 pt-[58px] pb-6 rounded-t-3xl">
         {successState ? (
           <AnimatedSuccessState
+            id={successState._id}
             title="Request submitted"
             message="Your withdrawal request has been created successfully. We will process it as soon as possible."
             referenceLabel="Request ID"
             referenceValue={successState.reference || '-'}
             amountLabel="Amount"
-            amountValue={formatCurrency(successState.amount)}
+            amountValue={successState.amount}
             balanceLabel="Available Balance"
             balanceValue={availableBalance}
             employeeLabel="Employee ID"
             employeeValue={employeeId || '-'}
             reasonLabel="Reason"
             reasonValue={successState.reason || 'Not provided'}
-            buttonLabel="Back to Launchpad"
+            workflowState={successState.workflowState}
+            buttonLabel="Back to EWA Platform"
+            onPressAutoStatus={() => setShowAutoStatus(true)}
             onPressButton={() => {
               resetFormState();
-              router.replace('/(tabs-lite)');
+              router.replace('/(tabs-lite)/ewa' as any);
+            }}
+          />
+        ) : showAutoStatus && createdRequestId ? (
+          <AutoStatusUpdate
+            fileId={createdRequestId}
+            onContinue={() => {
+              resetFormState();
+              router.replace('/(tabs-lite)/ewa' as any);
+            }}
+            onClose={() => {
+              resetFormState();
+              router.replace('/(tabs-lite)/ewa' as any);
             }}
           />
         ) : (
           <>
-            <View style={styles.topRow}>
-              <View style={styles.leftGroup}>
-                <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backButton}>
+            {/* Top row */}
+            <View className="flex-row justify-between items-center">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+                <Pressable
+                  onPress={() => router.push('/(tabs-lite)/ewa' as any)}
+                  hitSlop={8}
+                  className="w-[30px] h-[30px] rounded-full items-center justify-center bg-[#e2e8f0]"
+                >
                   <Ionicons name="arrow-back" size={18} color="#0f172a" />
                 </Pressable>
-                <Text style={styles.greeting}>Withdrawal</Text>
+                <Text className="text-xl font-bold text-[#0f172a]">Withdrawal</Text>
               </View>
-              <View style={styles.topIcons}>
+              <View className="flex-row items-center" style={{ gap: 14 }}>
                 <Ionicons name="notifications-outline" size={18} color="#0f172a" />
                 <Ionicons name="settings-outline" size={18} color="#0f172a" />
               </View>
             </View>
 
-            <View style={styles.titleRow}>
-              <Text style={styles.balanceLabel}>Available Balance</Text>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{availableBalance}</Text>
+            {/* Balance row */}
+            <View className="mt-6 flex-row items-center justify-between">
+              <Text className="text-lg font-semibold text-[#0f172a]">Available Balance</Text>
+              <View className="rounded-full bg-[#13206b] px-2.5 py-[5px]">
+                <Text className="text-xs font-bold text-white">{availableBalance}</Text>
               </View>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>How much do you want to withdraw?</Text>
-              <Text style={styles.cardSub}>Enter the withdrawal amount and reason below to submit your request.</Text>
+            {/* Card */}
+            <View className="mt-4 rounded-2xl border border-[#e2e8f0] bg-white p-3.5">
+              <Text className="text-lg font-bold text-[#0f172a] text-center">
+                How much do you want to withdraw?
+              </Text>
+              <Text className="mt-1.5 text-xs text-[#64748b] text-center px-2" style={{ lineHeight: 16 }}>
+                Enter the withdrawal amount and reason below to submit your request.
+              </Text>
 
-              <View style={styles.separator} />
+              <View className="h-px bg-[#e2e8f0] my-3.5" />
 
-              <Text style={styles.label}>Amount</Text>
-              <View style={styles.inputWrap}>
+              <Text className="text-[10px] font-semibold text-[#64748b] mt-3 mb-1.5">Amount</Text>
+              <View
+                className="flex-row items-center border border-[#e2e8f0] rounded-md bg-[#f8fafc] px-2.5"
+                style={{ minHeight: 38, gap: 8 }}
+              >
                 <TextInput
                   placeholder="Enter amount to withdraw"
                   placeholderTextColor="#9ca3af"
-                  style={styles.input}
+                  className="flex-1 text-[13px] text-[#0f172a] py-2.5 pr-2"
                   underlineColorAndroid="transparent"
                   keyboardType="numeric"
                   value={amount}
@@ -372,16 +417,19 @@ export default function LiteInformationScreen() {
                     if (error) setError('');
                   }}
                 />
-                <Text style={styles.maxText}>Max Amount</Text>
+                <Text className="text-[11px] font-semibold text-[#2563eb]" style={{ minWidth: 64, textAlign: 'right' }}>
+                  Max Amount
+                </Text>
               </View>
-              {!!amountError && <Text style={styles.errorText}>{amountError}</Text>}
-              {!amountError && !!error && <Text style={styles.errorText}>{error}</Text>}
+              {!!amountError && <Text className="mt-2.5 text-xs text-[#b91c1c]">{amountError}</Text>}
+              {!amountError && !!error && <Text className="mt-2.5 text-xs text-[#b91c1c]">{error}</Text>}
 
-              <Text style={styles.label}>Reason</Text>
+              <Text className="text-[10px] font-semibold text-[#64748b] mt-3 mb-1.5">Reason</Text>
               <TextInput
                 placeholder="Enter reason"
                 placeholderTextColor="#9ca3af"
-                style={styles.textArea}
+                className="border border-[#e2e8f0] rounded-md bg-[#f8fafc] px-2.5 py-2.5 text-[13px] text-[#0f172a]"
+                style={{ minHeight: 96 }}
                 underlineColorAndroid="transparent"
                 value={reason}
                 onChangeText={(value) => {
@@ -394,17 +442,33 @@ export default function LiteInformationScreen() {
               />
             </View>
 
-            <Text style={styles.note}>
+            <Text className="mt-5 text-[10px] text-[#64748b] text-center px-3" style={{ lineHeight: 14 }}>
               The approved amount will be paid to your registered bank account. Read our Terms & Conditions.
             </Text>
 
             {numericAmount > 0 ? (
-              <Pressable
-                style={[styles.button, isSubmitting && styles.buttonDisabled]}
-                onPress={handleSubmit}
-                disabled={isSubmitting || Boolean(amountError)}>
-                <Text style={styles.buttonText}>{isSubmitting ? 'Submitting...' : 'Submit Withdrawal Request'}</Text>
-              </Pressable>
+              <>
+                <View className="flex-row items-center mt-3" style={{ gap: 8 }}>
+                  <Pressable onPress={() => setConfirmed(!confirmed)} className="p-1">
+                    <Ionicons name={confirmed ? 'checkbox' : 'square-outline'} size={20} color="#0f172a" />
+                  </Pressable>
+                  <Text className="flex-1 text-xs text-[#0f172a]">
+                    I confirm this withdrawal request and agree to the terms.
+                  </Text>
+                </View>
+                {confirmed && (
+                  <Pressable
+                    className="mt-3 h-11 w-full rounded-md bg-[#13206b] items-center justify-center"
+                    style={isSubmitting ? { opacity: 0.7 } : undefined}
+                    onPress={handleSubmit}
+                    disabled={isSubmitting || Boolean(amountError)}
+                  >
+                    <Text className="text-[15px] font-bold text-white">
+                      {isSubmitting ? 'Submitting...' : 'Submit Withdrawal Request'}
+                    </Text>
+                  </Pressable>
+                )}
+              </>
             ) : null}
           </>
         )}
@@ -412,187 +476,3 @@ export default function LiteInformationScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  phoneFrame: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 14,
-    paddingTop: 58,
-    paddingBottom: 24,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  leftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  backButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e2e8f0',
-  },
-  topIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  greeting: {
-    fontFamily: APP_FONT_FAMILY,
-    color: '#0f172a',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  titleRow: {
-    marginTop: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  balanceLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0f172a',
-  },
-  title: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  badge: {
-    borderRadius: 999,
-    backgroundColor: '#13206b',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  badgeText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  card: {
-    marginTop: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
-    padding: 14,
-  },
-  cardTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-    textAlign: 'center',
-  },
-  cardSub: {
-    fontFamily: APP_FONT_FAMILY,
-    marginTop: 6,
-    fontSize: 12,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 16,
-    paddingHorizontal: 8,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 14,
-  },
-  label: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: '#64748b',
-    marginBottom: 6,
-    fontWeight: '600',
-    marginTop: 12,
-  },
-  inputWrap: {
-    minHeight: 38,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 6,
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  input: {
-    fontFamily: APP_FONT_FAMILY,
-    flex: 1,
-    fontSize: 13,
-    color: '#0f172a',
-    paddingVertical: 10,
-    paddingRight: 8,
-  },
-  textArea: {
-    fontFamily: APP_FONT_FAMILY,
-    minHeight: 96,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 6,
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    fontSize: 13,
-    color: '#0f172a',
-  },
-  maxText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    color: '#2563eb',
-    fontWeight: '600',
-    minWidth: 64,
-    textAlign: 'right',
-  },
-  errorText: {
-    fontFamily: APP_FONT_FAMILY,
-    marginTop: 10,
-    fontSize: 12,
-    color: '#b91c1c',
-  },
-  note: {
-    fontFamily: APP_FONT_FAMILY,
-    marginTop: 20,
-    fontSize: 10,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 14,
-    paddingHorizontal: 12,
-  },
-  button: {
-    marginTop: 12,
-    height: 44,
-    width: '100%',
-    borderRadius: 6,
-    backgroundColor: '#13206b',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    fontFamily: APP_FONT_FAMILY,
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});

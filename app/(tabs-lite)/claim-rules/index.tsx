@@ -22,7 +22,7 @@ export default function ClaimRulesScreen() {
       <View style={styles.header}>
         <View style={styles.topRow}>
           <View style={styles.leftGroup}>
-            <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backButton}>
+            <Pressable onPress={() => router.push('/(tabs-lite)/ewa' as any)} hitSlop={8} style={styles.backButton}>
               <Ionicons name="arrow-back" size={18} color="#fff" />
             </Pressable>
             <Text style={styles.title}>Earned Wage Access</Text>

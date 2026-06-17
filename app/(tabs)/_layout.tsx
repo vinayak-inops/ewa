@@ -1,13 +1,18 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { isBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+
+  if (!isBiometricSessionUnlocked()) {
+    return <Redirect href="/(auth)/biometric" />;
+  }
 
   return (
     <Tabs

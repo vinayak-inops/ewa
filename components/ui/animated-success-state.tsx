@@ -1,6 +1,7 @@
+import AutoStatusUpdate from '@/components/ui/auto-status-update';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const APP_FONT_FAMILY = 'Inter';
 
@@ -10,7 +11,7 @@ type AnimatedSuccessStateProps = {
   referenceLabel: string;
   referenceValue: string;
   amountLabel: string;
-  amountValue: string;
+  amountValue: number | string;
   balanceLabel: string;
   balanceValue: string;
   employeeLabel: string;
@@ -19,6 +20,9 @@ type AnimatedSuccessStateProps = {
   reasonValue: string;
   buttonLabel: string;
   onPressButton: () => void;
+  onPressAutoStatus?: () => void;
+  workflowState?: unknown;
+  id: string;
 };
 
 export function AnimatedSuccessState({
@@ -36,8 +40,61 @@ export function AnimatedSuccessState({
   reasonValue,
   buttonLabel,
   onPressButton,
+  onPressAutoStatus,
+  workflowState,
+  id,
 }: AnimatedSuccessStateProps) {
   const pulse = useRef(new Animated.Value(0)).current;
+  const resolveWorkflowState = () => {
+    if (typeof workflowState === 'string') return workflowState.toUpperCase();
+    if (workflowState && typeof workflowState === 'object' && 'value' in (workflowState as Record<string, unknown>)) {
+      const v = (workflowState as Record<string, unknown>).value;
+      return typeof v === 'string' ? v.toUpperCase() : '';
+    }
+    return '';
+  };
+  const stateValue = resolveWorkflowState();
+  const isFinalState = ['APPROVED', 'REJECTED', 'CANCELLED', 'FAILED'].includes(stateValue);
+  const [showAutoStatus, setShowAutoStatus] = useState(!isFinalState);
+  const stateVisual = (() => {
+    switch (stateValue) {
+      case 'APPROVED':
+        return {
+          icon: 'checkmark' as const,
+          shellColor: '#16a34a',
+          rippleColor: '#86efac',
+          outlineColor: '#bbf7d0',
+        };
+      case 'REJECTED':
+        return {
+          icon: 'close' as const,
+          shellColor: '#dc2626',
+          rippleColor: '#fca5a5',
+          outlineColor: '#fecaca',
+        };
+      case 'CANCELLED':
+        return {
+          icon: 'remove' as const,
+          shellColor: '#6b7280',
+          rippleColor: '#d1d5db',
+          outlineColor: '#e5e7eb',
+        };
+      case 'FAILED':
+        return {
+          icon: 'alert' as const,
+          shellColor: '#ea580c',
+          rippleColor: '#fdba74',
+          outlineColor: '#fed7aa',
+        };
+      default:
+        return {
+          icon: 'checkmark' as const,
+          shellColor: '#2563eb',
+          rippleColor: '#93c5fd',
+          outlineColor: '#bfdbfe',
+        };
+    }
+  })();
 
   useEffect(() => {
     const pulseLoop = Animated.loop(
@@ -63,6 +120,10 @@ export function AnimatedSuccessState({
       pulseLoop.stop();
     };
   }, [pulse]);
+
+  useEffect(() => {
+    setShowAutoStatus(!isFinalState);
+  }, [isFinalState]);
   const rippleScale = pulse.interpolate({
     inputRange: [0, 1],
     outputRange: [0.92, 1.28],
@@ -73,7 +134,7 @@ export function AnimatedSuccessState({
   });
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <Animated.View
         pointerEvents="none"
         style={[
@@ -85,62 +146,93 @@ export function AnimatedSuccessState({
         ]}
       />
 
-      <View style={styles.successWrap}>
-        <View style={styles.successHero}>
-          <View style={styles.successIconShell}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.successIconRipple,
-                {
-                  opacity: rippleOpacity,
-                  transform: [{ scale: rippleScale }],
-                },
-              ]}
-            />
-            <Ionicons name="checkmark" size={42} color="#fff" />
-          </View>
+      {/* Success hero */}
+      <View style={styles.successHero}>
+        <View
+          style={[
+            styles.successIconShell,
+            {
+              backgroundColor: stateVisual.shellColor,
+              shadowColor: stateVisual.shellColor,
+            },
+          ]}>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.successIconRipple,
+              {
+                backgroundColor: stateVisual.rippleColor,
+                opacity: rippleOpacity,
+                transform: [{ scale: rippleScale }],
+              },
+            ]}
+          />
+          <Ionicons name={stateVisual.icon} size={42} color="#fff" />
         </View>
+      </View>
 
+      <View style={styles.titleRow}>
         <Text style={styles.successTitle}>{title}</Text>
-        <Text style={styles.successText}>{message}</Text>
+        {!showAutoStatus && (
+          <Pressable
+            style={[styles.autoStatusIconBtn, { borderColor: stateVisual.outlineColor }]}
+            onPress={() => {
+              if (onPressAutoStatus) { onPressAutoStatus(); return; }
+              setShowAutoStatus(true);
+            }}>
+            <Ionicons name="pulse-outline" size={18} color={stateVisual.shellColor} />
+          </Pressable>
+        )}
+      </View>
+      <Text style={styles.successText}>{message}</Text>
 
-        <View style={styles.successCard}>
-          <View style={styles.successRefRow}>
-            <View style={styles.successRefIcon}>
-              <Ionicons name="document-text-outline" size={16} color="#2563eb" />
-            </View>
-            <View style={styles.successRefTextWrap}>
-              <Text style={styles.successRefLabel}>{referenceLabel}</Text>
-              <Text style={styles.successRefValue}>{referenceValue}</Text>
-            </View>
+      {/* Summary card */}
+      <View style={styles.successCard}>
+        <View style={styles.successRefRow}>
+          <View style={styles.successRefIcon}>
+            <Ionicons name="document-text-outline" size={16} color="#2563eb" />
           </View>
-
-          <View style={styles.successGrid}>
-            <View style={styles.successGridItem}>
-              <Text style={styles.successGridLabel}>{amountLabel}</Text>
-              <Text style={styles.successGridValue}>{amountValue}</Text>
-            </View>
-            <View style={styles.successGridItem}>
-              <Text style={styles.successGridLabel}>{balanceLabel}</Text>
-              <Text style={styles.successGridValue}>{balanceValue}</Text>
-            </View>
-            <View style={styles.successGridItem}>
-              <Text style={styles.successGridLabel}>{employeeLabel}</Text>
-              <Text style={styles.successGridValue}>{employeeValue}</Text>
-            </View>
-            <View style={styles.successGridItem}>
-              <Text style={styles.successGridLabel}>{reasonLabel}</Text>
-              <Text style={styles.successGridValue}>{reasonValue}</Text>
-            </View>
+          <View style={styles.successRefTextWrap}>
+            <Text style={styles.successRefLabel}>{referenceLabel}</Text>
+            <Text style={styles.successRefValue}>{referenceValue}</Text>
           </View>
         </View>
 
+        <View style={styles.successGrid}>
+          <View style={styles.successGridItem}>
+            <Text style={styles.successGridLabel}>{amountLabel}</Text>
+            <Text style={styles.successGridValue}>{amountValue}</Text>
+          </View>
+          <View style={styles.successGridItem}>
+            <Text style={styles.successGridLabel}>{balanceLabel}</Text>
+            <Text style={styles.successGridValue}>{balanceValue}</Text>
+          </View>
+          <View style={styles.successGridItem}>
+            <Text style={styles.successGridLabel}>{employeeLabel}</Text>
+            <Text style={styles.successGridValue}>{employeeValue}</Text>
+          </View>
+          <View style={styles.successGridItem}>
+            <Text style={styles.successGridLabel}>{reasonLabel}</Text>
+            <Text style={styles.successGridValue}>{reasonValue}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* AutoStatusUpdate below the card, or the done button when final */}
+      {showAutoStatus ? (
+        <View style={styles.autoStatusWrap}>
+          <AutoStatusUpdate
+            fileId={id}
+            onContinue={onPressButton}
+            onClose={onPressButton}
+          />
+        </View>
+      ) : (
         <Pressable style={styles.button} onPress={onPressButton}>
           <Text style={styles.buttonText}>{buttonLabel}</Text>
         </Pressable>
-      </View>
-    </View>
+      )}
+    </ScrollView>
   );
 }
 
@@ -148,6 +240,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     overflow: 'hidden',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    paddingBottom: 96,
+  },
+  autoStatusWrap: {
+    width: '100%',
+    marginTop: 16,
   },
   backgroundOrbCenter: {
     position: 'absolute',
@@ -167,7 +270,6 @@ const styles = StyleSheet.create({
   successHero: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
     marginBottom: 18,
   },
   successIconShell: {
@@ -197,6 +299,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f172a',
     textAlign: 'center',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  autoStatusIconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   successText: {
     fontFamily: APP_FONT_FAMILY,

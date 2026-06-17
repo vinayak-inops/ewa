@@ -10,6 +10,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$env:GRADLE_USER_HOME = "C:\gradle"
+
 Write-Host "Building Android app variant: $Variant ($BuildType)"
 
 $env:EXPO_PUBLIC_APP_VARIANT = $Variant
@@ -54,7 +56,7 @@ try {
     $gradleTask = "assembleRelease"
   }
 
-  & .\gradlew.bat $gradleTask
+  & .\gradlew.bat -g "C:\gradle" $gradleTask
   if ($LASTEXITCODE -ne 0) {
     throw "Gradle build failed while running task '$gradleTask'. Scroll up in the logs for the first error above."
   }

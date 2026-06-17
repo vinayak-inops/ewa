@@ -147,7 +147,7 @@ export default function BankDetailsScreen() {
       <View style={styles.top}>
         <View style={styles.topRow}>
           <View style={styles.leftGroup}>
-            <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backButton}>
+            <Pressable onPress={() => router.push('/(tabs-lite)/profile' as any)} hitSlop={8} style={styles.backButton}>
               <Ionicons name="arrow-back" size={18} color="#0f172a" />
             </Pressable>
             <Text style={styles.greeting}>Bank Details</Text>

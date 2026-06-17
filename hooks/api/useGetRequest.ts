@@ -193,7 +193,10 @@ export function useGetRequest<T>({
         }
 
         if (!response.ok) {
-          throw new Error(`${normalizedMethod} ${requestUrl} failed with status ${response.status}`);
+          let body = '';
+          try { body = await response.text(); } catch { /* ignore */ }
+          console.error(`[useGetRequest] ${normalizedMethod} ${requestUrl} → ${response.status}`, body);
+          throw new Error(`${normalizedMethod} ${requestUrl} failed with status ${response.status}: ${body}`);
         }
 
         const responseData = (await response.json()) as T;

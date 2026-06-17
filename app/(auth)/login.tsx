@@ -1,9 +1,11 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
-import { saveAuthTokens } from '@/hooks/auth/token-store';
+import { isBiometricSessionUnlocked, setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
+import { getAccessToken, saveAuthTokens } from '@/hooks/auth/token-store';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Animated,
@@ -68,9 +70,7 @@ async function exchangeCodeForTokens(code: string, redirectUri: string): Promise
 
   const response = await fetch(KEYCLOAK_TOKEN_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: finalBody,
   });
 
@@ -84,10 +84,34 @@ async function exchangeCodeForTokens(code: string, redirectUri: string): Promise
   return json;
 }
 
-function TeamIllustration() {
+const FEATURES = [
+  { icon: 'wallet-outline' as const,        title: 'Earned Wages',  desc: 'Access salary anytime'   },
+  { icon: 'document-text-outline' as const, title: 'Applications',  desc: 'Leave, OT, shift & more' },
+  { icon: 'calendar-outline' as const,      title: 'Attendance',    desc: 'Track your work records' },
+];
+
+function FeatureCard({ icon, title, desc, style }: { icon: typeof FEATURES[number]['icon']; title: string; desc: string; style?: object }) {
   return (
-    <View style={styles.illustrationWrap}>
-      <Image source={require('@/assets/images/user.png')} style={styles.illustrationImage} resizeMode="contain" />
+    <View style={[styles.featureCard, style]}>
+      <View style={styles.featureIconWrap}>
+        <Ionicons name={icon} size={20} color="#ffffff" />
+      </View>
+      <Text style={styles.featureTitle}>{title}</Text>
+      <Text style={styles.featureDesc}>{desc}</Text>
+    </View>
+  );
+}
+
+function FeatureGrid() {
+  return (
+    <View style={styles.featureWrap}>
+      <View style={styles.featureRow}>
+        <FeatureCard icon={FEATURES[0].icon} title={FEATURES[0].title} desc={FEATURES[0].desc} style={{ marginRight: 10 }} />
+        <FeatureCard icon={FEATURES[1].icon} title={FEATURES[1].title} desc={FEATURES[1].desc} />
+      </View>
+      <View style={[styles.featureRow, { justifyContent: 'center', marginTop: 10 }]}>
+        <FeatureCard icon={FEATURES[2].icon} title={FEATURES[2].title} desc={FEATURES[2].desc} style={{ flex: 0, width: '55%' }} />
+      </View>
     </View>
   );
 }
@@ -109,92 +133,45 @@ export default function LoginScreen() {
     KEYCLOAK_CLIENT_ID.length > 0;
 
   useEffect(() => {
+    const redirectSavedSession = async () => {
+      const token = await getAccessToken();
+      if (!token) return;
+      router.replace(isBiometricSessionUnlocked() ? getPostLoginRoute() : '/(auth)/biometric');
+    };
+    void redirectSavedSession();
+  }, [router]);
+
+  useEffect(() => {
     const floatLoopA = Animated.loop(
       Animated.sequence([
-        Animated.timing(orbFloatA, {
-          toValue: 1,
-          duration: 4200,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(orbFloatA, {
-          toValue: 0,
-          duration: 4200,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
+        Animated.timing(orbFloatA, { toValue: 1, duration: 4200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(orbFloatA, { toValue: 0, duration: 4200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     );
-
     const floatLoopB = Animated.loop(
       Animated.sequence([
-        Animated.timing(orbFloatB, {
-          toValue: 1,
-          duration: 3600,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(orbFloatB, {
-          toValue: 0,
-          duration: 3600,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
+        Animated.timing(orbFloatB, { toValue: 1, duration: 3600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(orbFloatB, { toValue: 0, duration: 3600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     );
-
     const pulseLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(orbPulse, {
-          toValue: 1,
-          duration: 2800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(orbPulse, {
-          toValue: 0,
-          duration: 2800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
+        Animated.timing(orbPulse, { toValue: 1, duration: 2800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(orbPulse, { toValue: 0, duration: 2800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ])
     );
-
     floatLoopA.start();
     floatLoopB.start();
     pulseLoop.start();
-
-    return () => {
-      floatLoopA.stop();
-      floatLoopB.stop();
-      pulseLoop.stop();
-    };
+    return () => { floatLoopA.stop(); floatLoopB.stop(); pulseLoop.stop(); };
   }, [orbFloatA, orbFloatB, orbPulse]);
 
-  const orbATranslateY = orbFloatA.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 18],
-  });
-  const orbATranslateX = orbFloatA.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -10],
-  });
-  const orbBTranslateY = orbFloatB.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -16],
-  });
-  const orbBTranslateX = orbFloatB.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 12],
-  });
-  const pulseScale = orbPulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.94, 1.12],
-  });
-  const pulseOpacity = orbPulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.24, 0.1],
-  });
+  const orbATranslateY = orbFloatA.interpolate({ inputRange: [0, 1], outputRange: [0, 18] });
+  const orbATranslateX = orbFloatA.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
+  const orbBTranslateY = orbFloatB.interpolate({ inputRange: [0, 1], outputRange: [0, -16] });
+  const orbBTranslateX = orbFloatB.interpolate({ inputRange: [0, 1], outputRange: [0, 12] });
+  const pulseScale   = orbPulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.12] });
+  const pulseOpacity = orbPulse.interpolate({ inputRange: [0, 1], outputRange: [0.24, 0.1] });
 
   const onLogin = async () => {
     if (loading || !canStartAuth) {
@@ -205,10 +182,8 @@ export default function LoginScreen() {
       }
       return;
     }
-
     setLoading(true);
     setErrorMessage('');
-
     try {
       const authUrl = `${KEYCLOAK_AUTH_URL}?${toQueryString({
         client_id: KEYCLOAK_CLIENT_ID,
@@ -217,26 +192,21 @@ export default function LoginScreen() {
         scope: KEYCLOAK_SCOPE,
         prompt: 'login',
       })}`;
-
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-
       if (result.type !== 'success' || !result.url) {
         setErrorMessage('Sign-in was cancelled or did not complete.');
         return;
       }
-
       const { code, error } = parseUrlParams(result.url);
       if (error || !code) {
         setErrorMessage(error ? `Authentication failed: ${error}` : 'Authentication code missing from callback.');
         return;
       }
-
       const validation = await exchangeCodeForTokens(code, redirectUri);
       if (!validation.access_token) {
         setErrorMessage(validation.error_description ?? 'Keycloak token exchange failed. Please try again.');
         return;
       }
-
       await saveAuthTokens({
         accessToken: validation.access_token,
         refreshToken: validation.refresh_token,
@@ -244,8 +214,8 @@ export default function LoginScreen() {
         tokenType: validation.token_type,
         expiresIn: validation.expires_in,
       });
-
-      router.replace(getPostLoginRoute());
+      setBiometricSessionUnlocked(true);
+      router.replace('/');
     } catch {
       setErrorMessage('Unable to complete login right now. Please retry.');
     } finally {
@@ -255,76 +225,75 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
+
+      {/* Blue top area */}
+      <View style={styles.topArea}>
         <Animated.View
           pointerEvents="none"
-          style={[
-            styles.backgroundOrbTop,
-            { transform: [{ translateX: orbATranslateX }, { translateY: orbATranslateY }] },
-          ]}
+          style={[styles.orbTop, { transform: [{ translateX: orbATranslateX }, { translateY: orbATranslateY }] }]}
         />
         <Animated.View
           pointerEvents="none"
-          style={[
-            styles.backgroundOrbBottom,
-            { transform: [{ translateX: orbBTranslateX }, { translateY: orbBTranslateY }] },
-          ]}
+          style={[styles.orbBottom, { transform: [{ translateX: orbBTranslateX }, { translateY: orbBTranslateY }] }]}
         />
         <Animated.View
           pointerEvents="none"
-          style={[
-            styles.backgroundOrbCenter,
-            {
-              opacity: pulseOpacity,
-              transform: [{ scale: pulseScale }],
-            },
-          ]}
+          style={[styles.orbCenter, { opacity: pulseOpacity, transform: [{ scale: pulseScale }] }]}
         />
 
         <View style={styles.logoRow}>
           <Image source={require('@/assets/images/logoiddion.png')} style={styles.logoImage} resizeMode="contain" />
         </View>
 
-        <View style={styles.contentSet}>
-          <View style={styles.illustrationSection}>
-            <TeamIllustration />
+        <View style={styles.taglineSection}>
+          <Text style={styles.tagline}>Get paid when{'\n'}you need it</Text>
+          <View style={styles.featureOuter}>
+            <FeatureGrid />
           </View>
+        </View>
+      </View>
 
-          <View style={styles.progressRow}>
-            <View style={styles.progressActive} />
-            <View style={styles.progressInactive} />
-          </View>
+      {/* White bottom card */}
+      <View style={styles.bottomCard}>
+        <View style={styles.dragHandle} />
 
-          <View style={styles.copyBlock}>
-            <Text style={styles.title}>Earned Wage Access</Text>
-            <Text style={styles.subtitle}>
-              Access your Earned Wage Access account securely and manage your workplace financial tools with ease.
-            </Text>
-          </View>
+        <View style={styles.progressRow}>
+          <View style={styles.progressActive} />
+          <View style={styles.progressInactive} />
+        </View>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
-              loading && styles.primaryButtonDisabled,
-            ]}
-            onPress={onLogin}
-            disabled={loading}>
+        <View style={styles.copyBlock}>
+          <Text style={styles.title}>Earned Wage Access</Text>
+          <Text style={styles.subtitle}>
+            Securely access your EWA account and manage your workplace finances.
+          </Text>
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.primaryButtonWrap,
+            pressed && { opacity: 0.85 },
+            loading && { opacity: 0.7 },
+          ]}
+          onPress={onLogin}
+          disabled={loading}
+        >
+          <View style={styles.primaryButton}>
             {loading ? (
               <View style={styles.loadingRow}>
                 <ActivityIndicator color="#ffffff" />
                 <Text style={styles.primaryButtonText}>Signing in...</Text>
               </View>
             ) : (
-              <Text style={styles.primaryButtonText}>Sign in with Keycloak</Text>
+              <Text style={styles.primaryButtonText}>Sign in with IDDION</Text>
             )}
-          </Pressable>
+          </View>
+        </Pressable>
 
-          <Text style={styles.secondaryText}>Your workspace is ready when you are</Text>
+        <Text style={styles.secondaryText}>Your workspace is ready when you are</Text>
 
-          {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-        </View>
+        {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
       </View>
     </SafeAreaView>
   );
@@ -333,86 +302,133 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0a1c63',
   },
-  screen: {
+  topArea: {
     flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 18,
-    paddingBottom: 26,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0a1c63',
     overflow: 'hidden',
+    alignItems: 'center',
   },
-  backgroundOrbTop: {
+  orbTop: {
     position: 'absolute',
-    top: -90,
-    right: -50,
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: '#dbeafe',
+    top: -70,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: '#1e3a8a',
+    opacity: 0.7,
   },
-  backgroundOrbBottom: {
+  orbBottom: {
     position: 'absolute',
-    left: -50,
-    bottom: 100,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: '#e0e7ff',
+    left: -40,
+    bottom: 20,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: '#172554',
+    opacity: 0.6,
   },
-  backgroundOrbCenter: {
+  orbCenter: {
     position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: '#bfdbfe',
-    top: '34%',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: '#1e3a8a',
+    top: '30%',
     alignSelf: 'center',
   },
   logoRow: {
-    marginTop: 12,
+    marginTop: 20,
     alignItems: 'center',
   },
   logoImage: {
-    width: 260,
-    height: 78,
+    width: 220,
+    height: 66,
   },
-  contentSet: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 70,
-    alignItems: 'center',
-  },
-  illustrationSection: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  illustrationWrap: {
-    width: 290,
-    height: 330,
-    alignItems: 'center',
+  taglineSection: {
+    flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    width: '100%',
   },
-  illustrationImage: {
-    width: 312,
-    height: 312,
+  featureOuter: {
+    width: '100%',
+    marginTop: 0,
+  },
+  tagline: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#ffffff',
+    lineHeight: 38,
+    letterSpacing: -0.6,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  featureIconWrap: {
+    marginBottom: 8,
+  },
+  featureWrap: {
+    width: '100%',
+    marginTop: 16,
+  },
+  featureRow: {
+    flexDirection: 'row',
+  },
+  featureCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 14,
+    padding: 12,
+  },
+  featureIcon: {
+    marginBottom: 8,
+  },
+  featureTitle: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  featureDesc: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
+    lineHeight: 15,
+  },
+  bottomCard: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 28,
+    alignItems: 'center',
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e2e8f0',
+    marginBottom: 18,
   },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginBottom: 14,
+    columnGap: 6,
+    marginBottom: 12,
   },
   progressActive: {
     width: 16,
     height: 4,
     borderRadius: 999,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#0a1c63',
   },
   progressInactive: {
     width: 4,
@@ -424,50 +440,42 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingHorizontal: 6,
-    marginBottom: 28,
+    marginBottom: 20,
   },
   title: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 22,
+    lineHeight: 32,
     fontWeight: '800',
     color: '#0a1c63',
     textAlign: 'center',
-    letterSpacing: -0.8,
-    marginBottom: 10,
+    letterSpacing: -0.6,
+    marginBottom: 6,
   },
   subtitle: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 15,
-    lineHeight: 23,
-    color: '#475569',
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748b',
     textAlign: 'center',
-    maxWidth: 312,
+    maxWidth: 300,
+  },
+  primaryButtonWrap: {
+    width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
   },
   primaryButton: {
     width: '100%',
-    minHeight: 56,
+    minHeight: 54,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1d4ed8',
-    borderWidth: 1,
-    borderColor: '#1e40af',
-    shadowColor: '#1d4ed8',
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 4,
-  },
-  primaryButtonPressed: {
-    opacity: 0.92,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.82,
+    backgroundColor: '#0a1c63',
   },
   primaryButtonText: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: '#ffffff',
     textAlign: 'center',
@@ -475,21 +483,21 @@ const styles = StyleSheet.create({
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    columnGap: 10,
   },
   secondaryText: {
     fontFamily: APP_FONT_FAMILY,
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1e40af',
+    marginTop: 14,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0a1c63',
     textAlign: 'center',
   },
   errorText: {
     fontFamily: APP_FONT_FAMILY,
-    marginTop: 14,
-    fontSize: 13,
-    lineHeight: 19,
+    marginTop: 12,
+    fontSize: 12,
+    lineHeight: 18,
     color: '#c53030',
     textAlign: 'center',
   },

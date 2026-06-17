@@ -7,5 +7,5 @@ export const IS_LITE = APP_VARIANT === 'lite';
 export const IS_RICH = APP_VARIANT === 'rich';
 
 export function getPostLoginRoute() {
-  return IS_RICH ? '/(tabs-rich)' : '/(tabs-lite)';
+  return IS_RICH ? '/(tabs-rich)' : '/(tabs-lite)/main-launchpad';
 }

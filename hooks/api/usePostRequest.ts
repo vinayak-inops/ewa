@@ -135,16 +135,6 @@ export function usePostRequest<T>({
         body = JSON.stringify(mergedData ?? {});
       }
 
-      if (__DEV__) {
-        console.log('[usePostRequest] request', {
-          method: 'POST',
-          url: requestUrl,
-          requireAuth,
-          hasFiles: Boolean(files),
-          headers: requestHeaders,
-        });
-      }
-
       const responseData = await new Promise<T>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', requestUrl);

@@ -169,7 +169,7 @@ export default function LiteProfileScreen() {
           </View>
 
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>AD</Text>
+            <Text style={styles.avatarText}>{fullName.slice(0, 2).toUpperCase()}</Text>
           </View>
 
           <View style={styles.heroBody}>
@@ -247,7 +247,9 @@ export default function LiteProfileScreen() {
             </Text>
           </View>
 
-          <Pressable style={styles.logoutButton} onPress={() => router.push('/(tabs-lite)/profile/logout')}>
+          <Pressable
+            style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
+            onPress={() => router.push('/(tabs-lite)/profile/logout')}>
             <Ionicons name="log-out-outline" size={18} color="#ffffff" />
             <Text style={styles.logoutButtonText}>Log Out</Text>
           </Pressable>
@@ -461,12 +463,16 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     minHeight: 46,
+    width: '100%',
     borderRadius: 12,
     backgroundColor: '#2563eb',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+  },
+  logoutButtonPressed: {
+    opacity: 0.82,
   },
   logoutButtonText: {
     fontFamily: APP_FONT_FAMILY,
