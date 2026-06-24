@@ -110,7 +110,9 @@ function FeatureGrid() {
         <FeatureCard icon={FEATURES[1].icon} title={FEATURES[1].title} desc={FEATURES[1].desc} />
       </View>
       <View style={[styles.featureRow, { justifyContent: 'center', marginTop: 10 }]}>
-        <FeatureCard icon={FEATURES[2].icon} title={FEATURES[2].title} desc={FEATURES[2].desc} style={{ flex: 0, width: '55%' }} />
+        <View style={{ width: '55%' }}>
+          <FeatureCard icon={FEATURES[2].icon} title={FEATURES[2].title} desc={FEATURES[2].desc} />
+        </View>
       </View>
     </View>
   );
@@ -462,8 +464,8 @@ const styles = StyleSheet.create({
   },
   primaryButtonWrap: {
     width: '100%',
+    alignSelf: 'stretch',
     borderRadius: 14,
-    overflow: 'hidden',
   },
   primaryButton: {
     width: '100%',

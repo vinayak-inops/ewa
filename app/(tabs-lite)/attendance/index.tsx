@@ -1,29 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';
 
 const APP_FONT_FAMILY = 'Inter';
 const ATTENDANCE_SEARCH_URL = process.env.EXPO_PUBLIC_ATTENDANCE_SEARCH_URL ?? 'muster/muster/search';
+const DATA_CHECK_URL = process.env.EXPO_PUBLIC_DATA_CHECK_URL ?? 'muster/data_check/search';
 
-type EventType = 'punch-in' | 'punch-out' | 'punch-miss';
-
-type PunchEvent = {
-  id: string;
-  type: EventType;
-  count: number;
-  employee: string;
-  day: number;
-};
-
-type Holiday = {
-  id: string;
-  day: number;
-  name: string;
-  reason: string;
+type TodayPunch = {
+  _id: string;
+  employeeID: string;
+  punchedTime: string;
+  transactionTime: string;
+  inOut: string;
+  typeOfMovement: string;
+  readerSerialNumber: string;
+  processed: boolean;
+  organizationCode: string;
+  tenantCode: string;
 };
 
 type AttendanceDetail = {
@@ -77,45 +75,165 @@ const MONTH_NAMES = [
 /** Short weekday labels like the reference: Mo Tu We … */
 const DAY_NAMES = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
-const PUNCH_EVENTS: PunchEvent[] = [
-  { id: '1', type: 'punch-in', count: 1000, employee: 'John Smith', day: 6 },
-  { id: '2', type: 'punch-out', count: 800, employee: 'John Smith', day: 6 },
-  { id: '3', type: 'punch-miss', count: 0, employee: 'Tom Wilson', day: 6 },
-  { id: '4', type: 'punch-in', count: 950, employee: 'Sarah Wilson', day: 7 },
-  { id: '5', type: 'punch-in', count: 1200, employee: 'Mike Johnson', day: 8 },
-  { id: '6', type: 'punch-out', count: 750, employee: 'Sarah Wilson', day: 8 },
-  { id: '7', type: 'punch-miss', count: 0, employee: 'Alex Brown', day: 8 },
-  { id: '8', type: 'punch-in', count: 1100, employee: 'Emily Davis', day: 9 },
-  { id: '9', type: 'punch-out', count: 900, employee: 'Mike Johnson', day: 9 },
-  { id: '10', type: 'punch-in', count: 1050, employee: 'Alex Brown', day: 10 },
-  { id: '11', type: 'punch-miss', count: 0, employee: 'Lisa Garcia', day: 10 },
-  { id: '12', type: 'punch-in', count: 980, employee: 'Lisa Garcia', day: 13 },
-  { id: '13', type: 'punch-out', count: 820, employee: 'Emily Davis', day: 13 },
-  { id: '14', type: 'punch-in', count: 1150, employee: 'Tom Wilson', day: 14 },
-  { id: '15', type: 'punch-out', count: 780, employee: 'Alex Brown', day: 14 },
-  { id: '16', type: 'punch-miss', count: 0, employee: 'Sarah Wilson', day: 14 },
-  { id: '17', type: 'punch-in', count: 1080, employee: 'Maria Lopez', day: 15 },
-  { id: '18', type: 'punch-out', count: 850, employee: 'Lisa Garcia', day: 15 },
-  { id: '19', type: 'punch-in', count: 1020, employee: 'David Kim', day: 16 },
-  { id: '20', type: 'punch-out', count: 760, employee: 'Tom Wilson', day: 16 },
-  { id: '21', type: 'punch-miss', count: 0, employee: 'Maria Lopez', day: 16 },
+
+type BannerDef = {
+  id: string;
+  title: string;
+  sub: string;
+  bg: string;
+  ringA: string;
+  ringB: string;
+  accent: string;
+  primaryIcon: React.ComponentProps<typeof Ionicons>['name'];
+  secondaryIcon: React.ComponentProps<typeof Ionicons>['name'];
+  tertiaryIcon: React.ComponentProps<typeof Ionicons>['name'];
+};
+
+const BANNERS: BannerDef[] = [
+  {
+    id: 'b1',
+    title: 'Track Your\nAttendance.',
+    sub: 'View monthly logs and daily punch records',
+    bg: '#1d4ed8',
+    ringA: 'rgba(59,130,246,0.35)',
+    ringB: 'rgba(96,165,250,0.2)',
+    accent: '#bfdbfe',
+    primaryIcon: 'calendar-outline',
+    secondaryIcon: 'checkmark-done-outline',
+    tertiaryIcon: 'time-outline',
+  },
+  {
+    id: 'b2',
+    title: 'Mark Face\nAttendance.',
+    sub: 'Scan your face to mark in/out instantly',
+    bg: '#0369a1',
+    ringA: 'rgba(14,165,233,0.35)',
+    ringB: 'rgba(56,189,248,0.2)',
+    accent: '#bae6fd',
+    primaryIcon: 'scan-circle-outline',
+    secondaryIcon: 'person-outline',
+    tertiaryIcon: 'shield-checkmark-outline',
+  },
+  {
+    id: 'b3',
+    title: 'Review Punch\nRecords.',
+    sub: 'Check in/out times and movement history',
+    bg: '#1e3a8a',
+    ringA: 'rgba(37,99,235,0.4)',
+    ringB: 'rgba(59,130,246,0.2)',
+    accent: '#93c5fd',
+    primaryIcon: 'finger-print-outline',
+    secondaryIcon: 'create-outline',
+    tertiaryIcon: 'list-outline',
+  },
+  {
+    id: 'b4',
+    title: 'Monitor\nWork Hours.',
+    sub: 'Late in, early out, OT and extra hours at a glance',
+    bg: '#4338ca',
+    ringA: 'rgba(99,102,241,0.4)',
+    ringB: 'rgba(129,140,248,0.2)',
+    accent: '#c7d2fe',
+    primaryIcon: 'hourglass-outline',
+    secondaryIcon: 'stats-chart-outline',
+    tertiaryIcon: 'trending-up-outline',
+  },
 ];
 
-const HOLIDAYS: Holiday[] = [
-  { id: 'h1', day: 1, name: "New Year's Day", reason: 'National Holiday' },
-  { id: 'h2', day: 20, name: 'Martin Luther King Jr. Day', reason: 'Federal Holiday' },
-  { id: 'h3', day: 26, name: 'Republic Day', reason: 'National Holiday' },
-];
+function BannerIllustration({ b }: { b: BannerDef }) {
+  return (
+    <View pointerEvents="none" style={bannerStyles.illustrationWrap}>
+      <View style={[bannerStyles.ringOuter, { backgroundColor: b.ringB }]} />
+      <View style={[bannerStyles.ringInner, { backgroundColor: b.ringA }]} />
+      <View style={bannerStyles.ringCenter}>
+        <Ionicons name={b.primaryIcon} size={36} color={b.accent} />
+      </View>
+      <View style={[bannerStyles.floatIconA, { backgroundColor: b.ringA }]}>
+        <Ionicons name={b.secondaryIcon} size={14} color={b.accent} />
+      </View>
+      <View style={[bannerStyles.floatIconB, { backgroundColor: b.ringA }]}>
+        <Ionicons name={b.tertiaryIcon} size={12} color={b.accent} />
+      </View>
+    </View>
+  );
+}
 
-/** Screen + header bar match `app/(tabs-lite)/bank-details/index.tsx` */
+function BannerCarousel() {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      decelerationRate="fast"
+      snapToInterval={272}
+      snapToAlignment="start"
+      contentContainerStyle={bannerStyles.bannerScroll}
+    >
+      {BANNERS.map((b) => (
+        <View key={b.id} style={[bannerStyles.bannerCard, { backgroundColor: b.bg }]}>
+          <View pointerEvents="none" style={[bannerStyles.bannerShine, { backgroundColor: b.ringA }]} />
+          <BannerIllustration b={b} />
+          <View style={bannerStyles.bannerContent}>
+            <Text style={bannerStyles.bannerTitle}>{b.title}</Text>
+            <Text style={bannerStyles.bannerSub}>{b.sub}</Text>
+            <View style={bannerStyles.bannerLearnRow}>
+              <Text style={[bannerStyles.bannerLearn, { color: b.accent }]}>Learn More</Text>
+              <Ionicons name="arrow-forward" size={11} color={b.accent} />
+            </View>
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+const bannerStyles = StyleSheet.create({
+  bannerScroll: { gap: 12, paddingHorizontal: 16 },
+  bannerCard: { width: 260, height: 160, borderRadius: 18, overflow: 'hidden', flexDirection: 'row' },
+  bannerShine: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    top: -80, right: -60, opacity: 0.4,
+  },
+  illustrationWrap: {
+    position: 'absolute', right: 0, top: 0, bottom: 0, width: 110,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ringOuter: { position: 'absolute', width: 96, height: 96, borderRadius: 48 },
+  ringInner: { position: 'absolute', width: 68, height: 68, borderRadius: 34 },
+  ringCenter: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  floatIconA: {
+    position: 'absolute', top: 14, right: 10,
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  floatIconB: {
+    position: 'absolute', bottom: 18, left: 6,
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bannerContent: { flex: 1, paddingVertical: 16, paddingLeft: 16, paddingRight: 4, justifyContent: 'flex-end' },
+  bannerTitle: { fontSize: 16, fontWeight: '800', color: '#fff', lineHeight: 22, letterSpacing: -0.3, marginBottom: 4 },
+  bannerSub: { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '500', lineHeight: 14, marginBottom: 10 },
+  bannerLearnRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  bannerLearn: { fontSize: 11, fontWeight: '700' },
+});
+
 const COLORS = {
-  sheet: '#f8fafc',
+  bg: '#eef2ff',
+  sheet: '#eef2ff',
   ink: '#0f172a',
-  muted: '#94a3b8',
-  primary: '#1d4ed8',
-  primaryStrong: '#1e40af',
-  accent: '#2563eb',
+  muted: '#64748b',
+  primary: '#2563eb',
+  primaryStrong: '#1d4ed8',
+  primaryDark: '#1e3a8a',
+  accent: '#3b82f6',
   heroBg: '#dbeafe',
+  heroBgLight: '#eff6ff',
+  white: '#ffffff',
+  border: '#e2e8f0',
 };
 
 function getDaysInMonth(year: number, month: number) {
@@ -462,17 +580,108 @@ function getDayCardColor(detail: AttendanceDetail | null, hasAttendanceData: boo
   return '#eff6ff'; // blue-50
 }
 
-function getDayDotColor(detail: AttendanceDetail | null, hasAttendanceData: boolean) {
-  return getDayCardColor(detail, hasAttendanceData);
-}
 
 function getAttendanceTextColor(bgColor: string): string {
   // All current background colors are light, so use dark text for contrast.
   return '#0f172a';
 }
 
+function FaceScanViewfinder({ status, onScan }: { status: 'idle' | 'scanning' | 'success'; onScan: () => void }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  const ring1 = useRef(new Animated.Value(0)).current;
+  const ring1O = useRef(new Animated.Value(0.7)).current;
+  const ring2 = useRef(new Animated.Value(0)).current;
+  const ring2O = useRef(new Animated.Value(0.7)).current;
+  const successScale = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (status === 'scanning') {
+      // Pulse the border
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1.04, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
+      ).start();
+
+      // Ripple rings
+      const runRipple = (scale: Animated.Value, opacity: Animated.Value, delay: number) => {
+        scale.setValue(0.4);
+        opacity.setValue(0.6);
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 1.8, duration: 1800, delay, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 1800, delay, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        ]).start(() => runRipple(scale, opacity, 0));
+      };
+      runRipple(ring1, ring1O, 0);
+      runRipple(ring2, ring2O, 900);
+    } else {
+      pulse.stopAnimation();
+      pulse.setValue(1);
+      ring1.stopAnimation();
+      ring2.stopAnimation();
+    }
+
+    if (status === 'success') {
+      Animated.spring(successScale, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
+    } else {
+      successScale.setValue(0);
+    }
+  }, [status]);
+
+  const isScanning = status === 'scanning';
+  const isSuccess = status === 'success';
+  const borderColor = isSuccess ? '#16a34a' : isScanning ? COLORS.primary : '#cbd5e1';
+
+  return (
+    <View style={styles.faceViewfinder}>
+      {/* Ripple rings behind the frame */}
+      <Animated.View style={[styles.faceRipple, { transform: [{ scale: ring1 }], opacity: ring1O }]} />
+      <Animated.View style={[styles.faceRipple, { transform: [{ scale: ring2 }], opacity: ring2O }]} />
+
+      {/* Main oval frame */}
+      <Animated.View style={[styles.faceOval, { borderColor, transform: [{ scale: pulse }] }]}>
+
+        {/* Corner brackets */}
+        <View style={[styles.corner, styles.corner_tl, { borderColor }]} />
+        <View style={[styles.corner, styles.corner_tr, { borderColor }]} />
+        <View style={[styles.corner, styles.corner_bl, { borderColor }]} />
+        <View style={[styles.corner, styles.corner_br, { borderColor }]} />
+
+        {/* Center icon / success check */}
+        {isSuccess ? (
+          <Animated.View style={{ transform: [{ scale: successScale }] }}>
+            <Ionicons name="checkmark-circle" size={64} color="#16a34a" />
+          </Animated.View>
+        ) : (
+          <View style={styles.faceIconCenter}>
+            <Ionicons name="person-outline" size={54} color={isScanning ? COLORS.primary : '#cbd5e1'} />
+            {isScanning && (
+              <View style={styles.faceScanLine} />
+            )}
+          </View>
+        )}
+      </Animated.View>
+
+      {/* Scan label */}
+      <View style={styles.faceScanBadge}>
+        <View style={[styles.faceScanDot, { backgroundColor: isSuccess ? '#16a34a' : isScanning ? '#3b82f6' : '#cbd5e1' }]} />
+        <Text style={[styles.faceScanBadgeText, { color: isSuccess ? '#16a34a' : isScanning ? COLORS.primary : COLORS.muted }]}>
+          {isSuccess ? 'Verified' : isScanning ? 'Scanning' : 'Ready'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function LiteAttendanceScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { mode, id } = useLocalSearchParams<{ mode?: string; id?: string }>();
+
+  // When mode=all and id are provided, show attendance for that specific employee
+  const viewAllMode = mode === 'all' && Boolean(id);
+
   const today = useMemo(() => new Date(), []);
   const [currentDate, setCurrentDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<Date | null>(
@@ -481,8 +690,23 @@ export default function LiteAttendanceScreen() {
   const [employeeId, setEmployeeId] = useState('');
   const [tenantCode, setTenantCode] = useState('');
   const [attendanceRows, setAttendanceRows] = useState<AttendanceRow[]>([]);
+  const [todayPunches, setTodayPunches] = useState<TodayPunch[]>([]);
+  const [punchOffset, setPunchOffset] = useState(0);
+  const [hasMorePunches, setHasMorePunches] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const isFetchingMoreRef = useRef(false);
+  const PUNCH_PAGE_SIZE = 15;
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showFaceModal, setShowFaceModal] = useState(false);
+  const [faceScanStatus, setFaceScanStatus] = useState<'idle' | 'scanning' | 'success'>('idle');
 
   useEffect(() => {
+    // In viewAllMode the employee ID comes from the route param, not the JWT
+    if (viewAllMode) {
+      setEmployeeId(String(id));
+      return;
+    }
+
     const run = async () => {
       const token = await getAccessToken();
       if (!token) return;
@@ -501,7 +725,7 @@ export default function LiteAttendanceScreen() {
     };
 
     void run();
-  }, []);
+  }, [viewAllMode, id]);
 
   const selectedMonthNumber = currentDate.getMonth() + 1;
 
@@ -540,6 +764,41 @@ export default function LiteAttendanceScreen() {
     },
   });
 
+  const punchParams = useMemo(
+    () => ({ offset: punchOffset, limit: PUNCH_PAGE_SIZE }),
+    [punchOffset]
+  );
+
+  const punchData = useMemo(
+    () => [
+      { field: 'employeeID', value: employeeId, operator: 'eq' },
+      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
+    ],
+    [employeeId, tenantCode]
+  );
+
+  useGetRequest<TodayPunch[]>({
+    url: DATA_CHECK_URL,
+    method: 'POST',
+    params: punchParams,
+    data: punchData,
+    enabled: Boolean(employeeId && tenantCode),
+    dependencies: [employeeId, tenantCode, punchOffset],
+    onSuccess: (data) => {
+      const page = data ?? [];
+      setTodayPunches((prev) => (punchOffset === 0 ? page : [...prev, ...page]));
+      setHasMorePunches(page.length === PUNCH_PAGE_SIZE);
+      isFetchingMoreRef.current = false;
+      setIsFetchingMore(false);
+    },
+    onError: () => {
+      if (punchOffset === 0) setTodayPunches([]);
+      setHasMorePunches(false);
+      isFetchingMoreRef.current = false;
+      setIsFetchingMore(false);
+    },
+  });
+
   const gridDays = useMemo(() => buildMonthGrid(currentDate), [currentDate]);
   const monthTitle = `${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
 
@@ -575,16 +834,6 @@ export default function LiteAttendanceScreen() {
 
     return null;
   }, [selectedDate, attendanceRows]);
-
-  const selectedDateLabel = useMemo(() => {
-    if (!selectedDate) return null;
-    return selectedDate.toLocaleDateString('en-IN', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  }, [selectedDate]);
 
   const attendanceDetail = useMemo(
     () => (selectedAttendanceRecord ? buildAttendanceDetail(selectedAttendanceRecord) : null),
@@ -642,89 +891,339 @@ export default function LiteAttendanceScreen() {
   };
 
   const handleCellPress = (cell: GridDay) => {
-    setSelectedDate(cell.date);
-    if (!cell.isCurrentMonth) {
-      setCurrentDate(new Date(cell.date.getFullYear(), cell.date.getMonth(), 1));
+    setShowCalendar(false);
+    const dateKey = toLocalDateKey(cell.date);
+    router.push(`/(tabs-lite)/attendance/muster?date=${dateKey}` as any);
+  };
+
+  const handleScroll = (event: any) => {
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    if (
+      contentOffset.y + layoutMeasurement.height >= contentSize.height - 120 &&
+      hasMorePunches &&
+      !isFetchingMoreRef.current
+    ) {
+      isFetchingMoreRef.current = true;
+      setIsFetchingMore(true);
+      setPunchOffset((prev) => prev + PUNCH_PAGE_SIZE);
     }
   };
 
   return (
     <View style={styles.screen}>
-      <View style={styles.top}>
+      <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
+
+      {/* Header */}
+      <View style={[styles.top, { paddingTop: insets.top + 14 }]}>
         <View style={styles.topRow}>
           <View style={styles.leftGroup}>
-            <Pressable onPress={() => router.push('/(tabs-lite)/applications' as any)} hitSlop={8} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color="#0f172a" />
+            <Pressable onPress={() => router.push('/(tabs-lite)/main-launchpad' as any)} hitSlop={8} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color={COLORS.white} />
             </Pressable>
             <Text style={styles.greeting}>Attendance</Text>
           </View>
           <View style={styles.topIcons}>
-            <Ionicons name="notifications-outline" size={18} color="#0f172a" />
-            <Ionicons name="settings-outline" size={18} color="#0f172a" />
+            <Ionicons name="notifications-outline" size={18} color="#fff" />
+            <Ionicons name="settings-outline" size={18} color="#fff" />
           </View>
         </View>
       </View>
 
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.calendarCard}>
-          <View style={styles.calHeader}>
-            <Pressable
-              hitSlop={12}
-              style={styles.calNavHit}
-              onPress={() => navigateMonth('prev')}
-              accessibilityRole="button"
-              accessibilityLabel="Previous month">
-              <Ionicons name="chevron-back" size={22} color={COLORS.primary} />
-            </Pressable>
-            <Pressable onPress={jumpToTodayMonth} style={styles.monthTitleHit}>
-              <Text style={styles.monthTitle}>{monthTitle}</Text>
-            </Pressable>
-            <Pressable
-              hitSlop={12}
-              style={styles.calNavHit}
-              onPress={() => navigateMonth('next')}
-              accessibilityRole="button"
-              accessibilityLabel="Next month">
-              <Ionicons name="chevron-forward" size={22} color={COLORS.primary} />
-            </Pressable>
+      <View style={styles.bannerSection}>
+        <BannerCarousel />
+      </View>
+
+      <ScrollView
+        style={styles.sheet}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}>
+
+        {/* ── Quick Actions ── */}
+        <View style={styles.actionPanel}>
+          <View style={styles.actionPanelHead}>
+            <Text style={styles.actionPanelKicker}>QUICK ACTIONS</Text>
+            <Text style={styles.actionPanelLink}>2 services</Text>
           </View>
 
-          <View style={styles.weekdayRow}>
-            {DAY_NAMES.map((name) => (
-              <Text key={name} style={styles.weekdayCell}>
-                {name}
-              </Text>
-            ))}
+          <View style={styles.actionRow}>
+            {/* Attendance Records card */}
+            <View style={styles.actionCardClip}>
+              <Pressable
+                style={({ pressed }) => [styles.actionCard, styles.actionCardBlue, pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] }]}
+                onPress={() => setShowCalendar(true)}
+              >
+                <View style={styles.actionCardIconCircle}>
+                  <Ionicons name="calendar-outline" size={22} color="#ffffff" />
+                </View>
+                <Text style={styles.actionCardTitle}>Attendance{'\n'}Records</Text>
+                <Text style={styles.actionCardSub}>View monthly logs</Text>
+                <View style={styles.actionCardFooter}>
+                  <Text style={styles.actionCardFooterText}>Open</Text>
+                  <Ionicons name="arrow-forward" size={12} color="rgba(255,255,255,0.85)" />
+                </View>
+              </Pressable>
+            </View>
+
+            {/* Face Attendance card */}
+            <View style={styles.actionCardClip}>
+              <Pressable
+                style={({ pressed }) => [styles.actionCard, styles.actionCardGreen, pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] }]}
+                onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(true); }}
+              >
+                <View style={[styles.actionCardIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                  <Ionicons name="scan-circle-outline" size={22} color="#ffffff" />
+                </View>
+                <Text style={styles.actionCardTitle}>Face{'\n'}Attendance</Text>
+                <Text style={styles.actionCardSub}>Mark via face scan</Text>
+                <View style={styles.actionCardFooter}>
+                  <Text style={styles.actionCardFooterText}>Scan</Text>
+                  <Ionicons name="arrow-forward" size={12} color="rgba(255,255,255,0.85)" />
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Core & Hours Information (above Today's Punches) ── */}
+        {attendanceDetail && (() => {
+          const allFields = [...detailColumnOne, ...detailColumnTwo];
+          const pairs: typeof allFields[] = [];
+          for (let i = 0; i < allFields.length; i += 2) {
+            pairs.push(allFields.slice(i, i + 2));
+          }
+          return (
+            <View style={styles.infoSectionCard}>
+              <View style={styles.actionPanelHead}>
+                <Text style={styles.actionPanelKicker}>ATTENDANCE DETAILS</Text>
+                <Text style={styles.actionPanelLink}>
+                  {selectedDate
+                    ? selectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : ''}
+                </Text>
+              </View>
+              {pairs.map((pair, pi) => (
+                <View key={pi} style={[styles.detailRow, pi === pairs.length - 1 && { borderBottomWidth: 0 }]}>
+                  {pair.map((item, ci) => {
+                    const isDash = !item.value || item.value === '-' || item.value === '00:00';
+                    return (
+                      <View key={item.label} style={[styles.detailRowCell, ci === 0 && styles.detailRowCellLeft]}>
+                        <Text style={styles.detailRowLabel}>{item.label}</Text>
+                        <Text style={[styles.detailRowValue, isDash && styles.detailRowValueMuted]}>
+                          {item.value || '-'}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          );
+        })()}
+
+        {/* ── Today's Punches ── */}
+        <View style={styles.todayPunchCard}>
+          <View style={styles.actionPanelHead}>
+            <Text style={styles.actionPanelKicker}>TODAY'S PUNCHES</Text>
+            <Text style={styles.actionPanelLink}>{todayPunches.length} records</Text>
           </View>
 
-          <View style={styles.grid}>
-            {gridDays.map((cell, index) => {
-              const isToday = isSameCalendarDay(cell.date, today);
-              const isFuture = isFutureCalendarDay(cell.date, today);
-              const isSelected = selectedDate ? isSameCalendarDay(cell.date, selectedDate) : false;
-              const hasActivity = cell.isCurrentMonth && hasAttendanceForDay(cell.date, attendanceRows);
-              const dayRow = cell.isCurrentMonth ? getAttendanceRowForDay(cell.date, attendanceRows) : null;
-              const dayDetail = dayRow ? buildAttendanceDetail(dayRow) : null;
-              const attendanceDayColor = cell.isCurrentMonth ? getDayCardColor(dayDetail, Boolean(dayRow)) : null;
-              const attendanceTextColor = !isSelected && cell.isCurrentMonth && attendanceDayColor ? getAttendanceTextColor(attendanceDayColor) : undefined;
-              const cellKey = `${cell.date.getFullYear()}-${cell.date.getMonth()}-${cell.date.getDate()}-${index}`;
+          {todayPunches.length > 0 ? (
+            <>
+              {todayPunches.map((punch, index) => {
+                const isIn = punch.inOut?.trim().toUpperCase() === 'I';
+                const time = punch.punchedTime || punch.transactionTime || '';
+                const dt = time ? new Date(time) : null;
+                const timeLabel = dt && !Number.isNaN(dt.getTime())
+                  ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
+                  : '--:--';
+                const dateLabel = dt && !Number.isNaN(dt.getTime())
+                  ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : '--';
+                const isProcessed = punch.processed;
+                const isLast = index === todayPunches.length - 1 && !hasMorePunches;
 
-              return (
+                return (
+                  <View key={`${punch._id ?? ''}-${index}`} style={[styles.todayPunchRow, isLast && { borderBottomWidth: 0 }]}>
+                    <View style={[styles.todayPunchTypeBox, { backgroundColor: isIn ? '#dcfce7' : '#dbeafe' }]}>
+                      <Ionicons name={isIn ? 'log-in-outline' : 'log-out-outline'} size={18} color={isIn ? '#16a34a' : '#1d4ed8'} />
+                    </View>
+                    <View style={styles.todayPunchInfo}>
+                      <View style={styles.todayPunchTopRow}>
+                        <Text style={[styles.todayPunchType, { color: isIn ? '#16a34a' : '#1d4ed8' }]}>
+                          {isIn ? 'In' : 'Out'}
+                        </Text>
+                        <View style={[styles.todayPunchMoveBadge, { backgroundColor: isIn ? '#dcfce7' : '#dbeafe' }]}>
+                          <Text style={[styles.todayPunchMoveText, { color: isIn ? '#16a34a' : '#1d4ed8' }]}>
+                            {punch.typeOfMovement || '-'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.todayPunchReader}>{punch.readerSerialNumber || '-'}</Text>
+                      <Text style={styles.todayPunchEmpId}>EMP: {punch.employeeID || '-'}</Text>
+                    </View>
+                    <View style={styles.todayPunchRight}>
+                      <Text style={styles.todayPunchTime}>{timeLabel}</Text>
+                      <Text style={styles.todayPunchDate}>{dateLabel}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+              {isFetchingMore && (
+                <View style={styles.punchLoadMore}>
+                  <Text style={styles.punchLoadMoreText}>Loading more…</Text>
+                </View>
+              )}
+              {!isFetchingMore && !hasMorePunches && todayPunches.length > 0 && (
+                <View style={styles.punchLoadMore}>
+                  <Text style={styles.punchLoadMoreText}>All {todayPunches.length} records loaded</Text>
+                </View>
+              )}
+              {!isFetchingMore && hasMorePunches && (
+                <View style={styles.punchLoadMore}>
+                  <Text style={styles.punchLoadMoreText}>Scroll down to load more</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.emptyPunchWrap}>
+              <Ionicons name="finger-print-outline" size={28} color="#cbd5e1" />
+              <Text style={styles.dayDetailsEmpty}>No punch records found.</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Face Attendance Modal ── */}
+        <Modal visible={showFaceModal} transparent animationType="slide" onRequestClose={() => setShowFaceModal(false)}>
+          <View style={styles.faceModalOverlay}>
+            <View style={styles.faceModalSheet}>
+              <View style={styles.modalHandle} />
+
+              {/* Header */}
+              <View style={styles.faceModalHeader}>
+                <View>
+                  <Text style={styles.faceModalTitle}>Face Attendance</Text>
+                  <Text style={styles.faceModalSub}>Position your face in the frame</Text>
+                </View>
+                <Pressable onPress={() => setShowFaceModal(false)} style={styles.modalCloseBtn}>
+                  <Ionicons name="close" size={20} color={COLORS.ink} />
+                </Pressable>
+              </View>
+
+              {/* Face scan viewfinder */}
+              <FaceScanViewfinder
+                status={faceScanStatus}
+                onScan={() => {
+                  setFaceScanStatus('scanning');
+                  setTimeout(() => setFaceScanStatus('success'), 2500);
+                }}
+              />
+
+              {/* Status message */}
+              {faceScanStatus === 'idle' && (
+                <Text style={styles.faceScanHint}>Tap "Scan Face" to begin attendance</Text>
+              )}
+              {faceScanStatus === 'scanning' && (
+                <Text style={[styles.faceScanHint, { color: COLORS.primary }]}>Scanning… please hold still</Text>
+              )}
+              {faceScanStatus === 'success' && (
+                <Text style={[styles.faceScanHint, { color: '#16a34a', fontWeight: '700' }]}>
+                  ✓ Attendance marked successfully!
+                </Text>
+              )}
+
+              {/* Action button */}
+              {faceScanStatus !== 'success' ? (
                 <Pressable
-                  key={cellKey}
-                  style={styles.gridCell}
-                  disabled={isFuture}
-                  onPress={() => handleCellPress(cell)}>
-                  <View
-                    style={[
+                  style={({ pressed }) => [
+                    styles.faceScanBtn,
+                    faceScanStatus === 'scanning' && styles.faceScanBtnDisabled,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                  disabled={faceScanStatus === 'scanning'}
+                  onPress={() => {
+                    setFaceScanStatus('scanning');
+                    setTimeout(() => setFaceScanStatus('success'), 2500);
+                  }}
+                >
+                  <Ionicons name="scan-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.faceScanBtnText}>
+                    {faceScanStatus === 'scanning' ? 'Scanning...' : 'Scan Face'}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[styles.faceScanBtn, { backgroundColor: '#16a34a' }]}
+                  onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(false); }}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.faceScanBtnText}>Done</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── Calendar bottom-sheet Modal ── */}
+        <Modal
+          visible={showCalendar}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowCalendar(false)}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowCalendar(false)} />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+
+            {/* Dark header with title + nav */}
+            <View style={styles.calTopBar}>
+              <View style={styles.calTopBarLeft}>
+                <Text style={styles.calTopTitle}>Select Date</Text>
+                <Pressable onPress={jumpToTodayMonth}>
+                  <Text style={styles.calTopSub}>{monthTitle} · Tap to jump today</Text>
+                </Pressable>
+              </View>
+              <View style={styles.calTopRight}>
+                <Pressable style={styles.calNavBtnDark} onPress={() => navigateMonth('prev')}>
+                  <Ionicons name="chevron-back" size={16} color="#fff" />
+                </Pressable>
+                <Pressable style={styles.calNavBtnDark} onPress={() => navigateMonth('next')}>
+                  <Ionicons name="chevron-forward" size={16} color="#fff" />
+                </Pressable>
+                <Pressable hitSlop={10} onPress={() => setShowCalendar(false)} style={styles.calCloseBtn}>
+                  <Ionicons name="close" size={16} color="#fff" />
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.weekdayRow}>
+              {DAY_NAMES.map((name) => (
+                <Text key={name} style={styles.weekdayCell}>{name}</Text>
+              ))}
+            </View>
+
+            <View style={styles.grid}>
+              {gridDays.map((cell, index) => {
+                const isToday = isSameCalendarDay(cell.date, today);
+                const isFuture = isFutureCalendarDay(cell.date, today);
+                const isSelected = selectedDate ? isSameCalendarDay(cell.date, selectedDate) : false;
+                const hasActivity = cell.isCurrentMonth && hasAttendanceForDay(cell.date, attendanceRows);
+                const dayRow = cell.isCurrentMonth ? getAttendanceRowForDay(cell.date, attendanceRows) : null;
+                const dayDetail = dayRow ? buildAttendanceDetail(dayRow) : null;
+                const attendanceDayColor = cell.isCurrentMonth ? getDayCardColor(dayDetail, Boolean(dayRow)) : null;
+                const attendanceTextColor = !isSelected && cell.isCurrentMonth && attendanceDayColor ? getAttendanceTextColor(attendanceDayColor) : undefined;
+                const cellKey = `${cell.date.getFullYear()}-${cell.date.getMonth()}-${cell.date.getDate()}-${index}`;
+
+                return (
+                  <Pressable key={cellKey} style={styles.gridCell} disabled={isFuture} onPress={() => handleCellPress(cell)}>
+                    <View style={[
                       styles.dayInner,
                       !isSelected && cell.isCurrentMonth && attendanceDayColor ? { backgroundColor: attendanceDayColor } : null,
                       isFuture && styles.futureDayBlock,
                       isToday && !isSelected && styles.todayRing,
                       isSelected && styles.selectedBlock,
                     ]}>
-                    <Text
-                      style={[
+                      <Text style={[
                         styles.dayText,
                         isFuture && styles.dayFuture,
                         !cell.isCurrentMonth && styles.dayMuted,
@@ -733,119 +1232,36 @@ export default function LiteAttendanceScreen() {
                         !isSelected && cell.isCurrentMonth && !hasActivity && styles.dayPlain,
                         attendanceTextColor ? { color: attendanceTextColor } : null,
                       ]}>
-                      {cell.label}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
+                        {cell.label}
+                      </Text>
+                      {isToday && !isSelected && <View style={styles.todayDot} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.legend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#e2e8f0' }]} />
+                <Text style={styles.legendLabel}>No data</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: COLORS.heroBg, borderWidth: 2, borderColor: COLORS.primary }]} />
+                <Text style={styles.legendLabel}>Today</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
+                <Text style={styles.legendLabel}>Selected</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#dbeafe' }]} />
+                <Text style={styles.legendLabel}>Present</Text>
+              </View>
+            </View>
           </View>
+        </Modal>
 
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={styles.legendChipNeutral} />
-              <Text style={styles.legendLabel}>In Month</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={styles.legendChipIn} />
-              <Text style={styles.legendLabel}>Punch In</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={styles.legendChipOut} />
-              <Text style={styles.legendLabel}>Punch Out</Text>
-            </View>
-          </View>
-        </View>
-
-        <View>
-          {selectedDate && selectedDateLabel ? (
-            <>
-              {attendanceDetail ? (
-                <View style={styles.infoSectionsWrap}>
-                  <View style={styles.infoSectionCard}>
-                    <View style={styles.infoSectionHead}>
-                      <Text style={styles.infoSectionKicker}>Attendance Core Information</Text>
-                      <Text style={styles.infoSectionLink}>Read Only</Text>
-                    </View>
-                    <View style={styles.infoRows}>
-                      {detailColumnOne.map((item) => (
-                        <View key={item.label} style={styles.infoFieldRow}>
-                          <Text style={styles.infoLabel}>{item.label}</Text>
-                          <Text style={styles.infoValue}>{item.value}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.infoSectionCard}>
-                    <View style={styles.infoSectionHead}>
-                      <Text style={styles.infoSectionKicker}>Attendance Hours Information</Text>
-                      <Text style={styles.infoSectionLink}>Read Only</Text>
-                    </View>
-                    <View style={styles.infoRows}>
-                      {detailColumnTwo.map((item) => (
-                        <View key={item.label} style={styles.infoFieldRow}>
-                          <Text style={styles.infoLabel}>{item.label}</Text>
-                          <Text style={styles.infoValue}>{item.value}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.infoSectionCard}>
-                    <View style={styles.infoSectionHead}>
-                      <Text style={styles.infoSectionKicker}>Punch Details</Text>
-                      <Text style={styles.infoSectionLink}>{punchRows.length} Records</Text>
-                    </View>
-                    {punchRows.length > 0 ? (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <View style={styles.punchTable}>
-                          <View style={[styles.punchRow, styles.punchHeaderRow]}>
-                            <Text style={[styles.punchCell, styles.punchHeadText, styles.punchColEmployee]}>Employee</Text>
-                            <Text style={[styles.punchCell, styles.punchHeadText, styles.punchColType]}>Type</Text>
-                            <Text style={[styles.punchCell, styles.punchHeadText, styles.punchColMove]}>Movement</Text>
-                            <Text style={[styles.punchCell, styles.punchHeadText, styles.punchColTime]}>Punch Time</Text>
-                            <Text style={[styles.punchCell, styles.punchHeadText, styles.punchColReader]}>Reader</Text>
-                            <Text style={[styles.punchCell, styles.punchHeadText, styles.punchColStatus]}>Status</Text>
-                          </View>
-
-                          {punchRows.map((row) => (
-                            <View key={row.id} style={styles.punchRow}>
-                              <Text style={[styles.punchCell, styles.punchCellText, styles.punchColEmployee]}>{row.employeeID}</Text>
-                              <Text
-                                style={[
-                                  styles.punchCell,
-                                  styles.punchCellText,
-                                  styles.punchColType,
-                                  row.inOut.trim().toUpperCase() === 'I' ? styles.punchInText : styles.punchOutText,
-                                ]}>
-                                {getPunchTypeLabel(row.inOut)}
-                              </Text>
-                              <Text style={[styles.punchCell, styles.punchCellText, styles.punchColMove]}>{row.typeOfMovement || '-'}</Text>
-                              <Text style={[styles.punchCell, styles.punchCellText, styles.punchColTime]}>{formatPunchDateTime(row.punchedTime)}</Text>
-                              <Text style={[styles.punchCell, styles.punchCellText, styles.punchColReader]}>{row.readerSerialNumber || '-'}</Text>
-                              <Text style={[styles.punchCell, styles.punchCellText, styles.punchColStatus]}>{row.processed}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      </ScrollView>
-                    ) : (
-                      <Text style={styles.dayDetailsEmpty}>No punch records for this date.</Text>
-                    )}
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.emptyStateWrap}>
-                  <Ionicons name="calendar-outline" size={36} color="#cbd5e1" />
-                  <Text style={styles.emptyStateTitle}>No Attendance Data</Text>
-                  <Text style={styles.dayDetailsEmpty}>No attendance records found for this date.</Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <Text style={styles.dayDetailsPlaceholder}>Tap a date to view details below.</Text>
-          )}
-        </View>
       </ScrollView>
     </View>
   );
@@ -854,35 +1270,37 @@ export default function LiteAttendanceScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.sheet,
+    backgroundColor: '#0a1c63',
   },
+
+  /* ── Header ── */
   top: {
-    paddingTop: 58,
+    backgroundColor: '#0a1c63',
     paddingHorizontal: 16,
-    paddingBottom: 8,
-    backgroundColor: COLORS.sheet,
+    paddingBottom: 18,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 14,
   },
   leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   backButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e2e8f0',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   greeting: {
     fontFamily: APP_FONT_FAMILY,
-    color: '#0f172a',
+    color: COLORS.white,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -890,38 +1308,91 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
   },
+
+  bannerSection: { backgroundColor: '#0a1c63', paddingTop: 0, paddingBottom: 16 },
+
+  /* ── ScrollView ── */
   sheet: {
     flex: 1,
-    backgroundColor: COLORS.sheet,
+    backgroundColor: '#f8fafc',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   content: {
     paddingHorizontal: 14,
-    paddingTop: 14,
+    paddingTop: 16,
     paddingBottom: 96,
     gap: 12,
   },
+
+  /* ── Calendar card ── */
   calendarCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
     paddingHorizontal: 14,
-    paddingTop: 14,
+    paddingTop: 16,
     paddingBottom: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  calHeader: {
+  /* ── Calendar top bar ── */
+  calTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
-    paddingHorizontal: 2,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    backgroundColor: COLORS.primaryDark,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+    marginTop: 4,
   },
-  calNavHit: {
-    width: 40,
-    height: 40,
+  calTopBarLeft: {
+    gap: 3,
+  },
+  calTopTitle: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.2,
+  },
+  calTopSub: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '500',
+  },
+  calTopRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  calNavBtnDark: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
+  },
+  calNavBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.heroBgLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -929,282 +1400,333 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   monthTitle: {
     fontFamily: APP_FONT_FAMILY,
     fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.primaryStrong,
+    fontWeight: '800',
+    color: COLORS.primaryDark,
     letterSpacing: 0.2,
   },
+  monthSubtitle: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10,
+    color: COLORS.muted,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+
+  /* Weekday row */
   weekdayRow: {
     flexDirection: 'row',
-    marginBottom: 8,
-    marginTop: 4,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
+    marginBottom: 4,
+    marginTop: 0,
     paddingVertical: 6,
   },
   weekdayCell: {
     width: '14.285%',
     textAlign: 'center',
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: COLORS.ink,
-    paddingVertical: 4,
+    color: COLORS.muted,
+    letterSpacing: 0.2,
   },
+
+  /* Day grid */
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginTop: 2,
   },
   gridCell: {
     width: '14.285%',
     aspectRatio: 1,
-    maxHeight: 48,
+    maxHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 2,
   },
   dayInner: {
-    minWidth: 34,
-    minHeight: 34,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: 18,
   },
   todayRing: {
     borderWidth: 2,
     borderColor: COLORS.primary,
-    backgroundColor: COLORS.heroBg,
+    backgroundColor: '#eff6ff',
+  },
+  todayDot: {
+    position: 'absolute',
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.primary,
   },
   selectedBlock: {
     backgroundColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  futureDayBlock: {
+    opacity: 0.3,
   },
   dayText: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+    color: COLORS.ink,
   },
   dayMuted: {
-    color: '#cbd5e1',
-    fontWeight: '500',
+    color: '#e2e8f0',
+    fontWeight: '400',
   },
   dayFuture: {
     color: '#cbd5e1',
-    fontWeight: '500',
-  },
-  futureDayBlock: {
-    backgroundColor: '#f8fafc',
-    opacity: 0.9,
   },
   dayPlain: {
     color: COLORS.ink,
   },
   dayActivity: {
-    color: COLORS.accent,
+    color: COLORS.primaryStrong,
     fontWeight: '700',
   },
   dayTextOnSelected: {
-    color: '#fff',
-    fontWeight: '700',
+    color: COLORS.white,
+    fontWeight: '800',
   },
+
+  /* Legend */
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 20,
-    marginTop: 6,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 12,
+    paddingVertical: 10,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 5,
   },
-  legendTodayIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.heroBg,
-  },
-  legendTodayNum: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.ink,
-  },
-  legendActivityNum: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.accent,
-  },
-  legendSelectedIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  legendSelectedNum: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  legendChipNeutral: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#cbd5e1',
-  },
-  legendChipIn: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#16a34a',
-  },
-  legendChipOut: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#2563eb',
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   legendLabel: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    color: COLORS.ink,
-    fontWeight: '500',
+    fontSize: 10,
+    color: COLORS.muted,
+    fontWeight: '600',
   },
-  punchTable: {
-    minWidth: 760,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
-    overflow: 'hidden',
+
+  /* ── Calendar Modal ── */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  punchHeaderRow: {
-    backgroundColor: '#f8fafc',
+  modalSheet: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 14,
+    paddingBottom: 32,
+    elevation: 20,
   },
-  punchRow: {
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  modalSheetHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    marginBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#eef2f7',
+    borderBottomColor: '#f1f5f9',
   },
-  punchCell: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+  modalSheetTitle: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.ink,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
   },
-  punchHeadText: {
+
+  /* Date selector bar */
+  dateSelectorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 12,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e8edf8',
+  },
+  dateSelectorIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  dateSelectorCenter: {
+    flex: 1,
+    gap: 2,
+  },
+  dateSelectorWeekday: {
     fontFamily: APP_FONT_FAMILY,
     fontSize: 11,
-    color: '#64748b',
+    fontWeight: '600',
+    color: COLORS.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  dateSelectorTodayInline: {
+    color: COLORS.primary,
     fontWeight: '700',
   },
-  punchCellText: {
+  dateSelectorDateMain: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#334155',
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.ink,
+    letterSpacing: 0.1,
   },
-  punchColEmployee: {
-    width: 92,
+  dateSelectorLabel: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.muted,
   },
-  punchColType: {
-    width: 64,
+  dateSelectorToday: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
-  punchColMove: {
-    width: 90,
-  },
-  punchColTime: {
-    width: 180,
-  },
-  punchColReader: {
-    width: 200,
-  },
-  punchColStatus: {
-    width: 90,
-  },
-  punchInText: {
-    color: '#0f766e',
-    fontWeight: '700',
-  },
-  punchOutText: {
-    color: '#1d4ed8',
-    fontWeight: '700',
-  },
-  dayDetailsCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
-    padding: 12,
-  },
-  dayDetailsPanelHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  dateSelectorChevron: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: COLORS.heroBgLight,
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  dayDetailsPanelKicker: {
+  changeDateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: COLORS.primary,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  changeDateBtnText: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    color: '#94a3b8',
+    fontSize: 12,
     fontWeight: '700',
+    color: COLORS.white,
   },
-  dayDetailsPanelLink: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#64748b',
-  },
-  dayDetailsDateMeta: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 8,
-  },
+
+  /* Detail section cards */
   infoSectionsWrap: {
     gap: 12,
   },
   infoSectionCard: {
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
-    padding: 12,
+    backgroundColor: COLORS.white,
+    padding: 14,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   infoSectionHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  infoSectionKicker: {
+  infoSectionHeadLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoSectionAccent: {
+    width: 4,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: COLORS.primary,
+  },
+  infoSectionTitle: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.ink,
+  },
+  readOnlyBadge: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  readOnlyText: {
     fontFamily: APP_FONT_FAMILY,
     fontSize: 10,
-    letterSpacing: 0.8,
-    color: '#94a3b8',
-    fontWeight: '700',
+    fontWeight: '600',
+    color: COLORS.muted,
   },
-  infoSectionLink: {
+  countBadge: {
+    backgroundColor: COLORS.heroBg,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  countBadgeText: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.primaryStrong,
   },
   infoRows: {
     width: '100%',
-    gap: 2,
   },
   infoFieldRow: {
     width: '100%',
@@ -1213,79 +1735,501 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eef2f7',
-    paddingVertical: 8,
+    borderBottomColor: '#f1f5f9',
+    paddingVertical: 9,
+  },
+  infoFieldRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 2,
   },
   infoLabel: {
     fontFamily: APP_FONT_FAMILY,
     fontSize: 12,
-    color: '#64748b',
+    color: COLORS.muted,
+    fontWeight: '500',
   },
   infoValue: {
     fontFamily: APP_FONT_FAMILY,
     fontSize: 13,
-    color: '#0f172a',
-    fontWeight: '600',
+    color: COLORS.ink,
+    fontWeight: '700',
     flexShrink: 1,
     textAlign: 'right',
   },
-  dayDetailsPlaceholder: {
+
+  /* Punch table */
+  punchTable: {
+    minWidth: 760,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  punchHeaderRow: {
+    backgroundColor: COLORS.heroBg,
+  },
+  punchRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  punchCell: {
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+  },
+  punchHeadText: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    color: '#64748b',
-    lineHeight: 18,
+    fontSize: 11,
+    color: COLORS.primaryStrong,
+    fontWeight: '700',
+  },
+  punchCellText: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 12,
+    color: '#334155',
+    fontWeight: '500',
+  },
+  punchColEmployee: { width: 92 },
+  punchColType: { width: 64 },
+  punchColMove: { width: 90 },
+  punchColTime: { width: 180 },
+  punchColReader: { width: 200 },
+  punchColStatus: { width: 90 },
+  punchInText: {
+    color: '#0f766e',
+    fontWeight: '700',
+  },
+  punchOutText: {
+    color: COLORS.primaryStrong,
+    fontWeight: '700',
+  },
+
+  /* Empty / placeholder states */
+  emptyPunchWrap: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 6,
   },
   emptyStateWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 22,
-    gap: 6,
+    paddingVertical: 28,
+    gap: 8,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  emptyStateIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.heroBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyStateTitle: {
     fontFamily: APP_FONT_FAMILY,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#334155',
+    color: COLORS.ink,
   },
-  dayDetailsHoliday: {
-    borderRadius: 12,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    padding: 10,
-    gap: 4,
-  },
-  dayDetailsHolidayHeader: {
+  placeholderWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    paddingVertical: 20,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  dayDetailsHolidayName: {
+  dayDetailsPlaceholder: {
     fontFamily: APP_FONT_FAMILY,
-    flex: 1,
     fontSize: 13,
-    fontWeight: '700',
-    color: '#b91c1c',
-  },
-  dayDetailsHolidayReason: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#dc2626',
-  },
-  dayDetailsList: {
-    gap: 4,
-    marginTop: 2,
-  },
-  dayDetailsMeta: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#475569',
+    color: COLORS.muted,
+    fontWeight: '500',
   },
   dayDetailsEmpty: {
     fontFamily: APP_FONT_FAMILY,
     fontSize: 13,
-    color: '#64748b',
+    color: COLORS.muted,
     textAlign: 'center',
+  },
+
+  /* ── Quick Actions panel ── */
+  actionPanel: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+    gap: 12,
+  },
+  actionPanelHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  actionPanelKicker: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: '#94a3b8',
+    fontWeight: '700',
+  },
+  actionPanelLink: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 12,
+    color: '#64748b',
+  },
+
+  /* ── Action cards ── */
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  actionCardClip: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  actionCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 12,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+    gap: 3,
+  },
+  actionCardBlue: {
+    backgroundColor: '#1d4ed8',
+    shadowColor: '#1d4ed8',
+  },
+  actionCardGreen: {
+    backgroundColor: '#0369a1',
+    shadowColor: '#0369a1',
+  },
+  actionCardIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  actionCardTitle: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#ffffff',
+    lineHeight: 20,
+  },
+  actionCardSub: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.65)',
+  },
+  actionCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 5,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.15)',
+  },
+  actionCardFooterText: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+  },
+
+  /* ── Face Attendance Modal ── */
+  faceModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  faceModalSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+  },
+  faceModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  faceModalTitle: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.ink,
+  },
+  faceModalSub: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 12,
+    color: COLORS.muted,
+    marginTop: 2,
+  },
+
+  /* Face viewfinder */
+  faceViewfinder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  faceRipple: {
+    position: 'absolute',
+    width: 200,
+    height: 240,
+    borderRadius: 120,
+    borderWidth: 1.5,
+    borderColor: 'rgba(37,99,235,0.5)',
+  },
+  faceOval: {
+    width: 196,
+    height: 236,
+    borderRadius: 98,
+    borderWidth: 2.5,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  corner: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderColor: COLORS.primary,
+  },
+  corner_tl: { top: 12, left: 12, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 6 },
+  corner_tr: { top: 12, right: 12, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 6 },
+  corner_bl: { bottom: 12, left: 12, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 6 },
+  corner_br: { bottom: 12, right: 12, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 6 },
+  faceIconCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faceScanLine: {
+    position: 'absolute',
+    width: 120,
+    height: 2,
+    backgroundColor: COLORS.primary,
+    opacity: 0.7,
+    borderRadius: 1,
+  },
+  faceScanBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  faceScanDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  faceScanBadgeText: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  faceScanHint: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 13,
+    color: COLORS.muted,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  faceScanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    borderRadius: 16,
+    paddingVertical: 15,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  faceScanBtnDisabled: {
+    backgroundColor: '#93c5fd',
+  },
+  faceScanBtnText: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+
+  /* ── Today's Punches ── */
+  todayPunchCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  todayPunchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    gap: 12,
+  },
+  todayPunchTypeBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  todayPunchInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  todayPunchType: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  todayPunchReader: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 11,
+    color: COLORS.muted,
+    fontWeight: '500',
+  },
+  todayPunchTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  todayPunchMoveBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  todayPunchMoveText: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  todayPunchEmpId: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10,
+    color: COLORS.muted,
+    fontWeight: '500',
+  },
+  todayPunchRight: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  todayPunchTime: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.ink,
+  },
+  todayPunchDate: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10,
+    color: COLORS.muted,
+    fontWeight: '500',
+  },
+  todayPunchStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  todayPunchStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  todayPunchStatusText: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  detailRowCell: {
+    flex: 1,
     paddingVertical: 8,
+    paddingHorizontal: 2,
+  },
+  detailRowCellLeft: {
+    borderRightWidth: 1,
+    borderRightColor: '#f1f5f9',
+    marginRight: 12,
+    paddingRight: 12,
+  },
+  detailRowLabel: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 11,
+    color: COLORS.muted,
+    fontWeight: '500',
+    marginBottom: 3,
+  },
+  detailRowValue: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.ink,
+  },
+  detailRowValueMuted: {
+    color: '#cbd5e1',
+  },
+  punchLoadMore: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    marginTop: 4,
+  },
+  punchLoadMoreText: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 11,
+    color: COLORS.muted,
+    fontWeight: '500',
   },
 });

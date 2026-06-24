@@ -1,20 +1,37 @@
 import { useRolePermissions } from '@/hooks/api/useRolePermissions';
+import { getAccessToken } from '@/hooks/auth/token-store';
 import { useCanAccess } from '@/hooks/auth/useScreenPermissions';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+function decodeJwtPayload(token: string) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const json = decodeURIComponent(
+      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
+    );
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
 
 type ServiceDef = {
   title: string;
-  subtitle: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
-  cardBg: string;
-  blobLight: string;
-  blobDark: string;
-  iconBg: string;
-  actionLabel: string;
   applierRoute: string;
   approverRoute: string;
 };
@@ -22,104 +39,181 @@ type ServiceDef = {
 const SERVICES: ServiceDef[] = [
   {
     title: 'Leave',
-    subtitle: 'Apply & track leave requests',
     icon: 'calendar-outline',
-    cardBg: '#0a1c63', blobLight: '#1e3a8a', blobDark: '#172554', iconBg: '#16a34a',
-    actionLabel: 'Apply',
     applierRoute: '/(tabs-lite)/applications/leave-application?application=leave',
     approverRoute: '/(tabs-lite)/applications/leave-application?application=leave',
   },
   {
     title: 'Special Leave',
-    subtitle: 'Compassionate & special leave',
     icon: 'calendar-clear-outline',
-    cardBg: '#1e1b4b', blobLight: '#312e81', blobDark: '#0f0e2b', iconBg: '#7c3aed',
-    actionLabel: 'Apply',
     applierRoute: '/(tabs-lite)/applications/leave-application?application=special',
     approverRoute: '/(tabs-lite)/applications/leave-application?application=special',
   },
   {
     title: 'Edit Punch',
-    subtitle: 'Correct attendance punch records',
     icon: 'create-outline',
-    cardBg: '#1f2937', blobLight: '#374151', blobDark: '#111827', iconBg: '#dc2626',
-    actionLabel: 'Edit',
     applierRoute: '/(tabs-lite)/applications/edit-punch',
     approverRoute: '/(tabs-lite)/applications/edit-punch',
   },
   {
     title: 'Shift Change',
-    subtitle: 'Request shift reassignment',
     icon: 'time-outline',
-    cardBg: '#0c4a6e', blobLight: '#0369a1', blobDark: '#082f49', iconBg: '#6366f1',
-    actionLabel: 'Request',
     applierRoute: '/(tabs-lite)/applications/shift-change',
     approverRoute: '/(tabs-lite)/applications/shift-change',
   },
   {
     title: 'Out Duty',
-    subtitle: 'Log out-of-office duty time',
     icon: 'navigate-outline',
-    cardBg: '#0f172a', blobLight: '#1e293b', blobDark: '#020617', iconBg: '#f59e0b',
-    actionLabel: 'Apply',
     applierRoute: '/(tabs-lite)/applications/out-duty-application',
     approverRoute: '/(tabs-lite)/applications/out-duty-application',
   },
   {
     title: 'OT Apply',
-    subtitle: 'Submit overtime work claims',
     icon: 'briefcase-outline',
-    cardBg: '#14532d', blobLight: '#166534', blobDark: '#052e16', iconBg: '#d97706',
-    actionLabel: 'Apply',
     applierRoute: '/(tabs-lite)/applications/ot-application',
     approverRoute: '/(tabs-lite)/applications/ot-application',
   },
   {
     title: 'Work From Home',
-    subtitle: 'Request remote work approval',
     icon: 'home-outline',
-    cardBg: '#134e4a', blobLight: '#0f766e', blobDark: '#0d3d3a', iconBg: '#0891b2',
-    actionLabel: 'Request',
     applierRoute: '/(tabs-lite)/applications/wfh-application',
     approverRoute: '/(tabs-lite)/applications/wfh-application',
   },
   {
     title: 'Punch Apply',
-    subtitle: 'Add missing punch entries',
     icon: 'finger-print-outline',
-    cardBg: '#1a1a2e', blobLight: '#16213e', blobDark: '#0f0f1e', iconBg: '#16a34a',
-    actionLabel: 'Apply',
     applierRoute: '/(tabs-lite)/applications/punch-application',
     approverRoute: '/(tabs-lite)/applications/punch-application',
   },
   {
     title: 'Encashment',
-    subtitle: 'Encash accumulated leave balance',
     icon: 'cash-outline',
-    cardBg: '#450a0a', blobLight: '#7f1d1d', blobDark: '#2a0404', iconBg: '#f59e0b',
-    actionLabel: 'Apply',
     applierRoute: '/(tabs-lite)/applications/encashment-application',
     approverRoute: '/(tabs-lite)/applications/encashment-application',
   },
   {
     title: 'Comp Off',
-    subtitle: 'Claim compensatory time off',
     icon: 'swap-horizontal-outline',
-    cardBg: '#3b0764', blobLight: '#581c87', blobDark: '#1a0330', iconBg: '#9333ea',
-    actionLabel: 'Claim',
     applierRoute: '/(tabs-lite)/applications/compoff-application',
     approverRoute: '/(tabs-lite)/applications/compoff-application',
   },
   {
     title: 'Attendance',
-    subtitle: 'View & manage attendance records',
     icon: 'today-outline',
-    cardBg: '#052e16', blobLight: '#14532d', blobDark: '#021d0e', iconBg: '#16a34a',
-    actionLabel: 'View',
     applierRoute: '/(tabs-lite)/attendance',
     approverRoute: '/(tabs-lite)/attendance',
   },
 ];
+
+type BannerDef = {
+  id: string;
+  title: string;
+  sub: string;
+  bg: string;
+  ringA: string;
+  ringB: string;
+  accent: string;
+  primaryIcon: React.ComponentProps<typeof Ionicons>['name'];
+  secondaryIcon: React.ComponentProps<typeof Ionicons>['name'];
+  tertiaryIcon: React.ComponentProps<typeof Ionicons>['name'];
+};
+
+const BANNERS: BannerDef[] = [
+  {
+    id: 'b1',
+    title: 'Apply Leave\nHassle-Free.',
+    sub: 'Submit & track leave requests instantly',
+    bg: '#1d4ed8',
+    ringA: 'rgba(59,130,246,0.35)',
+    ringB: 'rgba(96,165,250,0.2)',
+    accent: '#bfdbfe',
+    primaryIcon: 'calendar-outline',
+    secondaryIcon: 'checkmark-done-outline',
+    tertiaryIcon: 'time-outline',
+  },
+  {
+    id: 'b2',
+    title: 'Empower Your\nWork Schedule.',
+    sub: 'WFH, shift changes & more at your fingertips',
+    bg: '#0369a1',
+    ringA: 'rgba(14,165,233,0.35)',
+    ringB: 'rgba(56,189,248,0.2)',
+    accent: '#bae6fd',
+    primaryIcon: 'home-outline',
+    secondaryIcon: 'laptop-outline',
+    tertiaryIcon: 'wifi-outline',
+  },
+  {
+    id: 'b3',
+    title: 'Track Overtime\n& Comp Off.',
+    sub: 'Log OT hours and claim compensatory time off',
+    bg: '#1e3a8a',
+    ringA: 'rgba(37,99,235,0.4)',
+    ringB: 'rgba(59,130,246,0.2)',
+    accent: '#93c5fd',
+    primaryIcon: 'briefcase-outline',
+    secondaryIcon: 'swap-horizontal-outline',
+    tertiaryIcon: 'cash-outline',
+  },
+  {
+    id: 'b4',
+    title: 'Fix Your\nAttendance\nRecords.',
+    sub: 'Edit punch records and missing entries easily',
+    bg: '#4338ca',
+    ringA: 'rgba(99,102,241,0.4)',
+    ringB: 'rgba(129,140,248,0.2)',
+    accent: '#c7d2fe',
+    primaryIcon: 'finger-print-outline',
+    secondaryIcon: 'create-outline',
+    tertiaryIcon: 'shield-checkmark-outline',
+  },
+];
+
+function BannerIllustration({ b }: { b: BannerDef }) {
+  return (
+    <View pointerEvents="none" style={s.illustrationWrap}>
+      <View style={[s.ringOuter, { backgroundColor: b.ringB }]} />
+      <View style={[s.ringInner, { backgroundColor: b.ringA }]} />
+      <View style={s.ringCenter}>
+        <Ionicons name={b.primaryIcon} size={36} color={b.accent} />
+      </View>
+      <View style={[s.floatIconA, { backgroundColor: b.ringA }]}>
+        <Ionicons name={b.secondaryIcon} size={14} color={b.accent} />
+      </View>
+      <View style={[s.floatIconB, { backgroundColor: b.ringA }]}>
+        <Ionicons name={b.tertiaryIcon} size={12} color={b.accent} />
+      </View>
+    </View>
+  );
+}
+
+function BannerCarousel() {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      decelerationRate="fast"
+      snapToInterval={272}
+      snapToAlignment="start"
+      contentContainerStyle={s.bannerScroll}
+    >
+      {BANNERS.map((b) => (
+        <View key={b.id} style={[s.bannerCard, { backgroundColor: b.bg }]}>
+          <View pointerEvents="none" style={[s.bannerShine, { backgroundColor: b.ringA }]} />
+          <BannerIllustration b={b} />
+          <View style={s.bannerContent}>
+            <Text style={s.bannerTitle}>{b.title}</Text>
+            <Text style={s.bannerSub}>{b.sub}</Text>
+            <View style={s.bannerLearnRow}>
+              <Text style={[s.bannerLearn, { color: b.accent }]}>Learn More</Text>
+              <Ionicons name="arrow-forward" size={11} color={b.accent} />
+            </View>
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
 
 function chunk<T>(arr: T[], size: number): T[][] {
   return Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
@@ -130,45 +224,41 @@ function chunk<T>(arr: T[], size: number): T[][] {
 function ServiceCard({ svc, onPress }: { svc: ServiceDef; onPress: () => void }) {
   return (
     <Pressable
-      className="flex-1"
-      style={({ pressed }) => pressed ? { transform: [{ scale: 0.98 }] } : undefined}
+      style={({ pressed }) => [s.card, pressed && { transform: [{ scale: 0.94 }], opacity: 0.8 }]}
       onPress={onPress}
     >
-      <View
-        className="rounded-2xl overflow-hidden p-3"
-        style={{ backgroundColor: svc.cardBg, minHeight: 104 }}
-      >
-        {/* Decorative blobs — sized for half-width cards */}
-        <View className="absolute" style={{ width: 70, height: 70, borderRadius: 35, right: -14, top: -34, backgroundColor: svc.blobLight }} />
-        <View className="absolute" style={{ width: 80, height: 60, borderRadius: 30, right: -10, bottom: -30, backgroundColor: svc.blobDark }} />
-
-        {/* Top row */}
-        <View className="flex-row justify-between items-start">
-          <View className="flex-1 pr-2">
-            <Text className="text-sm font-bold leading-[18px] text-white" numberOfLines={1}>
-              {svc.title}
-            </Text>
-            <Text className="text-[10px] font-semibold leading-[14px] mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }} numberOfLines={2}>
-              {svc.subtitle}
-            </Text>
-          </View>
-          <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: svc.iconBg }}>
-            <Ionicons name={svc.icon} size={18} color="#ffffff" />
-          </View>
-        </View>
-
-        {/* Action row */}
-        <View className="mt-auto pt-2.5 flex-row items-center justify-center" style={{ gap: 2 }}>
-          <Text className="text-[10px] font-bold text-white">{svc.actionLabel}</Text>
-          <Ionicons name="chevron-forward" size={12} color="#ffffff" />
-        </View>
+      <View style={s.cardIconWrap}>
+        <Ionicons name={svc.icon} size={22} color="#1e3a8a" />
       </View>
+      <Text style={s.cardTitle} numberOfLines={2}>{svc.title}</Text>
     </Pressable>
   );
 }
 
-function ApplierSection() {
+function CardGrid({ services, getRoute }: { services: ServiceDef[]; getRoute: (svc: ServiceDef) => string }) {
   const router = useRouter();
+  return (
+    <View style={s.grid}>
+      {chunk(services, 4).map((row, rowIndex) => (
+        <View key={rowIndex} style={s.gridRow}>
+          {row.map((svc) => (
+            <ServiceCard key={svc.title} svc={svc} onPress={() => router.push(getRoute(svc) as any)} />
+          ))}
+          {row.length < 4 && Array.from({ length: 4 - row.length }).map((_, i) => (
+            <View key={`pad-${i}`} style={{ flex: 1 }} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export default function ApplicationsHubScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [employeeId, setEmployeeId] = useState('');
+  const [tenantCode, setTenantCode] = useState('');
+
   const { loading } = useRolePermissions();
 
   const a0  = useCanAccess('applicationApplier', 'leave');
@@ -183,120 +273,185 @@ function ApplierSection() {
   const a9  = useCanAccess('applicationApplier', 'compOff');
   const a10 = useCanAccess('attendance', 'attendance');
 
-  const flags = [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10];
-  const visible = loading ? SERVICES : SERVICES.filter((_, i) => flags[i]);
-  if (!loading && visible.length === 0) return null;
+  const b0  = useCanAccess('applicationApprover', 'leave');
+  const b1  = useCanAccess('applicationApprover', 'specialLeave');
+  const b2  = useCanAccess('applicationApprover', 'editPunchApplication');
+  const b3  = useCanAccess('applicationApprover', 'shiftChange');
+  const b4  = useCanAccess('applicationApprover', 'outDuty');
+  const b5  = useCanAccess('applicationApprover', 'overtime');
+  const b6  = useCanAccess('applicationApprover', 'wfh');
+  const b7  = useCanAccess('applicationApprover', 'punch');
+  const b8  = useCanAccess('applicationApprover', 'encashment');
+  const b9  = useCanAccess('applicationApprover', 'compOff');
+  const b10 = useCanAccess('applicationApprover', 'attendance');
+
+  const applierFlags = [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10];
+  const approverFlags = [b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10];
+
+  const visibleApplier = loading ? SERVICES : SERVICES.filter((_, i) => applierFlags[i]);
+  const visibleApprover = loading ? SERVICES : SERVICES.filter((_, i) => approverFlags[i]);
+
+  useEffect(() => {
+    const run = async () => {
+      const token = await getAccessToken();
+      if (!token) return;
+      const payload = decodeJwtPayload(token);
+      if (!payload) return;
+      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? '') || '');
+      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? '') || '');
+    };
+    void run();
+  }, []);
 
   return (
-    <View className="mx-2 mt-2.5">
-      <View className="flex-row items-center px-1 pb-2 gap-2">
-        <View className="w-1.5 h-1.5 rounded-full bg-[#0a1c63]" />
-        <Text className="text-[11px] font-bold text-[#6b7280] tracking-[0.4px] uppercase">My Applications</Text>
-      </View>
-      <View style={{ gap: 10 }}>
-        {chunk(visible, 2).map((row, rowIndex) => (
-          <View key={rowIndex} className="flex-row" style={{ gap: 10 }}>
-            {row.map((svc) => {
-              const sep = svc.applierRoute.includes('?') ? '&' : '?';
-              return (
-                <ServiceCard key={svc.title} svc={svc} onPress={() => router.push(`${svc.applierRoute}${sep}mode=applier` as any)} />
-              );
-            })}
-            {row.length < 2 && <View className="flex-1" />}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function ApproverSection() {
-  const router = useRouter();
-  const { loading } = useRolePermissions();
-
-  const a0  = useCanAccess('applicationApprover', 'leave');
-  const a1  = useCanAccess('applicationApprover', 'specialLeave');
-  const a2  = useCanAccess('applicationApprover', 'editPunchApplication');
-  const a3  = useCanAccess('applicationApprover', 'shiftChange');
-  const a4  = useCanAccess('applicationApprover', 'outDuty');
-  const a5  = useCanAccess('applicationApprover', 'overtime');
-  const a6  = useCanAccess('applicationApprover', 'wfh');
-  const a7  = useCanAccess('applicationApprover', 'punch');
-  const a8  = useCanAccess('applicationApprover', 'encashment');
-  const a9  = useCanAccess('applicationApprover', 'compOff');
-  const a10 = useCanAccess('applicationApprover', 'attendance');
-
-  const flags = [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10];
-  const visible = loading ? SERVICES : SERVICES.filter((_, i) => flags[i]);
-  if (!loading && visible.length === 0) return null;
-
-  return (
-    <View className="mx-2 mt-4">
-      <View className="flex-row items-center px-1 pb-2 gap-2">
-        <View className="w-1.5 h-1.5 rounded-full bg-[#d97706]" />
-        <Text className="text-[11px] font-bold text-[#6b7280] tracking-[0.4px] uppercase">Approvals</Text>
-      </View>
-      <View style={{ gap: 10 }}>
-        {chunk(visible, 2).map((row, rowIndex) => (
-          <View key={rowIndex} className="flex-row" style={{ gap: 10 }}>
-            {row.map((svc) => {
-              const sep = svc.approverRoute.includes('?') ? '&' : '?';
-              return (
-                <ServiceCard key={svc.title} svc={svc} onPress={() => router.push(`${svc.approverRoute}${sep}mode=approver` as any)} />
-              );
-            })}
-            {row.length < 2 && <View className="flex-1" />}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-export default function ApplicationsHubScreen() {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View className="flex-1 bg-[#f4f5f7]">
+    <View style={s.screen}>
       <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
 
-      {/* Header */}
-      <View
-        className="bg-[#0a1c63] px-5 pb-5 overflow-hidden"
-        style={{ paddingTop: insets.top + 14 }}
-      >
-        <View className="absolute" style={{ width: 180, height: 180, borderRadius: 90, right: -40, top: -60, backgroundColor: '#1e3a8a', opacity: 0.5 }} />
-        <View className="absolute" style={{ width: 120, height: 120, borderRadius: 60, right: 60, top: 10, backgroundColor: '#3b5bdb', opacity: 0.25 }} />
-
-        <Text className="text-xl font-bold text-white">Applications</Text>
-
-        {/* Summary card */}
-        <View
-          className="mt-4 rounded-2xl p-3.5 flex-row items-center gap-3.5"
-          style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' }}
-        >
-          <View
-            className="w-11 h-11 rounded-full items-center justify-center"
-            style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
-          >
-            <Ionicons name="document-text-outline" size={22} color="#ffffff" />
+      <View style={[s.top, { paddingTop: insets.top + 14 }]}>
+        <View style={s.topRow}>
+          <View style={s.topLeft}>
+            <Pressable
+              style={s.backBtn}
+              hitSlop={8}
+              onPress={() => router.push('/(tabs-lite)/main-launchpad' as any)}
+            >
+              <Ionicons name="arrow-back" size={18} color="#fff" />
+            </Pressable>
+            <Text style={s.greeting}>Applications</Text>
           </View>
-          <View className="flex-1">
-            <Text className="text-[11px] font-bold text-[#c7d2fe] tracking-[0.4px] uppercase">HR Self Service</Text>
-            <Text className="text-sm font-extrabold text-white mt-0.5">Submit & track requests</Text>
-            <Text className="text-[11px] text-[#a5b4fc] mt-0.5">Leave · Shift · Attendance · More</Text>
+          <View style={s.topIcons}>
+            <Ionicons name="notifications-outline" size={18} color="#fff" />
+            <Ionicons name="settings-outline" size={18} color="#fff" />
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#a5b4fc" />
         </View>
+
+      </View>
+
+      <View style={s.bannerSection}>
+        <BannerCarousel />
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
+        style={s.sheet}
+        contentContainerStyle={[s.sheetContent, { paddingBottom: insets.bottom + 90 }]}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        bounces={false}
       >
-        <ApplierSection />
-        <ApproverSection />
+        {(!loading || visibleApplier.length > 0) && (
+          <View style={s.panel}>
+            <View style={s.panelHead}>
+              <Text style={s.panelKicker}>MY APPLICATIONS</Text>
+              <Text style={s.panelLink}>All services: {visibleApplier.length}</Text>
+            </View>
+            <CardGrid
+              services={visibleApplier}
+              getRoute={(svc) => {
+                const sep = svc.applierRoute.includes('?') ? '&' : '?';
+                return `${svc.applierRoute}${sep}mode=applier`;
+              }}
+            />
+          </View>
+        )}
+
+        {(!loading || visibleApprover.length > 0) && visibleApprover.length > 0 && (
+          <View style={s.panel}>
+            <View style={s.panelHead}>
+              <Text style={s.panelKicker}>APPROVALS</Text>
+              <Text style={s.panelLink}>All services: {visibleApprover.length}</Text>
+            </View>
+            <CardGrid
+              services={visibleApprover}
+              getRoute={(svc) => {
+                const sep = svc.approverRoute.includes('?') ? '&' : '?';
+                return `${svc.approverRoute}${sep}mode=approver`;
+              }}
+            />
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#0a1c63' },
+
+  top: { paddingHorizontal: 16, paddingBottom: 18, backgroundColor: '#0a1c63' },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  greeting: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  topIcons: { flexDirection: 'row', gap: 14 },
+
+  bannerSection: { backgroundColor: '#0a1c63', paddingTop: 0, paddingBottom: 16 },
+  sheet: { flex: 1, backgroundColor: '#f8fafc', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  sheetContent: { paddingHorizontal: 14, paddingTop: 14, gap: 12 },
+
+  bannerScroll: { gap: 12, paddingHorizontal: 16 },
+  bannerCard: { width: 260, height: 160, borderRadius: 18, overflow: 'hidden', flexDirection: 'row' },
+  bannerShine: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    top: -80, right: -60, opacity: 0.4,
+  },
+  illustrationWrap: {
+    position: 'absolute', right: 0, top: 0, bottom: 0, width: 110,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ringOuter: {
+    position: 'absolute', width: 96, height: 96, borderRadius: 48,
+  },
+  ringInner: {
+    position: 'absolute', width: 68, height: 68, borderRadius: 34,
+  },
+  ringCenter: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  floatIconA: {
+    position: 'absolute', top: 14, right: 10,
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  floatIconB: {
+    position: 'absolute', bottom: 18, left: 6,
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bannerContent: { flex: 1, paddingVertical: 16, paddingLeft: 16, paddingRight: 4, justifyContent: 'flex-end' },
+  bannerTitle: { fontSize: 16, fontWeight: '800', color: '#fff', lineHeight: 22, letterSpacing: -0.3, marginBottom: 4 },
+  bannerSub: { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '500', lineHeight: 14, marginBottom: 10 },
+  bannerLearnRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  bannerLearn: { fontSize: 11, fontWeight: '700' },
+
+  panel: { backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 8 },
+  panelHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  panelKicker: { fontSize: 10, letterSpacing: 0.8, color: '#94a3b8', fontWeight: '700' },
+  panelLink: { fontSize: 12, color: '#64748b' },
+
+  grid: { gap: 4 },
+  gridRow: { flexDirection: 'row' },
+
+  card: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  cardIconWrap: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 6,
+  },
+  cardTitle: {
+    fontSize: 10.5, fontWeight: '500',
+    color: '#334155', textAlign: 'center', lineHeight: 14,
+  },
+});

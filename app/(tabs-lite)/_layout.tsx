@@ -86,6 +86,7 @@ export default function LiteTabLayout() {
       />
       <Tabs.Screen name="information/index" options={{ href: null }} />
       <Tabs.Screen name="attendance/index" options={{ href: null }} />
+      <Tabs.Screen name="reports" options={{ href: null }} />
       <Tabs.Screen name="claim-rules/index" options={{ href: null }} />
       <Tabs.Screen name="bank-details/index" options={{ href: null }} />
       <Tabs.Screen
