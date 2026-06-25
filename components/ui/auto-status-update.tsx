@@ -13,41 +13,27 @@ type StatusTheme = {
 };
 
 function getStatusTheme(status?: string): StatusTheme {
-  const normalizedStatus = (status ?? '').toLowerCase();
+  switch ((status ?? '').toUpperCase()) {
+    case 'REJECTED':
+    case 'FAILED':
+    case 'CANCELLED':
+    case 'CANCEL':
+      return {
+        borderColor: '#fca5a5',
+        backgroundColor: '#fef2f2',
+        textColor: '#991b1b',
+        iconColor: '#dc2626',
+      };
 
-  if (normalizedStatus.includes('approve') || normalizedStatus.includes('success') || normalizedStatus.includes('complete')) {
-    return {
-      borderColor: '#86efac',
-      backgroundColor: '#f0fdf4',
-      textColor: '#166534',
-      iconColor: '#16a34a',
-    };
+    // APPROVED and every other status (intermediate steps completed, moving forward)
+    default:
+      return {
+        borderColor: '#86efac',
+        backgroundColor: '#f0fdf4',
+        textColor: '#166534',
+        iconColor: '#16a34a',
+      };
   }
-
-  if (normalizedStatus.includes('reject') || normalizedStatus.includes('fail') || normalizedStatus.includes('cancel')) {
-    return {
-      borderColor: '#fca5a5',
-      backgroundColor: '#fef2f2',
-      textColor: '#991b1b',
-      iconColor: '#dc2626',
-    };
-  }
-
-  if (normalizedStatus.includes('pending') || normalizedStatus.includes('review') || normalizedStatus.includes('progress')) {
-    return {
-      borderColor: '#fde68a',
-      backgroundColor: '#fffbeb',
-      textColor: '#92400e',
-      iconColor: '#d97706',
-    };
-  }
-
-  return {
-    borderColor: '#cbd5e1',
-    backgroundColor: '#f8fafc',
-    textColor: '#334155',
-    iconColor: '#475569',
-  };
 }
 
 type AutoStatusUpdateProps = {

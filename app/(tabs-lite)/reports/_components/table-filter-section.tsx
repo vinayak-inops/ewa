@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSelector } from 'react-redux';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { useGraphQLQuery } from '@/hooks/api/useGraphQLQuery';
+import { useHierarchyFilters } from '@/hooks/api/useHierarchyFilters';
 import { getAccessToken } from '@/hooks/auth/token-store';
+import type { RootState } from '@/store';
+
+import { TableContent } from './table-content';
+import { TableSidebar } from './table-sidebar';
+import { TableMenuItem, TableType } from './types';
 
 const GQL_CONTRACTORS = `
   query FetchContractors($criteriaRequests: [CriteriaRequest!]!, $collection: String!) {
@@ -48,9 +55,6 @@ const GQL_CONTRACT_EMPLOYEES = `
     }
   }
 `;
-import { TableContent } from './table-content';
-import { TableSidebar } from './table-sidebar';
-import { TableMenuItem, TableType } from './types';
 
 // Parent-child relationship map
 const PARENT_FIELD_MAP: Record<string, string> = {
@@ -69,6 +73,30 @@ const PARENT_FIELD_MAP: Record<string, string> = {
   shifts: 'shiftGroups',
   contractEmployees: '',
 };
+
+// Maps TableType → field key inside roleBasedReportsConfig.filterOption
+const FILTER_OPTION_FIELD_MAP: Record<TableType, string> = {
+  subsidiaries: 'subsidiaries',
+  divisions: 'divisions',
+  departments: 'departments',
+  subDepartments: 'subDepartments',
+  sections: 'sections',
+  designations: 'designations',
+  grades: 'grades',
+  employeeCategories: 'employeeCategories',
+  locations: 'locations',
+  contractors: 'contractor',
+  workOrders: 'workOrderNumber',
+  shiftGroups: 'shiftGroups',
+  shifts: 'shifts',
+  contractEmployees: 'employeeID',
+};
+
+interface RoleBasedReportsConfig {
+  filterOption?: Record<string, boolean>;
+  entitlementCode?: string;
+  tenantCode?: string;
+}
 
 // ── JWT helper ────────────────────────────────────────────────────────────────
 
@@ -108,6 +136,9 @@ export function TableFilterSection({
   // ── Auth ──────────────────────────────────────────────────────────────────
 
   const [tenantCode, setTenantCode] = useState('');
+  const entitlementCode = useSelector((s: RootState) => s.role.roleType ?? '');
+  const hierarchyFilters = useHierarchyFilters();
+
   useEffect(() => {
     getAccessToken().then((token) => {
       if (!token) return;
@@ -116,6 +147,34 @@ export function TableFilterSection({
       setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? ''));
     });
   }, []);
+
+  // ── Role-based config (determines which filter fields to show) ────────────
+
+  const roleConfigRequestData = useMemo(() => [
+    { field: 'tenantCode', operator: 'eq', value: tenantCode },
+    { field: 'entitlementCode', operator: 'eq', value: entitlementCode },
+  ], [tenantCode, entitlementCode]);
+
+  const { data: roleConfigRes, loading: roleConfigLoading } = useGetRequest<RoleBasedReportsConfig[]>({
+    url: 'roleBasedReportsConfig/search',
+    method: 'POST',
+    data: roleConfigRequestData,
+    enabled: Boolean(tenantCode && entitlementCode),
+    dependencies: [tenantCode, entitlementCode],
+  });
+
+  const roleConfig = useMemo<RoleBasedReportsConfig | null>(() => {
+    if (!Array.isArray(roleConfigRes) || roleConfigRes.length === 0) return null;
+    return roleConfigRes[0];
+  }, [roleConfigRes]);
+
+  // Filter tableMenuItems to only those allowed by the role config
+  const filteredTableMenuItems = useMemo(() => {
+    if (roleConfigLoading || !roleConfig) return [];
+    const filterOption = roleConfig.filterOption;
+    if (!filterOption) return [];
+    return tableMenuItems.filter((item) => filterOption[FILTER_OPTION_FIELD_MAP[item.id]] === true);
+  }, [roleConfig, roleConfigLoading, tableMenuItems]);
 
   // ── Visible tables ────────────────────────────────────────────────────────
 
@@ -211,9 +270,9 @@ export function TableFilterSection({
     setSelectedShifts(initialFilterData.shifts ?? []);
     setSelectedContractEmployees(initialFilterData.contractEmployees ?? []);
 
-    if (!visibleTablesInitialized.current) {
+    if (!visibleTablesInitialized.current && filteredTableMenuItems.length > 0) {
       const tablesWithSelections = new Set<TableType>();
-      tableMenuItems.forEach((item) => {
+      filteredTableMenuItems.forEach((item) => {
         if ((initialFilterData[item.id] ?? []).length > 0) {
           tablesWithSelections.add(item.id);
         }
@@ -221,34 +280,104 @@ export function TableFilterSection({
       if (tablesWithSelections.size > 0) setVisibleTables(tablesWithSelections);
       visibleTablesInitialized.current = true;
     }
-  }, [initialFilterData, tableMenuItems]);
+  }, [initialFilterData, filteredTableMenuItems]);
 
-  // ── API request builders ──────────────────────────────────────────────────
+  // ── Cleanup when role config changes (remove disallowed tables) ──────────
 
-  const makeOrgRequest = (arrayField: string, filterCriteria: any[] = []) => ({
-    criteriaRequests: [{ field: 'tenantCode', operator: 'is', value: tenantCode }],
+  useEffect(() => {
+    if (roleConfigLoading || !roleConfig) return;
+
+    const allowedTableIds = new Set(filteredTableMenuItems.map((item) => item.id));
+
+    // Remove any visibleTables that are no longer allowed
+    setVisibleTables((prev) => {
+      const next = new Set(Array.from(prev).filter((id) => allowedTableIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+
+    // Clear selections for table types no longer in the allowed set
+    tableMenuItems.forEach((item) => {
+      if (allowedTableIds.has(item.id)) return;
+      const setter = getDataSetter(item.id);
+      setter([]);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredTableMenuItems, tableMenuItems, roleConfigLoading, roleConfig]);
+
+  // ── API request builders (hierarchy-scoped) ──────────────────────────────
+
+  const baseOrgCriteria = useMemo(
+    () => [{ field: 'tenantCode', operator: 'is', value: tenantCode }],
+    [tenantCode]
+  );
+
+  const makeOrgRequest = useCallback((arrayField: string, filterCriteria: any[] = []) => ({
+    criteriaRequests: baseOrgCriteria,
     arrayFilter: { arrayField, filterCriteria },
-  });
+  }), [baseOrgCriteria]);
 
-  const subsidiariesData = useMemo(() => makeOrgRequest('subsidiaries'), [tenantCode]);
-  const divisionsData = useMemo(() => makeOrgRequest('divisions'), [tenantCode]);
-  const departmentsData = useMemo(() => makeOrgRequest('departments'), [tenantCode]);
-  const subDepartmentsData = useMemo(() => makeOrgRequest('subDepartments'), [tenantCode]);
-  const sectionsData = useMemo(() => makeOrgRequest('sections'), [tenantCode]);
-  const designationsData = useMemo(() => makeOrgRequest('designations'), [tenantCode]);
-  const gradesData = useMemo(() => makeOrgRequest('grades'), [tenantCode]);
-  const locationsData = useMemo(() => makeOrgRequest('location'), [tenantCode]);
-  const empCategoriesData = useMemo(() => makeOrgRequest('employeeCategories'), [tenantCode]);
+  const subsidiariesData = useMemo(() => makeOrgRequest('subsidiaries',
+    hierarchyFilters.subsidiary?.length
+      ? [{ field: 'subsidiaryCode', operator: 'in', value: hierarchyFilters.subsidiary }]
+      : []
+  ), [makeOrgRequest, hierarchyFilters.subsidiary]);
+
+  const divisionsData = useMemo(() => makeOrgRequest('divisions',
+    hierarchyFilters.division?.length
+      ? [{ field: 'divisionCode', operator: 'in', value: hierarchyFilters.division }]
+      : []
+  ), [makeOrgRequest, hierarchyFilters.division]);
+
+  const departmentsData = useMemo(() => makeOrgRequest('departments',
+    hierarchyFilters.department?.length
+      ? [{ field: 'departmentCode', operator: 'in', value: hierarchyFilters.department }]
+      : []
+  ), [makeOrgRequest, hierarchyFilters.department]);
+
+  const subDepartmentsData = useMemo(() => makeOrgRequest('subDepartments',
+    hierarchyFilters.department?.length
+      ? [{ field: 'departmentCode', operator: 'in', value: hierarchyFilters.department }]
+      : []
+  ), [makeOrgRequest, hierarchyFilters.department]);
+
+  const sectionsData = useMemo(() => makeOrgRequest('sections',
+    hierarchyFilters.department?.length
+      ? [{ field: 'departmentCode', operator: 'in', value: hierarchyFilters.department }]
+      : []
+  ), [makeOrgRequest, hierarchyFilters.department]);
+
+  const designationsData = useMemo(() => makeOrgRequest('designations'), [makeOrgRequest]);
+  const gradesData = useMemo(() => makeOrgRequest('grades'), [makeOrgRequest]);
+  const empCategoriesData = useMemo(() => makeOrgRequest('employeeCategories'), [makeOrgRequest]);
+
+  const locationsData = useMemo(() => makeOrgRequest('location',
+    hierarchyFilters.location?.length
+      ? [{ field: 'locationCode', operator: 'in', value: hierarchyFilters.location }]
+      : []
+  ), [makeOrgRequest, hierarchyFilters.location]);
 
   const contractorVars = useMemo(() => ({
-    criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: tenantCode }],
+    criteriaRequests: [
+      { field: 'tenantCode', operator: 'eq', value: tenantCode },
+      ...(hierarchyFilters.contractor?.length
+        ? [{ field: 'contractorCode', operator: 'in', value: hierarchyFilters.contractor }]
+        : []),
+    ],
     collection: 'contractor',
-  }), [tenantCode]);
+  }), [tenantCode, hierarchyFilters.contractor]);
 
   const shiftVars = useMemo(() => ({
-    criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: tenantCode }],
+    criteriaRequests: [
+      { field: 'tenantCode', operator: 'eq', value: tenantCode },
+      ...(hierarchyFilters.subsidiary?.length
+        ? [{ field: 'subsidiary.subsidiaryCode', operator: 'in', value: hierarchyFilters.subsidiary }]
+        : []),
+      ...(hierarchyFilters.location?.length
+        ? [{ field: 'location.locationCode', operator: 'in', value: hierarchyFilters.location }]
+        : []),
+    ],
     collection: 'shift',
-  }), [tenantCode]);
+  }), [tenantCode, hierarchyFilters.subsidiary, hierarchyFilters.location]);
 
   const contractEmpVars = useMemo(() => ({
     criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: tenantCode }],
@@ -569,18 +698,6 @@ export function TableFilterSection({
     const rawChild = getRawDataForType(childType);
     if (rawChild.length === 0) return getDataForType(childType);
 
-    const matched = rawChild.filter((item: any) => {
-      switch (childType) {
-        case 'divisions': return parentCodes.includes(item.subsidiaryCode);
-        case 'departments': return parentCodes.includes(item.divisionCode);
-        case 'subDepartments': return parentCodes.includes(item.departmentCode);
-        case 'sections': return parentCodes.includes(item.subDepartmentCode);
-        case 'workOrders': return parentCodes.includes(item.contractorCode);
-        case 'shifts': return parentCodes.includes(item.shiftGroupCode);
-        default: return true;
-      }
-    });
-
     const codeKeyMap: Partial<Record<TableType, string>> = {
       divisions: 'divisionCode', departments: 'departmentCode',
       subDepartments: 'subDepartmentCode', sections: 'sectionCode',
@@ -591,6 +708,28 @@ export function TableFilterSection({
       subDepartments: 'subDepartmentName', sections: 'sectionName',
       workOrders: 'workOrderNumber', shifts: 'shiftName',
     };
+
+    const parentCodeField: Partial<Record<TableType, string>> = {
+      divisions: 'subsidiaryCode',
+      departments: 'divisionCode',
+      subDepartments: 'departmentCode',
+      sections: 'subDepartmentCode',
+      workOrders: 'contractorCode',
+      shifts: 'shiftGroupCode',
+    };
+
+    const parentRef = parentCodeField[childType];
+    const matched = rawChild.filter((item: any) => {
+      if (!parentRef) return true;
+      // If raw data doesn't carry the parent reference field, skip filtering
+      if (item[parentRef] === undefined) return true;
+      return parentCodes.includes(item[parentRef]);
+    });
+
+    // If filtering yielded nothing but raw data exists, the API doesn't include
+    // parent reference fields — fall back to showing all normalized items
+    if (matched.length === 0) return getDataForType(childType);
+
     const ck = codeKeyMap[childType];
     const nk = nameKeyMap[childType];
     if (!ck) return matched;
@@ -711,7 +850,7 @@ export function TableFilterSection({
     <View style={s.container}>
       {/* Sidebar */}
       <TableSidebar
-        tableMenuItems={tableMenuItems}
+        tableMenuItems={filteredTableMenuItems}
         visibleTables={visibleTables}
         getSelectedItems={getSelectedItems}
         onToggleTable={toggleTableVisibility}
@@ -720,7 +859,7 @@ export function TableFilterSection({
       {/* Content + footer */}
       <View style={s.main}>
         <TableContent
-          tableMenuItems={tableMenuItems}
+          tableMenuItems={filteredTableMenuItems}
           visibleTables={visibleTables}
           getSelectedItems={getSelectedItems}
           getDataForType={getDataForType}
@@ -826,7 +965,7 @@ export function TableFilterSection({
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
     backgroundColor: '#ffffff',
   },
   main: {

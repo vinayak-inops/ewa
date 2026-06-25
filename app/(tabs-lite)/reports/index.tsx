@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -107,10 +107,6 @@ function BannerCarousel() {
           <View style={s.bannerContent}>
             <Text style={s.bannerTitle}>{b.title}</Text>
             <Text style={s.bannerSub}>{b.sub}</Text>
-            <View style={s.bannerLearnRow}>
-              <Text style={[s.bannerLearn, { color: b.accent }]}>Learn More</Text>
-              <Ionicons name="arrow-forward" size={11} color={b.accent} />
-            </View>
           </View>
         </View>
       ))}
@@ -121,7 +117,6 @@ function BannerCarousel() {
 export default function ReportsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
 
   return (
     <View style={s.screen}>
@@ -153,22 +148,25 @@ export default function ReportsScreen() {
       </View>
 
       {/* White rounded sheet */}
-      <View style={s.sheet}>
-        {/* Generate button */}
-        <Pressable
-          style={({ pressed }) => [s.genBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-          onPress={() => setOpen(true)}
-        >
-          <View style={s.genBtnIconWrap}>
-            <Ionicons name="add" size={20} color="#1d4ed8" />
-          </View>
-          <View style={s.genBtnBody}>
-            <Text style={s.genBtnTitle}>Generate Report</Text>
-            <Text style={s.genBtnSub}>Create a new Excel or PDF report</Text>
-          </View>
-          <Ionicons name="arrow-forward" size={16} color="rgba(255,255,255,0.7)" />
-        </Pressable>
-        <ReportsEditor open={open} setOpen={setOpen} hideHeader />
+      <View style={s.sheetOuter}>
+        <View style={s.sheet}>
+          {/* Generate button — navigates to full-page create screen */}
+          <Pressable onPress={() => router.push('/(tabs-lite)/reports/create' as any)}>
+            {({ pressed }) => (
+              <View style={[s.genBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}>
+                <View style={s.genBtnIconWrap}>
+                  <Ionicons name="add" size={20} color="#1d4ed8" />
+                </View>
+                <View style={s.genBtnBody}>
+                  <Text style={s.genBtnTitle}>Generate Report</Text>
+                  <Text style={s.genBtnSub}>Create a new Excel or PDF report</Text>
+                </View>
+                <Ionicons name="arrow-forward" size={16} color="rgba(255,255,255,0.7)" />
+              </View>
+            )}
+          </Pressable>
+          <ReportsEditor open={false} setOpen={() => {}} hideHeader />
+        </View>
       </View>
     </View>
   );
@@ -190,7 +188,8 @@ const s = StyleSheet.create({
 
   bannerSection: { backgroundColor: '#0a1c63', paddingTop: 0, paddingBottom: 16 },
 
-  sheet: { flex: 1, backgroundColor: '#f8fafc', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+  sheetOuter: { flex: 1 },
+  sheet: { flex: 1, backgroundColor: '#f8fafc', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
 
   genBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -208,7 +207,7 @@ const s = StyleSheet.create({
   genBtnBody: { flex: 1, gap: 2 },
   genBtnTitle: { fontFamily: F, fontSize: 14, fontWeight: '800', color: '#fff' },
   genBtnSub: { fontFamily: F, fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: '500' },
-  genBtnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: '#ffffff' },
+
 
   /* Banner */
   bannerScroll: { gap: 12, paddingHorizontal: 16 },

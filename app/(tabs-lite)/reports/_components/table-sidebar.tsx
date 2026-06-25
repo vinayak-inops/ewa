@@ -26,75 +26,78 @@ export function TableSidebar({
   onToggleTable,
 }: TableSidebarProps) {
   return (
-    <View style={s.sidebar}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-        {SECTIONS.map((section) => {
+    <View style={s.topbar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.scroll}>
+
+        {SECTIONS.map((section, sIdx) => {
           const items = tableMenuItems.filter((item) => item.parent === section.key);
           if (items.length === 0) return null;
 
           return (
-            <View key={section.key} style={s.section}>
+            <View key={section.key} style={[s.section, sIdx > 0 && s.sectionBorder]}>
               <Text style={s.sectionLabel}>{section.label}</Text>
-              {items.map((item) => {
-                const selectedCount = getSelectedItems(item.id).length;
-                const hasItems = selectedCount > 0;
-                const isVisible = visibleTables.has(item.id);
-                const isVisibleButEmpty = isVisible && !hasItems;
-                const isVisibleWithItems = isVisible && hasItems;
 
-                return (
-                  <Pressable
-                    key={item.id}
-                    style={({ pressed }) => [
-                      s.item,
-                      isVisibleButEmpty && s.itemWarning,
-                      isVisibleWithItems && s.itemActive,
-                      hasItems && !isVisible && s.itemDone,
-                      pressed && s.itemPressed,
-                    ]}
-                    onPress={() => onToggleTable(item.id)}>
+              <View style={s.chips}>
+                {items.map((item) => {
+                  const selectedCount = getSelectedItems(item.id).length;
+                  const hasItems = selectedCount > 0;
+                  const isVisible = visibleTables.has(item.id);
+                  const isVisibleButEmpty = isVisible && !hasItems;
+                  const isVisibleWithItems = isVisible && hasItems;
 
-                    {/* Icon */}
-                    <Ionicons
-                      name={(item.icon ?? 'business-outline') as any}
-                      size={16}
-                      color={
-                        isVisibleButEmpty ? '#991b1b'
-                          : isVisibleWithItems ? '#1e40af'
-                          : '#4b5563'
-                      }
-                    />
-
-                    {/* Label */}
-                    <Text
-                      style={[
-                        s.itemLabel,
-                        isVisibleButEmpty && s.itemLabelWarning,
-                        isVisibleWithItems && s.itemLabelActive,
+                  return (
+                    <Pressable
+                      key={item.id}
+                      style={({ pressed }) => [
+                        s.chip,
+                        isVisibleButEmpty && s.chipWarning,
+                        isVisibleWithItems && s.chipActive,
+                        hasItems && !isVisible && s.chipDone,
+                        pressed && s.chipPressed,
                       ]}
-                      numberOfLines={2}>
-                      {item.label}
-                    </Text>
+                      onPress={() => onToggleTable(item.id)}>
 
-                    {/* Badge count */}
-                    {hasItems && (
-                      <View style={[s.badge, isVisibleWithItems && s.badgeActive]}>
-                        <Text style={[s.badgeText, isVisibleWithItems && s.badgeTextActive]}>
-                          {selectedCount}
-                        </Text>
-                      </View>
-                    )}
+                      <Ionicons
+                        name={(item.icon ?? 'business-outline') as any}
+                        size={13}
+                        color={
+                          isVisibleButEmpty ? '#991b1b'
+                            : isVisibleWithItems ? '#0a1c63'
+                            : '#4b5563'
+                        }
+                      />
 
-                    {/* State icon */}
-                    {isVisibleButEmpty && (
-                      <Ionicons name="alert-circle" size={14} color="#dc2626" />
-                    )}
-                    {isVisibleWithItems && (
-                      <Ionicons name="checkmark-circle" size={14} color="#2563eb" />
-                    )}
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        style={[
+                          s.chipLabel,
+                          isVisibleButEmpty && s.chipLabelWarning,
+                          isVisibleWithItems && s.chipLabelActive,
+                        ]}
+                        numberOfLines={1}>
+                        {item.label}
+                      </Text>
+
+                      {hasItems && (
+                        <View style={[s.badge, isVisibleWithItems && s.badgeActive]}>
+                          <Text style={[s.badgeText, isVisibleWithItems && s.badgeTextActive]}>
+                            {selectedCount}
+                          </Text>
+                        </View>
+                      )}
+
+                      {isVisibleButEmpty && (
+                        <Ionicons name="alert-circle" size={12} color="#dc2626" />
+                      )}
+                      {isVisibleWithItems && (
+                        <Ionicons name="checkmark-circle" size={12} color="#0a1c63" />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           );
         })}
@@ -104,83 +107,93 @@ export function TableSidebar({
 }
 
 const s = StyleSheet.create({
-  sidebar: {
-    width: 160,
-    borderRightWidth: 1,
-    borderRightColor: '#e5e7eb',
+  topbar: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
     backgroundColor: '#ffffff',
   },
   scroll: {
-    paddingVertical: 8,
     paddingHorizontal: 8,
-    gap: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    gap: 0,
   },
   section: {
-    gap: 2,
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  sectionBorder: {
+    borderLeftWidth: 1,
+    borderLeftColor: '#e5e7eb',
   },
   sectionLabel: {
     fontFamily: F,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#6b7280',
+    color: '#9ca3af',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: 2,
   },
-  item: {
+  chips: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 5,
     borderRadius: 6,
-  },
-  itemActive: {
-    backgroundColor: '#dbeafe',
-  },
-  itemWarning: {
-    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  itemDone: {
+    borderColor: '#e5e7eb',
     backgroundColor: '#f9fafb',
   },
-  itemPressed: {
-    opacity: 0.78,
+  chipActive: {
+    backgroundColor: '#e8eaf6',
+    borderColor: '#0a1c63',
   },
-  itemLabel: {
+  chipWarning: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  chipDone: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  chipPressed: {
+    opacity: 0.72,
+  },
+  chipLabel: {
     fontFamily: F,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: '#374151',
-    flex: 1,
-    lineHeight: 16,
   },
-  itemLabelActive: {
-    color: '#1e3a8a',
+  chipLabelActive: {
+    color: '#0a1c63',
     fontWeight: '600',
   },
-  itemLabelWarning: {
+  chipLabelWarning: {
     color: '#7f1d1d',
     fontWeight: '600',
   },
   badge: {
     backgroundColor: '#e5e7eb',
     borderRadius: 8,
-    minWidth: 18,
-    height: 18,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
   },
   badgeActive: {
-    backgroundColor: '#bfdbfe',
+    backgroundColor: '#c7d2fe',
   },
   badgeText: {
     fontFamily: F,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: '#374151',
   },

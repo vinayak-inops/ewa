@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TableContentArea } from './table-content-area';
 import { TableMenuItem, TableType } from './types';
@@ -109,6 +110,8 @@ interface TableContentProps {
 
 export function TableContent(props: TableContentProps) {
   const { tableMenuItems, visibleTables, getSelectedItems, onSaveAndContinue } = props;
+  const insets = useSafeAreaInsets();
+  const footerBottom = Math.max(14 - insets.bottom, 0) + 80;
 
   const visibleItems = tableMenuItems.filter((item) => visibleTables.has(item.id));
 
@@ -244,7 +247,7 @@ export function TableContent(props: TableContentProps) {
       </ScrollView>
 
       {/* Footer: validation error + Continue */}
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: footerBottom }]}>
         {!isValid && missingTables.length > 0 && (
           <View style={s.validationRow}>
             <Ionicons name="warning-outline" size={14} color="#dc2626" />
@@ -321,14 +324,14 @@ const s = StyleSheet.create({
     lineHeight: 16,
   },
   continueBtn: {
-    backgroundColor: '#7c3aed',
+    backgroundColor: '#0a1c63',
     borderRadius: 10,
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
   continueBtnDisabled: {
-    backgroundColor: '#c4b5fd',
+    backgroundColor: '#a3aed0',
   },
   continueBtnTxt: {
     fontFamily: 'Inter',

@@ -1,18 +1,19 @@
 import { useRouter } from "expo-router"
-import { CheckCircle, ChevronLeft, ChevronRight, Clock, FileText, Plus, Repeat2, XCircle } from "lucide-react-native"
-import React, { useCallback, useState } from "react"
+import { CheckCircle, ChevronLeft, ChevronRight, FileText, Repeat2, XCircle } from "lucide-react-native"
+import React, { useState } from "react"
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native"
-import ApplicationFilters from "./application-filters"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-type StatusFilter = 'ALL' | 'PENDING' | 'APPROVED' | 'FAILED'
+export type ShiftTabKey = "all" | "pending" | "approved" | "rejected" | "cancelled" | "failed"
 
 interface Application {
   _id: string
@@ -35,6 +36,8 @@ interface ApplicationTableProps {
   onOpenDetails: (row: Application) => void
   onNew?: () => void
   loading?: boolean
+  activeTab: ShiftTabKey
+  onTabChange: (tab: ShiftTabKey) => void
   externalPagination?: {
     currentPage: number
     totalPages: number
@@ -44,403 +47,304 @@ interface ApplicationTableProps {
     endIndex: number
     onPageChange: (page: number) => void
   }
+  hideSearchBar?: boolean
+  headerSlot?: React.ReactNode
+  onRefresh?: () => void
+  isRefreshing?: boolean
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const TERMINAL = ['APPROVED', 'REJECTED', 'CANCELLED', 'CANCEL', 'FAILED']
-
-function getState(row: Application) {
-  return (row.workflowState || row.status || '').toUpperCase()
-}
-
-function filterByTab(data: Application[], tab: StatusFilter): Application[] {
-  if (tab === 'ALL') return data
-  if (tab === 'PENDING') return data.filter(row => !TERMINAL.includes(getState(row)))
-  if (tab === 'APPROVED') return data.filter(row => getState(row) === 'APPROVED')
-  if (tab === 'FAILED') return data.filter(row => getState(row) === 'FAILED')
-  return data
-}
-
-const TABS: { key: StatusFilter; label: string }[] = [
-  { key: 'ALL', label: 'All' },
-  { key: 'PENDING', label: 'Pending' },
-  { key: 'APPROVED', label: 'Approved' },
-  { key: 'FAILED', label: 'Failed' },
+const TABS: { key: ShiftTabKey; label: string }[] = [
+  { key: "all",       label: "All"       },
+  { key: "pending",   label: "Pending"   },
+  { key: "approved",  label: "Approved"  },
+  { key: "rejected",  label: "Rejected"  },
+  { key: "cancelled", label: "Cancelled" },
+  { key: "failed",    label: "Failed"    },
 ]
 
-const TAB_DESC: Record<StatusFilter, string> = {
-  ALL: 'Showing all shift change applications.',
-  PENDING: 'Applications awaiting approval from the approver.',
-  APPROVED: 'Applications that have been approved.',
-  FAILED: 'Applications that failed during processing.',
-}
-
 const formatDate = (dateStr?: string) => {
-  if (!dateStr) return '-'
+  if (!dateStr) return "-"
   try {
     if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
-      const [dd, mm, yyyy] = dateStr.split('-').map(Number)
+      const [dd, mm, yyyy] = dateStr.split("-").map(Number)
       return new Date(yyyy, (mm as number) - 1, dd as number)
-        .toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        .toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
     }
-    return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
   } catch {
     return dateStr
   }
 }
 
-// ─── Badge config ─────────────────────────────────────────────────────────────
-
-type BadgeConfig = { bg: string; border: string; text: string; accent: string; label: string; icon: React.ReactNode }
+type BadgeConfig = { bg: string; border: string; text: string }
 
 function getBadgeConfig(rawState: string): BadgeConfig {
-  const s = (rawState || '').toUpperCase()
-  if (s === 'APPROVED') return {
-    bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', accent: '#22c55e', label: 'Approved',
-    icon: <CheckCircle size={10} color="#15803d" />,
-  }
-  if (s === 'REJECTED') return {
-    bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', accent: '#ef4444', label: 'Rejected',
-    icon: <XCircle size={10} color="#b91c1c" />,
-  }
-  if (s === 'CANCELLED' || s === 'CANCEL') return {
-    bg: '#f3f4f6', border: '#e5e7eb', text: '#374151', accent: '#9ca3af', label: 'Cancelled',
-    icon: <XCircle size={10} color="#374151" />,
-  }
-  if (s === 'FAILED') return {
-    bg: '#fff7ed', border: '#fed7aa', text: '#c2410c', accent: '#f97316', label: 'Failed',
-    icon: <XCircle size={10} color="#c2410c" />,
-  }
-  return {
-    bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', accent: '#3b82f6', label: rawState || 'Pending',
-    icon: <Clock size={10} color="#1d4ed8" />,
-  }
+  const s = (rawState || "").toUpperCase()
+  if (s === "APPROVED")                    return { bg: "#f0fdf4", border: "#bbf7d0", text: "#15803d" }
+  if (s === "REJECTED")                    return { bg: "#fef2f2", border: "#fecaca", text: "#b91c1c" }
+  if (s === "CANCELLED" || s === "CANCEL") return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" }
+  if (s === "FAILED")                      return { bg: "#fff7ed", border: "#fed7aa", text: "#c2410c" }
+  return { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" }
 }
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ApplicationTable({
   data,
   onOpenDetails,
   onNew,
   loading = false,
+  activeTab,
+  onTabChange,
   externalPagination,
+  hideSearchBar = false,
+  headerSlot,
+  onRefresh,
+  isRefreshing = false,
 }: ApplicationTableProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<StatusFilter>('ALL')
+  const insets = useSafeAreaInsets()
   const [internalPage, setInternalPage] = useState(1)
-  const [searchFilter, setSearchFilter] = useState({ field: 'employeeID', value: '' })
 
-  const handleSearchApply = useCallback((opts: { field: string; value: string }) => {
-    setSearchFilter(opts)
-    setInternalPage(1)
-  }, [])
-
-  const tabFiltered = filterByTab(data, activeTab)
-  const filteredData = searchFilter.value.trim()
-    ? tabFiltered.filter(row => {
-        const val = String((row as unknown as Record<string, unknown>)[searchFilter.field] ?? '')
-        return val.toLowerCase().includes(searchFilter.value.trim().toLowerCase())
-      })
-    : tabFiltered
-
-  const handleTabChange = (tab: StatusFilter) => {
-    setActiveTab(tab)
-    setInternalPage(1)
+  const pg = externalPagination ?? {
+    currentPage: internalPage,
+    totalPages: Math.ceil(data.length / 10),
+    totalItems: data.length,
+    itemsPerPage: 10,
+    startIndex: (internalPage - 1) * 10,
+    endIndex: Math.min(internalPage * 10, data.length),
+    onPageChange: setInternalPage,
   }
 
-  const itemsPerPage = externalPagination?.itemsPerPage ?? 10
-  const useExternal  = !!externalPagination
-
-  const currentPage = useExternal ? externalPagination!.currentPage  : internalPage
-  const totalPages  = useExternal ? externalPagination!.totalPages   : Math.ceil(filteredData.length / itemsPerPage)
-  const startIndex  = useExternal ? externalPagination!.startIndex   : (currentPage - 1) * itemsPerPage
-  const endIndex    = useExternal ? externalPagination!.endIndex     : startIndex + itemsPerPage
-  const totalItems  = useExternal ? externalPagination!.totalItems   : filteredData.length
-  const handlePage  = useExternal ? externalPagination!.onPageChange : setInternalPage
-
-  const currentData = useExternal ? data : filteredData.slice(startIndex, endIndex)
+  const currentData = externalPagination ? data : data.slice(pg.startIndex, pg.endIndex)
+  const totalItems = pg.totalItems
+  const refreshControl = onRefresh
+    ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+    : undefined
 
   return (
-    <View style={s.screen}>
-      {/* ── Dark navy header ── */}
-      <View style={s.header}>
-        <View style={s.topRow}>
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs-lite)/applications' as any)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={s.backButton}
-          >
-            <ChevronLeft size={18} color="#fff" />
-          </TouchableOpacity>
-          <Text style={s.title}>Shift Applications</Text>
-          <View style={s.countPill}>
-            <Text style={s.countPillText}>{totalItems} {totalItems !== 1 ? 'records' : 'record'}</Text>
-          </View>
-        </View>
+    <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
 
-        {/* Tab bar */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabRow}>
-          {TABS.map(({ key, label }) => {
-            const active = activeTab === key
-            return (
-              <Pressable
-                key={key}
-                onPress={() => handleTabChange(key)}
-                style={[s.tab, active && s.tabActive]}
-              >
-                <Text style={[s.tabText, active && s.tabTextActive]}>{label}</Text>
-              </Pressable>
-            )
-          })}
-        </ScrollView>
+      {/* Header - fixed */}
+      <View style={[s.header, { paddingTop: insets.top + 14 }]}>
+        <Pressable onPress={() => router.push("/(tabs-lite)/applications" as any)} hitSlop={8} style={s.backBtn}>
+          <ChevronLeft size={20} color="#fff" />
+        </Pressable>
+        <Text style={s.headerTitle}>Shift Applications</Text>
+        <View style={s.recordsBadge}>
+          <Text style={s.recordsBadgeText}>{totalItems} {totalItems !== 1 ? "records" : "record"}</Text>
+        </View>
       </View>
 
-      {/* ── Content sheet ── */}
-      <ScrollView style={s.sheet} contentContainerStyle={s.sheetContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        refreshControl={refreshControl}
+      >
 
-        {/* Summary card */}
-        <View style={s.summaryCard}>
-          <Text style={s.summaryTitle}>
-            {activeTab === 'ALL' ? 'All Applications' : `${activeTab.charAt(0) + activeTab.slice(1).toLowerCase()} Applications`}
-          </Text>
-          <Text style={s.summaryText}>{TAB_DESC[activeTab]}</Text>
+      {/* Banner */}
+      <View style={s.banner}>
+        <View style={s.bannerText}>
+          <Text style={s.bannerTitle}>Shift Change, Made Easy.</Text>
+          <Text style={s.bannerSub}>Submit & track shift change requests instantly</Text>
+          {/* <Pressable style={s.bannerLink}>
+            <Text style={s.bannerLinkText}>Learn More →</Text>
+          </Pressable> */}
         </View>
-
-        {/* Search filter + New button */}
-        <View style={s.filterRow}>
-          <View style={{ flex: 1 }}>
-            <ApplicationFilters
-              activeTab={activeTab.toLowerCase() as 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled' | 'failed'}
-              onTabChange={() => {}}
-              onApply={handleSearchApply}
-            />
-          </View>
-          {onNew && (
-            <TouchableOpacity onPress={onNew} activeOpacity={0.8} style={s.newBtn}>
-              <Plus size={13} color="#fff" />
-              <Text style={s.newBtnText}>New</Text>
-            </TouchableOpacity>
-          )}
+        <View style={s.bannerIcon}>
+          <Repeat2 size={38} color="rgba(255,255,255,0.25)" />
         </View>
+      </View>
 
-        {/* Card list panel */}
-        <View style={s.panel}>
-          <View style={s.panelHead}>
-            <Text style={s.panelKicker}>APPLICATIONS</Text>
-            <Text style={s.panelMeta}>{totalItems} total</Text>
-          </View>
+      {/* Content */}
+      <View style={{ backgroundColor: "#f8fafc", paddingHorizontal: 12, paddingTop: 12, paddingBottom: 100 }}>
 
-          {loading ? (
-            <View style={s.centerState}>
-              <ActivityIndicator size="large" color="#0a1c63" />
-              <Text style={s.centerStateText}>Loading records...</Text>
-            </View>
-          ) : filteredData.length === 0 ? (
-            <View style={s.centerState}>
-              <View style={s.emptyIconWrap}>
-                <FileText size={28} color="#9ca3af" />
-              </View>
-              <Text style={s.emptyTitle}>No Applications</Text>
-              <Text style={s.emptyText}>No records found for the selected filter.</Text>
-            </View>
-          ) : (
-            currentData.map((row, index) => {
-              const rawState = row.workflowState || row.status || ''
-              const badge = getBadgeConfig(rawState)
-              const isLast = index === currentData.length - 1
-
-              return (
-                <React.Fragment key={row._id}>
-                  <Pressable style={s.card} onPress={() => onOpenDetails(row)}>
-                    {/* Avatar */}
-                    <View style={s.avatar}>
-                      <Repeat2 size={15} color="#334155" />
-                    </View>
-
-                    {/* Middle info */}
-                    <View style={s.cardMeta}>
-                      <Text style={s.cardPrimary} numberOfLines={1}>{row.shiftName || row.employeeID}</Text>
-                      <Text style={s.cardSub} numberOfLines={1}>
-                        {formatDate(row.fromDate)}
-                        {row.toDate && row.toDate !== row.fromDate ? ` → ${formatDate(row.toDate)}` : ''}
-                      </Text>
-                    </View>
-
-                    {/* Right: status + applied date */}
-                    <View style={s.cardRight}>
-                      <View style={[s.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-                        <Text style={[s.badgeText, { color: badge.text }]}>{badge.label}</Text>
-                      </View>
-                      <Text style={s.cardRightValue}>{formatDate(row.appliedDate)}</Text>
-                    </View>
-                  </Pressable>
-
-                  {!isLast && <View style={s.separator} />}
-                </React.Fragment>
-              )
-            })
-          )}
-        </View>
-
-        {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <View style={s.pagination}>
-            <Text style={s.paginationText}>
-              {startIndex + 1}–{Math.min(endIndex, totalItems)} of {totalItems}
-            </Text>
-            <View style={s.pageButtons}>
-              <TouchableOpacity
-                onPress={() => handlePage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                style={[s.pageBtn, currentPage === 1 && s.pageBtnDisabled]}
-              >
-                <ChevronLeft size={13} color={currentPage === 1 ? '#d1d5db' : '#374151'} />
-              </TouchableOpacity>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(p => p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1))
-                .map((page, i, arr) => (
-                  <React.Fragment key={page}>
-                    {i > 0 && page - arr[i - 1]! > 1 && (
-                      <Text style={s.pageDots}>…</Text>
-                    )}
-                    <TouchableOpacity
-                      onPress={() => handlePage(page)}
-                      style={[s.pageBtn, page === currentPage && s.pageBtnActive]}
-                    >
-                      <Text style={[s.pageBtnText, page === currentPage && s.pageBtnTextActive]}>{page}</Text>
-                    </TouchableOpacity>
-                  </React.Fragment>
-                ))}
-
-              <TouchableOpacity
-                onPress={() => handlePage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                style={[s.pageBtn, currentPage === totalPages && s.pageBtnDisabled]}
-              >
-                <ChevronRight size={13} color={currentPage === totalPages ? '#d1d5db' : '#374151'} />
-              </TouchableOpacity>
-            </View>
+        {/* headerSlot: New card + search */}
+        {headerSlot && (
+          <View style={{ gap: 10, marginBottom: 10 }}>
+            {headerSlot}
           </View>
         )}
 
-        <View style={{ height: 100 }} />
+        {/* List title */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4, paddingBottom: 8 }}>
+          <Text style={{ fontSize: 10, letterSpacing: 0.8, color: "#94a3b8", fontWeight: "700" }}>APPLICATIONS</Text>
+          <Text style={{ fontSize: 12, color: "#64748b" }}>{totalItems} total</Text>
+        </View>
+
+        {/* Card with tabs + list */}
+        <View style={s.card}>
+
+          {/* Tab strip */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
+            {TABS.map(({ key, label }) => {
+              const active = activeTab === key
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => { onTabChange(key); setInternalPage(1) }}
+                  style={[s.tab, active && s.tabActive]}
+                >
+                  <Text style={[s.tabText, active && s.tabTextActive]}>{label}</Text>
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+
+          <View style={{ height: 1, backgroundColor: "#f1f5f9" }} />
+
+          {/* Records */}
+          <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+            {loading ? (
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 8 }}>
+                <ActivityIndicator size="large" color="#0a1c63" />
+                <Text style={{ fontSize: 13, color: "#64748b" }}>Loading records...</Text>
+              </View>
+            ) : currentData.length === 0 ? (
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 8 }}>
+                <View style={{ width: 56, height: 56, backgroundColor: "#f1f5f9", borderRadius: 28, alignItems: "center", justifyContent: "center" }}>
+                  <FileText size={28} color="#9ca3af" />
+                </View>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: "#374151" }}>No Applications</Text>
+                <Text style={{ fontSize: 12, color: "#9ca3af" }}>No records found for the selected filter.</Text>
+              </View>
+            ) : (
+              currentData.map((row, idx) => {
+                const badge = getBadgeConfig(row.workflowState || row.status)
+                const isLast = idx === currentData.length - 1
+                return (
+                  <React.Fragment key={row._id || idx}>
+                    <Pressable
+                      onPress={() => onOpenDetails(row)}
+                      style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 10 }}
+                    >
+                      <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: "#e2e8f0", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Repeat2 size={15} color="#334155" />
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
+                          {row.shiftName || row.employeeID || "Shift Request"}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: "#64748b" }} numberOfLines={1}>
+                          {formatDate(row.fromDate)}{row.toDate && row.toDate !== row.fromDate ? ` → ${formatDate(row.toDate)}` : ""}
+                        </Text>
+                        {row.remarks ? (
+                          <Text style={{ fontSize: 11, color: "#94a3b8" }} numberOfLines={1}>{row.remarks}</Text>
+                        ) : null}
+                      </View>
+                      <View style={{ alignItems: "flex-end", flexShrink: 0, gap: 4 }}>
+                        <View style={{ borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: badge.bg, borderColor: badge.border }}>
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: badge.text }}>
+                            {(row.workflowState || row.status || "PENDING").toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: "#94a3b8" }}>{formatDate(row.appliedDate)}</Text>
+                      </View>
+                    </Pressable>
+                    {!isLast && <View style={{ height: 1, backgroundColor: "#f1f5f9", marginVertical: 2 }} />}
+                  </React.Fragment>
+                )
+              })
+            )}
+
+            {/* Pagination */}
+            {!loading && pg.totalPages > 1 && (
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 12, marginTop: 8, borderTopWidth: 1, borderTopColor: "#f1f5f9" }}>
+                <Text style={{ fontSize: 11, color: "#94a3b8", fontWeight: "500" }}>
+                  {pg.startIndex + 1}–{Math.min(pg.endIndex, pg.totalItems)} of {pg.totalItems}
+                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <TouchableOpacity
+                    onPress={() => pg.onPageChange(Math.max(1, pg.currentPage - 1))}
+                    disabled={pg.currentPage === 1}
+                    style={{ width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: pg.currentPage === 1 ? "#f1f5f9" : "#e2e8f0", backgroundColor: pg.currentPage === 1 ? "#f9fafb" : "#fff", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <ChevronLeft size={13} color={pg.currentPage === 1 ? "#d1d5db" : "#374151"} />
+                  </TouchableOpacity>
+                  {Array.from({ length: pg.totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === pg.totalPages || Math.abs(p - pg.currentPage) <= 1)
+                    .map((p, i, arr) => (
+                      <React.Fragment key={p}>
+                        {i > 0 && arr[i - 1]! !== p - 1 && <Text style={{ fontSize: 11, color: "#cbd5e1", paddingHorizontal: 2 }}>…</Text>}
+                        <TouchableOpacity
+                          onPress={() => pg.onPageChange(p)}
+                          style={{ width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: p === pg.currentPage ? "#0a1c63" : "#e2e8f0", backgroundColor: p === pg.currentPage ? "#0a1c63" : "#fff", alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: p === pg.currentPage ? "#fff" : "#374151" }}>{p}</Text>
+                        </TouchableOpacity>
+                      </React.Fragment>
+                    ))}
+                  <TouchableOpacity
+                    onPress={() => pg.onPageChange(Math.min(pg.totalPages, pg.currentPage + 1))}
+                    disabled={pg.currentPage === pg.totalPages}
+                    style={{ width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: pg.currentPage === pg.totalPages ? "#f1f5f9" : "#e2e8f0", backgroundColor: pg.currentPage === pg.totalPages ? "#f9fafb" : "#fff", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <ChevronRight size={13} color={pg.currentPage === pg.totalPages ? "#d1d5db" : "#374151"} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+
+        </View>
+      </View>
+
       </ScrollView>
     </View>
   )
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0a1c63' },
-
-  // Header
-  header: { paddingTop: 52, paddingHorizontal: 16, paddingBottom: 0 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  backButton: {
-    width: 30, height: 30, borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
+  header: {
+    backgroundColor: "#0a1c63",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    gap: 10,
   },
-  title: { color: '#fff', fontSize: 15, fontWeight: '800', flex: 1 },
-  countPill: {
-    paddingHorizontal: 8, paddingVertical: 3,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  backBtn: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center", justifyContent: "center",
   },
-  countPillText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  headerTitle: { flex: 1, color: "#fff", fontSize: 15, fontWeight: "700" },
+  recordsBadge: {
+    paddingHorizontal: 10, paddingVertical: 3,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)",
+  },
+  recordsBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
 
-  // Tab bar
-  tabRow: { gap: 6, paddingBottom: 0 },
+  banner: {
+    backgroundColor: "#1a3080",
+    marginHorizontal: 12, marginTop: 12,
+    borderRadius: 14,
+    paddingHorizontal: 18, paddingVertical: 16,
+    flexDirection: "row", alignItems: "center",
+  },
+  bannerText: { flex: 1, gap: 3 },
+  bannerTitle: { fontSize: 15, fontWeight: "800", color: "#fff" },
+  bannerSub:   { fontSize: 11, color: "rgba(255,255,255,0.75)", marginTop: 2 },
+  bannerLink:  { marginTop: 8, alignSelf: "flex-start" },
+  bannerLinkText: { fontSize: 12, fontWeight: "700", color: "#93c5fd" },
+  bannerIcon: {
+    width: 64, height: 64, borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center", justifyContent: "center",
+    marginLeft: 12,
+  },
+
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    overflow: "hidden",
+  },
   tab: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderTopLeftRadius: 10, borderTopRightRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 2, borderBottomColor: "transparent",
   },
-  tabActive: { backgroundColor: '#f8fafc' },
-  tabText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
-  tabTextActive: { color: '#0a1c63' },
-
-  // Sheet
-  sheet: { flex: 1, backgroundColor: '#f8fafc' },
-  sheetContent: { padding: 14, gap: 12 },
-
-  // Summary card
-  summaryCard: {
-    backgroundColor: '#eef2ff', borderRadius: 12,
-    borderWidth: 1, borderColor: '#c7d2fe',
-    paddingHorizontal: 12, paddingVertical: 10,
-  },
-  summaryTitle: { fontSize: 14, fontWeight: '800', color: '#1e3a8a' },
-  summaryText: { marginTop: 2, fontSize: 12, color: '#334155', lineHeight: 17 },
-
-  // Filter row
-  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  newBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 10,
-    backgroundColor: '#0a1c63', borderRadius: 12,
-  },
-  newBtnText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-
-  // Panel
-  panel: { backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 0 },
-  panelHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  panelKicker: { fontSize: 10, letterSpacing: 0.8, color: '#94a3b8', fontWeight: '700' },
-  panelMeta: { fontSize: 12, color: '#64748b' },
-
-  // Row separator
-  separator: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 2 },
-
-  // Card row
-  card: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10 },
-  avatar: {
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: '#e2e8f0',
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  cardMeta: { flex: 1, gap: 2 },
-  cardPrimary: { fontSize: 13, fontWeight: '600', color: '#0f172a' },
-  cardSub: { fontSize: 12, color: '#64748b' },
-
-  // Status badge
-  badge: {
-    borderRadius: 999, borderWidth: 1,
-    paddingHorizontal: 8, paddingVertical: 2,
-    alignSelf: 'flex-end',
-  },
-  badgeText: { fontSize: 10, fontWeight: '700' },
-
-  // Right column
-  cardRight: { alignItems: 'flex-end', flexShrink: 0, gap: 4 },
-  cardRightValue: { fontSize: 11, color: '#94a3b8' },
-
-  // Empty / loading state
-  centerState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 8 },
-  centerStateText: { fontSize: 13, color: '#64748b' },
-  emptyIconWrap: { width: 56, height: 56, backgroundColor: '#f1f5f9', borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: 14, fontWeight: '700', color: '#374151' },
-  emptyText: { fontSize: 12, color: '#9ca3af' },
-
-  // Pagination
-  pagination: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  paginationText: { fontSize: 11, color: '#94a3b8', fontWeight: '600' },
-  pageButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  pageBtn: {
-    width: 28, height: 28, borderRadius: 8, borderWidth: 1,
-    borderColor: '#e2e8f0', backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pageBtnDisabled: { borderColor: '#f1f5f9', backgroundColor: '#f8fafc' },
-  pageBtnActive: { backgroundColor: '#0a1c63', borderColor: '#0a1c63' },
-  pageBtnText: { fontSize: 11, fontWeight: '700', color: '#374151' },
-  pageBtnTextActive: { color: '#fff' },
-  pageDots: { fontSize: 11, color: '#cbd5e1', paddingHorizontal: 2 },
+  tabActive: { borderBottomColor: "#0a1c63" },
+  tabText: { fontSize: 12, fontWeight: "700", color: "#94a3b8" },
+  tabTextActive: { color: "#0a1c63" },
 })

@@ -175,10 +175,6 @@ function BannerCarousel() {
           <View style={bannerStyles.bannerContent}>
             <Text style={bannerStyles.bannerTitle}>{b.title}</Text>
             <Text style={bannerStyles.bannerSub}>{b.sub}</Text>
-            <View style={bannerStyles.bannerLearnRow}>
-              <Text style={[bannerStyles.bannerLearn, { color: b.accent }]}>Learn More</Text>
-              <Ionicons name="arrow-forward" size={11} color={b.accent} />
-            </View>
           </View>
         </View>
       ))}
@@ -531,6 +527,14 @@ function formatPunchDateTime(value: string) {
   });
 }
 
+function formatTransactionTime(value: string): string {
+  if (!value || !value.trim()) return '--';
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return '--';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
+}
+
 function getPunchTypeLabel(inOut: string) {
   const value = inOut.trim().toUpperCase();
   if (value === 'I') return 'In';
@@ -764,26 +768,39 @@ export default function LiteAttendanceScreen() {
     },
   });
 
+  const selectedDateKey = useMemo(() => (selectedDate ? toLocalDateKey(selectedDate) : ''), [selectedDate]);
+
+  // Reset punch list whenever the selected date changes
+  useEffect(() => {
+    setPunchOffset(0);
+    setTodayPunches([]);
+    setHasMorePunches(true);
+    isFetchingMoreRef.current = false;
+  }, [selectedDateKey]);
+
   const punchParams = useMemo(
     () => ({ offset: punchOffset, limit: PUNCH_PAGE_SIZE }),
     [punchOffset]
   );
 
-  const punchData = useMemo(
-    () => [
+  const punchData = useMemo(() => {
+    const filters: Array<{ field: string; value: unknown; operator: string }> = [
       { field: 'employeeID', value: employeeId, operator: 'eq' },
       { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-    ],
-    [employeeId, tenantCode]
-  );
+    ];
+    if (selectedDateKey) {
+      filters.push({ field: 'date', value: selectedDateKey, operator: 'eq' });
+    }
+    return filters;
+  }, [employeeId, tenantCode, selectedDateKey]);
 
   useGetRequest<TodayPunch[]>({
     url: DATA_CHECK_URL,
     method: 'POST',
     params: punchParams,
     data: punchData,
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode, punchOffset],
+    enabled: Boolean(employeeId && tenantCode && selectedDateKey),
+    dependencies: [employeeId, tenantCode, selectedDateKey, punchOffset],
     onSuccess: (data) => {
       const page = data ?? [];
       setTodayPunches((prev) => (punchOffset === 0 ? page : [...prev, ...page]));
@@ -876,6 +893,27 @@ export default function LiteAttendanceScreen() {
     [attendanceDetail]
   );
 
+  const sortedPunches = useMemo(
+    () =>
+      [...todayPunches].sort((a, b) => {
+        const tA = a.transactionTime || a.punchedTime || '';
+        const tB = b.transactionTime || b.punchedTime || '';
+        return new Date(tA).getTime() - new Date(tB).getTime();
+      }),
+    [todayPunches]
+  );
+
+  const { startTime, endTime } = useMemo(() => {
+    const withTime = sortedPunches.filter((p) => p.transactionTime || p.punchedTime);
+    if (withTime.length === 0) return { startTime: '', endTime: '' };
+    const first = withTime[0];
+    const last = withTime[withTime.length - 1];
+    return {
+      startTime: first.transactionTime || first.punchedTime || '',
+      endTime: last.transactionTime || last.punchedTime || '',
+    };
+  }, [sortedPunches]);
+
   const navigateMonth = (direction: 'prev' | 'next') => {
     setSelectedDate(null);
     setCurrentDate((prev) => {
@@ -949,40 +987,38 @@ export default function LiteAttendanceScreen() {
 
           <View style={styles.actionRow}>
             {/* Attendance Records card */}
-            <View style={styles.actionCardClip}>
-              <Pressable
-                style={({ pressed }) => [styles.actionCard, styles.actionCardBlue, pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] }]}
-                onPress={() => setShowCalendar(true)}
-              >
-                <View style={styles.actionCardIconCircle}>
-                  <Ionicons name="calendar-outline" size={22} color="#ffffff" />
+            <Pressable style={{ flex: 1 }} onPress={() => setShowCalendar(true)}>
+              {({ pressed }) => (
+                <View style={[styles.actionCard, styles.actionCardBlue, pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] }]}>
+                  <View style={styles.actionCardIconCircle}>
+                    <Ionicons name="calendar-outline" size={22} color="#ffffff" />
+                  </View>
+                  <Text style={styles.actionCardTitle}>Attendance{'\n'}Records</Text>
+                  <Text style={styles.actionCardSub}>View monthly logs</Text>
+                  <View style={styles.actionCardFooter}>
+                    <Text style={styles.actionCardFooterText}>Open</Text>
+                    <Ionicons name="arrow-forward" size={12} color="rgba(255,255,255,0.85)" />
+                  </View>
                 </View>
-                <Text style={styles.actionCardTitle}>Attendance{'\n'}Records</Text>
-                <Text style={styles.actionCardSub}>View monthly logs</Text>
-                <View style={styles.actionCardFooter}>
-                  <Text style={styles.actionCardFooterText}>Open</Text>
-                  <Ionicons name="arrow-forward" size={12} color="rgba(255,255,255,0.85)" />
-                </View>
-              </Pressable>
-            </View>
+              )}
+            </Pressable>
 
             {/* Face Attendance card */}
-            <View style={styles.actionCardClip}>
-              <Pressable
-                style={({ pressed }) => [styles.actionCard, styles.actionCardGreen, pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] }]}
-                onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(true); }}
-              >
-                <View style={[styles.actionCardIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                  <Ionicons name="scan-circle-outline" size={22} color="#ffffff" />
+            <Pressable style={{ flex: 1 }} onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(true); }}>
+              {({ pressed }) => (
+                <View style={[styles.actionCard, styles.actionCardGreen, pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] }]}>
+                  <View style={[styles.actionCardIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                    <Ionicons name="scan-circle-outline" size={22} color="#ffffff" />
+                  </View>
+                  <Text style={styles.actionCardTitle}>Face{'\n'}Attendance</Text>
+                  <Text style={styles.actionCardSub}>Mark via face scan</Text>
+                  <View style={styles.actionCardFooter}>
+                    <Text style={styles.actionCardFooterText}>Scan</Text>
+                    <Ionicons name="arrow-forward" size={12} color="rgba(255,255,255,0.85)" />
+                  </View>
                 </View>
-                <Text style={styles.actionCardTitle}>Face{'\n'}Attendance</Text>
-                <Text style={styles.actionCardSub}>Mark via face scan</Text>
-                <View style={styles.actionCardFooter}>
-                  <Text style={styles.actionCardFooterText}>Scan</Text>
-                  <Ionicons name="arrow-forward" size={12} color="rgba(255,255,255,0.85)" />
-                </View>
-              </Pressable>
-            </View>
+              )}
+            </Pressable>
           </View>
         </View>
 
@@ -1025,15 +1061,40 @@ export default function LiteAttendanceScreen() {
         {/* ── Today's Punches ── */}
         <View style={styles.todayPunchCard}>
           <View style={styles.actionPanelHead}>
-            <Text style={styles.actionPanelKicker}>TODAY'S PUNCHES</Text>
-            <Text style={styles.actionPanelLink}>{todayPunches.length} records</Text>
+            <Text style={styles.actionPanelKicker}>PUNCH RECORDS</Text>
+            <Text style={styles.actionPanelLink}>
+              {selectedDate
+                ? selectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                : ''}{todayPunches.length > 0 ? ` · ${todayPunches.length}` : ''}
+            </Text>
           </View>
 
-          {todayPunches.length > 0 ? (
+          {/* Start / End time summary */}
+          {sortedPunches.length > 0 && (
+            <View style={styles.punchTimeSummary}>
+              <View style={styles.punchTimeSummaryItem}>
+                <View style={[styles.punchTimeDot, { backgroundColor: '#16a34a' }]} />
+                <View>
+                  <Text style={styles.punchTimeSummaryLabel}>Start Time</Text>
+                  <Text style={styles.punchTimeSummaryValue}>{formatTransactionTime(startTime)}</Text>
+                </View>
+              </View>
+              <View style={styles.punchTimeSummaryDivider} />
+              <View style={styles.punchTimeSummaryItem}>
+                <View style={[styles.punchTimeDot, { backgroundColor: '#1d4ed8' }]} />
+                <View>
+                  <Text style={styles.punchTimeSummaryLabel}>End Time</Text>
+                  <Text style={styles.punchTimeSummaryValue}>{formatTransactionTime(endTime)}</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {sortedPunches.length > 0 ? (
             <>
-              {todayPunches.map((punch, index) => {
+              {sortedPunches.map((punch, index) => {
                 const isIn = punch.inOut?.trim().toUpperCase() === 'I';
-                const time = punch.punchedTime || punch.transactionTime || '';
+                const time = punch.transactionTime || punch.punchedTime || '';
                 const dt = time ? new Date(time) : null;
                 const timeLabel = dt && !Number.isNaN(dt.getTime())
                   ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -1042,7 +1103,7 @@ export default function LiteAttendanceScreen() {
                   ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                   : '--';
                 const isProcessed = punch.processed;
-                const isLast = index === todayPunches.length - 1 && !hasMorePunches;
+                const isLast = index === sortedPunches.length - 1 && !hasMorePunches;
 
                 return (
                   <View key={`${punch._id ?? ''}-${index}`} style={[styles.todayPunchRow, isLast && { borderBottomWidth: 0 }]}>
@@ -1075,9 +1136,9 @@ export default function LiteAttendanceScreen() {
                   <Text style={styles.punchLoadMoreText}>Loading more…</Text>
                 </View>
               )}
-              {!isFetchingMore && !hasMorePunches && todayPunches.length > 0 && (
+              {!isFetchingMore && !hasMorePunches && sortedPunches.length > 0 && (
                 <View style={styles.punchLoadMore}>
-                  <Text style={styles.punchLoadMoreText}>All {todayPunches.length} records loaded</Text>
+                  <Text style={styles.punchLoadMoreText}>All {sortedPunches.length} records loaded</Text>
                 </View>
               )}
               {!isFetchingMore && hasMorePunches && (
@@ -1900,14 +1961,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  actionCardClip: {
-    flex: 1,
+  actionCard: {
     borderRadius: 16,
     overflow: 'hidden',
-  },
-  actionCard: {
-    flex: 1,
-    borderRadius: 16,
     padding: 12,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
@@ -2231,5 +2287,50 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.muted,
     fontWeight: '500',
+  },
+
+  /* ── Punch time summary (start / end) ── */
+  punchTimeSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  punchTimeSummaryItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  punchTimeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  punchTimeSummaryLabel: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 10,
+    color: COLORS.muted,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
+  punchTimeSummaryValue: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.ink,
+    letterSpacing: 0.2,
+  },
+  punchTimeSummaryDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#e2e8f0',
+    marginHorizontal: 12,
   },
 });

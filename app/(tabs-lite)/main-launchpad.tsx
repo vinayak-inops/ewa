@@ -1,8 +1,11 @@
+import { useRolePermissions } from '@/hooks/api/useRolePermissions';
+import type { RootState } from '@/store';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StatusBar, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { ActivityIndicator, Animated, Easing, Pressable, StatusBar, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSelector } from 'react-redux';
 
 
 const CARDS = [
@@ -68,23 +71,23 @@ type Card = (typeof CARDS)[0];
 
 function useRipple(delay: number) {
   const scale = useRef(new Animated.Value(0.3)).current;
-  const opacity = useRef(new Animated.Value(0.8)).current;
+  const opacity = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
     const run = (firstDelay: number) => {
       scale.setValue(0.3);
-      opacity.setValue(0.8);
+      opacity.setValue(0.6);
       Animated.parallel([
         Animated.timing(scale, {
-          toValue: 2.8,
-          duration: 2600,
+          toValue: 2.2,
+          duration: 3200,
           delay: firstDelay,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 2600,
+          duration: 3200,
           delay: firstDelay,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
@@ -105,28 +108,27 @@ function AppCard({ card, onPress }: { card: Card; onPress: () => void }) {
   const orbit2 = useRef(new Animated.Value(0)).current;
 
   const r1 = useRipple(card.animDelay);
-  const r2 = useRipple(card.animDelay + 867);
-  const r3 = useRipple(card.animDelay + 1734);
+  const r2 = useRipple(card.animDelay + 1100);
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(floatY, { toValue: -9, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(floatY, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(floatY, { toValue: -5, duration: 2800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(floatY, { toValue: 0, duration: 2800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     ).start();
 
     Animated.loop(
       Animated.sequence([
-        Animated.timing(iconBreath, { toValue: 1.1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(iconBreath, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(iconBreath, { toValue: 1.05, duration: 2400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(iconBreath, { toValue: 1, duration: 2400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ])
     ).start();
 
     Animated.loop(
       Animated.sequence([
-        Animated.timing(glowScale, { toValue: 1.22, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(glowScale, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(glowScale, { toValue: 1.10, duration: 2400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(glowScale, { toValue: 1, duration: 2400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ])
     ).start();
 
@@ -202,7 +204,7 @@ function AppCard({ card, onPress }: { card: Card; onPress: () => void }) {
           {/* Center animation stage */}
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
 
-            {[r1, r2, r3].map((r, i) => (
+            {[r1, r2].map((r, i) => (
               <Animated.View
                 key={i}
                 style={{
@@ -317,9 +319,43 @@ function AppCard({ card, onPress }: { card: Card; onPress: () => void }) {
   );
 }
 
+function useCardVisibility() {
+  const { loading } = useRolePermissions();
+  const permissions = useSelector((s: RootState) => s.role.permissions);
+
+  const visibility = useMemo(() => {
+    if (loading) return null;
+    if (!permissions || permissions.length === 0) return { ewa: false, applications: false, attendance: false, reports: false };
+
+    const roleData = permissions[0] as Record<string, unknown>;
+
+    const hasActiveScreen = (service: unknown): boolean => {
+      if (!service || typeof service !== 'object') return false;
+      if (Array.isArray(service)) {
+        return service.some((s) => s.isActive !== false && s.enabled !== false);
+      }
+      return Object.values(service as Record<string, unknown>).some((screen) => {
+        if (!screen || typeof screen !== 'object') return false;
+        const s = screen as Record<string, unknown>;
+        return s.isActive !== false && s.enabled !== false;
+      });
+    };
+
+    return {
+      ewa: hasActiveScreen(roleData.ewa),
+      applications: hasActiveScreen(roleData.applicationApplier) || hasActiveScreen(roleData.applicationApprover),
+      attendance: hasActiveScreen(roleData.attendance) || hasActiveScreen(roleData.muster),
+      reports: hasActiveScreen(roleData.reports),
+    };
+  }, [permissions, loading]);
+
+  return { loading, visibility };
+}
+
 export default function MainLaunchpadScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { loading, visibility: visible } = useCardVisibility();
 
   const shimmer = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -355,49 +391,64 @@ export default function MainLaunchpadScreen() {
             </Text>
           </View>
 
-          {/* FIX: replaced gap:6 with marginLeft on Text */}
-          <Animated.View
-            style={{
-              opacity: shimmerOpacity,
-              backgroundColor: '#1e3a8a',
-              borderRadius: 14,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              flexDirection: 'row',
-              alignItems: 'center',
-              shadowColor: '#1e40af',
-              shadowOpacity: 0.35,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: 3 },
-              elevation: 4,
-            }}
-          >
-            <View
+          {!loading && visible && (
+            <Animated.View
               style={{
-                width: 7,
-                height: 7,
-                borderRadius: 3.5,
-                backgroundColor: '#4ade80',
+                opacity: shimmerOpacity,
+                backgroundColor: '#1e3a8a',
+                borderRadius: 14,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                shadowColor: '#1e40af',
+                shadowOpacity: 0.35,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 3 },
+                elevation: 4,
               }}
-            />
-            <Text style={{ color: '#fff', fontSize: 11.5, fontWeight: '700', letterSpacing: 0.3, marginLeft: 6 }}>
-              4 Apps
+            >
+              <View
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: 3.5,
+                  backgroundColor: '#4ade80',
+                }}
+              />
+              <Text style={{ color: '#fff', fontSize: 11.5, fontWeight: '700', letterSpacing: 0.3, marginLeft: 6 }}>
+                {Object.values(visible).filter(Boolean).length} Apps
+              </Text>
+            </Animated.View>
+          )}
+        </View>
+
+        {loading || !visible ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color="#1e3a8a" />
+            <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '500', marginTop: 14 }}>
+              Loading your apps...
             </Text>
-          </Animated.View>
-        </View>
+          </View>
+        ) : (
+          <>
+            {(visible.ewa || visible.applications) && (
+              <View style={{ flex: 1, flexDirection: 'row', marginBottom: 10 }}>
+                {visible.ewa && <AppCard card={CARDS[0]} onPress={() => router.push(CARDS[0].route as any)} />}
+                {visible.ewa && visible.applications && <View style={{ width: 10 }} />}
+                {visible.applications && <AppCard card={CARDS[1]} onPress={() => router.push(CARDS[1].route as any)} />}
+              </View>
+            )}
 
-        {/* FIX: replaced gap:10 between rows with marginBottom; replaced gap:10 inside rows with marginRight on first card */}
-        <View style={{ flex: 1, flexDirection: 'row', marginBottom: 10 }}>
-          <AppCard card={CARDS[0]} onPress={() => router.push(CARDS[0].route as any)} />
-          <View style={{ width: 10 }} />
-          <AppCard card={CARDS[1]} onPress={() => router.push(CARDS[1].route as any)} />
-        </View>
-
-        <View style={{ flex: 1, flexDirection: 'row' }}>
-          <AppCard card={CARDS[2]} onPress={() => router.push(CARDS[2].route as any)} />
-          <View style={{ width: 10 }} />
-          <AppCard card={CARDS[3]} onPress={() => router.push(CARDS[3].route as any)} />
-        </View>
+            {(visible.attendance || visible.reports) && (
+              <View style={{ flex: 1, flexDirection: 'row' }}>
+                {visible.attendance && <AppCard card={CARDS[2]} onPress={() => router.push(CARDS[2].route as any)} />}
+                {visible.attendance && visible.reports && <View style={{ width: 10 }} />}
+                {visible.reports && <AppCard card={CARDS[3]} onPress={() => router.push(CARDS[3].route as any)} />}
+              </View>
+            )}
+          </>
+        )}
 
       </View>
     </View>

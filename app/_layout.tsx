@@ -9,11 +9,11 @@ import 'react-native-reanimated';
 import "../global.css";
 
 import StoreProvider from '@/components/providers/StoreProvider';
+import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-SplashScreen.preventAutoHideAsync().catch(() => {
-  // Ignore if already handled.
-});
+// Hide the native splash immediately — our JS loading screen takes over
+SplashScreen.hideAsync().catch(() => {});
 
 let globalFontApplied = false;
 const TextWithDefaults = Text as typeof Text & { defaultProps?: { style?: unknown } };
@@ -46,13 +46,13 @@ export default function RootLayout() {
   }
 
   if (!fontsLoaded) {
-    return null;
+    return <AppLoadingScreen />;
   }
 
   return (
     <StoreProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
+        <Stack screenOptions={{ contentStyle: { backgroundColor: '#f1f5f9' } }}>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs-lite)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs-rich)" options={{ headerShown: false }} />

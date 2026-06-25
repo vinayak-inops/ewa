@@ -384,7 +384,7 @@ const s = StyleSheet.create({
   },
   body: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
     overflow: 'hidden',
   },
   content: {

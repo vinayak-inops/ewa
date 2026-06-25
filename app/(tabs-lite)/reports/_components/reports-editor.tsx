@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -156,6 +156,8 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
 
   const refreshAll = useCallback(() => { refetchReports(); refetchCount(); }, [refetchReports, refetchCount]);
 
+  useFocusEffect(useCallback(() => { refreshAll(); }, [refreshAll]));
+
   // ── Report card ───────────────────────────────────────────────────────────
   const renderCard = ({ item }: { item: any }) => {
     const { bg, txt } = statusColors(item.status);
@@ -163,43 +165,46 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
 
     return (
       <Pressable
-        style={({ pressed }) => [s.card, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}
         onPress={() =>
           router.push(`/(tabs-lite)/reports/application?mode=all&id=${encodeURIComponent(item._id ?? item.id ?? '')}` as any)
         }
       >
-        {/* Icon */}
-        <View style={[s.cardIcon, { backgroundColor: isPdf ? '#fef2f2' : '#eff6ff' }]}>
-          <Ionicons
-            name={isPdf ? 'document-text-outline' : 'grid-outline'}
-            size={24}
-            color={isPdf ? '#dc2626' : '#1d4ed8'}
-          />
-        </View>
+        {({ pressed }) => (
+          <View style={[s.card, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
+            {/* Icon */}
+            <View style={[s.cardIcon, { backgroundColor: isPdf ? '#fef2f2' : '#eff6ff' }]}>
+              <Ionicons
+                name={isPdf ? 'document-text-outline' : 'grid-outline'}
+                size={24}
+                color={isPdf ? '#dc2626' : '#1d4ed8'}
+              />
+            </View>
 
-        {/* Body */}
-        <View style={s.cardBody}>
-          <Text style={s.cardTitle} numberOfLines={1}>
-            {item.reportName ?? item.reportTitle ?? 'Untitled'}
-          </Text>
-          <View style={s.cardFooter}>
-            <Ionicons name="calendar-outline" size={11} color="#94a3b8" />
-            <Text style={s.cardMeta}>{fmtDate(item.createdOn ?? item.createdAt ?? '') || '—'}</Text>
-            <View style={s.cardTypeDot} />
-            <Text style={[s.cardTypeTag, isPdf && { color: '#dc2626' }]}>
-              {(item.extension ?? 'EXCEL').toUpperCase()}
-            </Text>
+            {/* Body */}
+            <View style={s.cardBody}>
+              <Text style={s.cardTitle} numberOfLines={1}>
+                {item.reportName ?? item.reportTitle ?? 'Untitled'}
+              </Text>
+              <View style={s.cardFooter}>
+                <Ionicons name="calendar-outline" size={11} color="#94a3b8" />
+                <Text style={s.cardMeta}>{fmtDate(item.createdOn ?? item.createdAt ?? '') || '—'}</Text>
+                <View style={s.cardTypeDot} />
+                <Text style={[s.cardTypeTag, isPdf && { color: '#dc2626' }]}>
+                  {(item.extension ?? 'EXCEL').toUpperCase()}
+                </Text>
+              </View>
+            </View>
+
+            {/* Status badge */}
+            <View style={[s.statusBadge, { backgroundColor: bg }]}>
+              <View style={[s.statusDot, { backgroundColor: txt }]} />
+              <Text style={[s.statusTxt, { color: txt }]}>{item.status ?? 'Pending'}</Text>
+            </View>
+
+            {/* Chevron */}
+            <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
           </View>
-        </View>
-
-        {/* Status badge */}
-        <View style={[s.statusBadge, { backgroundColor: bg }]}>
-          <View style={[s.statusDot, { backgroundColor: txt }]} />
-          <Text style={[s.statusTxt, { color: txt }]}>{item.status ?? 'Pending'}</Text>
-        </View>
-
-        {/* Chevron — always centered */}
-        <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
+        )}
       </Pressable>
     );
   };

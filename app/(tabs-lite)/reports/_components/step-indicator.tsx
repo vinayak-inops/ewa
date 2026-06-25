@@ -8,13 +8,6 @@ const STEPS = [
   { number: 3, label: 'Basic Information' },
 ];
 
-// Vertical centre of each circle (paddingTop 16 + circle 32 / 2 = 32, gap 24 between circles)
-const STEP_TOP: Record<number, number> = {
-  1: 32,       // 16 + 16
-  2: 32 + 24 + 32, // + line(24) + circle(32)
-  3: 32 + 24 + 32 + 24 + 32, // + line + circle
-};
-
 interface StepIndicatorProps {
   currentStep: number;
   visibleStepLabel: number | null;
@@ -26,187 +19,144 @@ interface StepIndicatorProps {
 
 export function StepIndicator({
   currentStep,
-  visibleStepLabel,
   completedSteps = [],
   onStepChange,
-  onStepLabelToggle,
-  onStepLabelClose,
 }: StepIndicatorProps) {
-
   const isAccessible = (n: number) => n === 1 || completedSteps.includes(n - 1);
 
-  const selectedStep = STEPS.find((s) => s.number === visibleStepLabel) ?? null;
-
   return (
-    // overflow: visible so the floating label can escape the 48-wide column
-    <View style={s.sidebar}>
+    <View style={s.container}>
+      {STEPS.map((step, idx) => {
+        const isDone = completedSteps.includes(step.number) || step.number < currentStep;
+        const isCurrent = step.number === currentStep;
+        const accessible = isAccessible(step.number);
 
-      <View style={s.track}>
-        {STEPS.map((step, idx) => {
-          const isDone = completedSteps.includes(step.number) || step.number < currentStep;
-          const isCurrent = step.number === currentStep;
-          const accessible = isAccessible(step.number);
-
-          const circleStyle = isDone
-            ? s.circleDone
-            : isCurrent
-            ? s.circleCurrent
-            : accessible
-            ? s.circleReady
-            : s.circleLocked;
-
-          const textStyle = isDone || isCurrent ? s.circleNumLight : s.circleNumDark;
-
-          const lineStyle = isDone || isCurrent ? s.lineDone : s.linePending;
-
-          return (
-            <View key={step.number} style={s.stepWrap}>
-              <Pressable
-                disabled={!accessible}
-                style={[s.circleHit, !accessible && s.disabledHit]}
-                onPress={() => {
-                  if (!accessible) return;
-                  onStepChange(step.number);
-                  onStepLabelToggle(step.number);
-                }}>
-                <View style={[s.circle, circleStyle]}>
-                  <Text style={[s.circleNum, textStyle]}>{step.number}</Text>
-                </View>
-              </Pressable>
-
-              {idx < STEPS.length - 1 && (
-                <View style={[s.line, lineStyle]} />
-              )}
-            </View>
-          );
-        })}
-      </View>
-
-      {/* Floating label — absolutely positioned to the right of the sidebar */}
-      {visibleStepLabel !== null && selectedStep && (() => {
-        const isDone = completedSteps.includes(selectedStep.number) || selectedStep.number < currentStep;
-        const isCurrent = selectedStep.number === currentStep;
-        const accessible = isAccessible(selectedStep.number);
-
-        const labelStyle = isDone
-          ? s.labelDone
+        const circleStyle = isDone
+          ? s.circleDone
           : isCurrent
-          ? s.labelCurrent
+          ? s.circleCurrent
           : accessible
-          ? s.labelReady
-          : s.labelLocked;
+          ? s.circleReady
+          : s.circleLocked;
 
-        const labelTextStyle = isDone
-          ? s.labelTxtDone
-          : isCurrent
-          ? s.labelTxtCurrent
-          : s.labelTxtLocked;
+        const textStyle = isDone || isCurrent
+          ? s.circleNumLight
+          : accessible
+          ? s.circleNumDark
+          : s.circleNumLocked;
 
-        const topOffset = STEP_TOP[selectedStep.number] ?? 32;
+        const labelColor = isDone || isCurrent ? s.labelActive : s.labelLocked;
 
         return (
-          <Pressable
-            style={[s.floatingLabel, labelStyle, { top: topOffset - 14 }]}
-            disabled={!accessible}
-            onPress={() => {
-              if (!accessible) return;
-              onStepChange(selectedStep.number);
-              onStepLabelClose();
-            }}>
-            <Text style={[s.labelTxt, labelTextStyle]}>
-              {selectedStep.label}
-            </Text>
-          </Pressable>
+          <View key={step.number} style={s.stepCol}>
+            {/* Connector line on the left */}
+            {idx > 0 && (
+              <View style={s.lineLeft}>
+                <View style={[s.line, isDone ? s.lineDone : s.linePending]} />
+              </View>
+            )}
+
+            {/* Circle + label stacked */}
+            <Pressable
+              disabled={!accessible}
+              style={[s.stepInner, !accessible && s.disabledHit]}
+              onPress={() => { if (accessible) onStepChange(step.number); }}>
+              <View style={[s.circle, circleStyle]}>
+                <Text style={[s.circleNum, textStyle]}>{step.number}</Text>
+              </View>
+              <Text style={[s.label, labelColor]} numberOfLines={2}>
+                {step.label}
+              </Text>
+            </Pressable>
+
+            {/* Connector line on the right */}
+            {idx < STEPS.length - 1 && (
+              <View style={s.lineRight}>
+                <View style={[s.line, isDone ? s.lineDone : s.linePending]} />
+              </View>
+            )}
+          </View>
         );
-      })()}
+      })}
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  sidebar: {
-    width: 48,
-    borderRightWidth: 1,
-    borderRightColor: '#e5e7eb',
+  container: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#f9fafb',
-    overflow: 'visible',     // lets floating label escape the 48px width
-    zIndex: 10,
-  },
-  track: {
-    paddingTop: 16,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-  },
-  stepWrap: {
-    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
 
-  // Circle hit area (larger touch target)
-  circleHit: {
-    padding: 2,
-  },
-  disabledHit: {
-    opacity: 0.5,
+  /* Each step occupies equal width */
+  stepCol: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
 
-  // Circle base
+  /* Circle + label stacked vertically, centered in the step column */
+  stepInner: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 5,
+    zIndex: 1,
+  },
+
   circle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleDone: { backgroundColor: '#22c55e' },
-  circleCurrent: { backgroundColor: '#2563eb' },
-  circleReady: { backgroundColor: '#d1d5db' },
-  circleLocked: { backgroundColor: '#e5e7eb' },
+  circleDone:    { backgroundColor: '#0a1c63' },
+  circleCurrent: { backgroundColor: '#0a1c63' },
+  circleReady:   { backgroundColor: '#ffffff', borderWidth: 2, borderColor: '#0a1c63' },
+  circleLocked:  { backgroundColor: '#ffffff', borderWidth: 2, borderColor: '#c7d2fe' },
 
-  circleNum: { fontFamily: F, fontSize: 13, fontWeight: '700' },
-  circleNumLight: { color: '#ffffff' },
-  circleNumDark: { color: '#6b7280' },
+  circleNum: { fontFamily: F, fontSize: 12, fontWeight: '700' },
+  circleNumLight:  { color: '#ffffff' },
+  circleNumDark:   { color: '#0a1c63' },
+  circleNumLocked: { color: '#c7d2fe' },
 
-  // Connector line
-  line: {
-    width: 2,
-    height: 24,
-  },
-  lineDone: { backgroundColor: '#22c55e' },
-  linePending: { backgroundColor: '#d1d5db' },
+  disabledHit: { opacity: 0.5 },
 
-  // Floating label
-  floatingLabel: {
+  /* Connector lines sit at circle mid-height (14px from top) */
+  lineLeft: {
     position: 'absolute',
-    left: 48,          // flush against right edge of sidebar
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    minWidth: 120,
-    zIndex: 50,
+    left: 0,
+    right: '50%',
+    top: 13,
+    height: 2,
+    zIndex: 0,
   },
-  labelDone: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#22c55e',
+  lineRight: {
+    position: 'absolute',
+    left: '50%',
+    right: 0,
+    top: 13,
+    height: 2,
+    zIndex: 0,
   },
-  labelCurrent: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#2563eb',
+  line: {
+    flex: 1,
+    height: 2,
   },
-  labelReady: {
-    backgroundColor: '#f9fafb',
-    borderColor: '#d1d5db',
-    borderStyle: 'solid',
+  lineDone:    { backgroundColor: '#0a1c63' },
+  linePending: { backgroundColor: '#c7d2fe' },
+
+  label: {
+    fontFamily: F,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  labelLocked: {
-    backgroundColor: '#f3f4f6',
-    borderColor: '#e5e7eb',
-    borderStyle: 'solid',
-    opacity: 0.5,
-  },
-  labelTxt: { fontFamily: F, fontSize: 12, fontWeight: '600' },
-  labelTxtDone: { color: '#16a34a' },
-  labelTxtCurrent: { color: '#2563eb' },
-  labelTxtLocked: { color: '#9ca3af' },
+  labelActive: { color: '#0a1c63' },
+  labelLocked: { color: '#a5b4fc' },
 });

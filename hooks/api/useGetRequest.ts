@@ -199,7 +199,16 @@ export function useGetRequest<T>({
           throw new Error(`${normalizedMethod} ${requestUrl} failed with status ${response.status}: ${body}`);
         }
 
-        const responseData = (await response.json()) as T;
+        const rawData = (await response.json()) as T;
+        const responseData = (
+          Array.isArray(rawData) &&
+          rawData.length > 0 &&
+          rawData.every(
+            (item) => typeof item === 'object' && item !== null && Object.keys(item).length === 0
+          )
+            ? []
+            : rawData
+        ) as T;
         if (shouldUseCache) {
           requestCache.set(cacheKey, { data: responseData, timestamp: Date.now(), expiry: cacheDurationMs });
         } else {
@@ -246,12 +255,14 @@ export function useGetRequest<T>({
     };
   }, [fetchData, debounceMs, enabled, ...dependencies]);
 
+  const refetch = useCallback(async () => {
+    await fetchData(true);
+  }, [fetchData]);
+
   return {
     data,
     loading,
     error,
-    refetch: async () => {
-      await fetchData(true);
-    },
+    refetch,
   };
 }

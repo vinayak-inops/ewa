@@ -3,8 +3,6 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const F = 'Inter';
-
 import { AnimatedSuccessState } from '@/components/ui/animated-success-state';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';

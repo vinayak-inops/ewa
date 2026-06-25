@@ -1,10 +1,10 @@
-import { useGetRequest } from "@/hooks/api/useGetRequest"
-import { useGraphQLQuery } from "@/hooks/api/useGraphQLQuery"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { Ionicons } from "@expo/vector-icons"
 import { Check, ChevronDown, Search, X } from "lucide-react-native"
 import React, { useEffect, useMemo, useRef, useState } from "react"
+import { useBlockedDates } from '../hooks/useBlockedDates'
+import { useLeaveIdentity } from '../hooks/useLeaveIdentity'
+import { useSpecialLeavePolicy } from '../hooks/useSpecialLeavePolicy'
 import {
   ActivityIndicator,
   Animated,
@@ -71,17 +71,6 @@ interface Props {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function decodeJwtPayload(token: string) {
-  try {
-    const p = token.split('.')[1]; if (!p) return null
-    const b64 = p.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=')
-    return JSON.parse(
-      decodeURIComponent(atob(padded).split('').map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(''))
-    ) as Record<string, unknown>
-  } catch { return null }
-}
 
 function validate(fields: { leaveTitle: string; fromDate: string; toDate: string }): FormErrors {
   const e: FormErrors = {}
@@ -161,6 +150,8 @@ function SelectRow({ value, placeholder, onPress, error, disabled, loading }: {
   )
 }
 
+const CHIP_COLORS = ['#1e40af','#0369a1','#0f766e','#7c3aed','#b45309','#be185d','#15803d','#9333ea']
+
 function PickerModal({ visible, onClose, title, options, onSelect, selectedValue, loading }: {
   visible: boolean; onClose: () => void; title: string
   options: { value: string; label: string }[]
@@ -178,51 +169,105 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.sheetBg}>
         <View style={s.sheet}>
+
+          {/* Handle */}
           <View style={s.sheetHandle} />
+
+          {/* Header */}
           <View style={s.sheetHead}>
-            <Text style={s.sheetTitle}>{title}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.sheetTitle}>{title}</Text>
+              {!loading && options.length > 0 && (
+                <Text style={{ fontFamily: FONT, fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                  {options.length} type{options.length !== 1 ? 's' : ''} available
+                </Text>
+              )}
+            </View>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <View style={s.sheetClose}><X size={13} color="#64748b" /></View>
+              <View style={s.sheetClose}><X size={14} color="#64748b" /></View>
             </TouchableOpacity>
           </View>
-          <View style={{ paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
+
+          {/* Search */}
+          <View style={{ paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
             <View style={s.searchWrap}>
-              <Search size={13} color="#9ca3af" />
+              <Search size={14} color="#94a3b8" />
               <TextInput
                 value={search} onChangeText={setSearch}
-                placeholder="Search..." placeholderTextColor="#9ca3af"
+                placeholder="Search leave type..." placeholderTextColor="#94a3b8"
                 style={{ flex: 1, marginLeft: 8, fontSize: 13, fontFamily: FONT, color: '#0f172a' }}
               />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
+                  <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' }}>
+                    <X size={10} color="#64748b" />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
+
+          {/* Content */}
           {loading ? (
-            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color={NAVY} />
-              <Text style={[s.muted, { marginTop: 6 }]}>Loading...</Text>
+            <View style={{ paddingVertical: 48, alignItems: 'center', gap: 10 }}>
+              <ActivityIndicator size="large" color={NAVY} />
+              <Text style={{ fontFamily: FONT, fontSize: 13, color: '#94a3b8' }}>Loading leave types...</Text>
             </View>
           ) : filtered.length === 0 ? (
-            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <Text style={s.muted}>No options found</Text>
+            <View style={{ paddingVertical: 48, alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+                <Search size={20} color="#cbd5e1" />
+              </View>
+              <Text style={{ fontFamily: FONT, fontSize: 14, fontWeight: '600', color: '#374151' }}>No results</Text>
+              <Text style={{ fontFamily: FONT, fontSize: 12, color: '#9ca3af' }}>Try a different search term</Text>
             </View>
           ) : (
             <FlatList
               data={filtered}
               keyExtractor={item => item.value}
-              style={{ maxHeight: 340 }}
-              renderItem={({ item }) => {
+              style={{ maxHeight: 380 }}
+              contentContainerStyle={{ paddingVertical: 6 }}
+              renderItem={({ item, index }) => {
                 const sel = item.value === selectedValue
+                const chipColor = CHIP_COLORS[index % CHIP_COLORS.length]!
                 return (
                   <TouchableOpacity
                     onPress={() => { onSelect(item.value, item.label); onClose() }}
-                    style={[s.optRow, sel && { backgroundColor: '#f0f4ff' }]}
+                    activeOpacity={0.7}
+                    style={[
+                      s.optRow,
+                      sel && { backgroundColor: '#eef2ff', borderLeftWidth: 3, borderLeftColor: NAVY },
+                    ]}
                   >
-                    <Text style={[s.optLabel, sel && { color: NAVY, fontWeight: '700' }]}>{item.label}</Text>
-                    {sel && <View style={s.optCheck}><Check size={10} color="#fff" /></View>}
+                    {/* Code badge */}
+                    <View style={[s.optCodeBadge, { backgroundColor: `${chipColor}15`, borderColor: `${chipColor}30` }]}>
+                      <Text style={[s.optCodeText, { color: chipColor }]} numberOfLines={1}>
+                        {item.value}
+                      </Text>
+                    </View>
+
+                    {/* Label */}
+                    <Text
+                      style={[s.optLabel, sel && { color: NAVY, fontWeight: '700' }]}
+                      numberOfLines={2}
+                    >
+                      {item.label}
+                    </Text>
+
+                    {/* Check */}
+                    {sel
+                      ? <View style={s.optCheck}><Check size={11} color="#fff" /></View>
+                      : <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0' }} />
+                    }
                   </TouchableOpacity>
                 )
               }}
+              ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#f8fafc', marginHorizontal: 14 }} />}
             />
           )}
+
+          {/* Footer safe area */}
+          <View style={{ height: 20 }} />
         </View>
       </View>
     </Modal>
@@ -232,8 +277,10 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function SpecialLeaveFormPopup({ isOpen, onClose, onSuccess }: Props) {
-  const [employeeId, setEmployeeId] = useState("")
-  const [tenantCode, setTenantCode] = useState("")
+  // Identity + data scope from Redux (set at login by StoreProvider)
+  const { employeeId, tenantCode } = useLeaveIdentity()
+  const { leaveOptions, loading: leaveLoading } = useSpecialLeavePolicy({ isOpen, tenantCode, employeeId })
+  const blockedDateMap = useBlockedDates({ isOpen, tenantCode, employeeId })
 
   const [leaveTitle, setLeaveTitle] = useState("")
   const [customLeaveTitle, setCustomLeaveTitle] = useState("")
@@ -253,198 +300,6 @@ export default function SpecialLeaveFormPopup({ isOpen, onClose, onSuccess }: Pr
   const [showLeaveTitle, setShowLeaveTitle] = useState(false)
   const [showLastDay, setShowLastDay]       = useState(false)
   const [showChildDate, setShowChildDate]   = useState(false)
-  const [specialApps, setSpecialApps]     = useState<any[]>([])
-  const [leaveApps, setLeaveApps]         = useState<any[]>([])
-
-  // Fetch existing special leave applications to block dates on calendar
-  useGetRequest<any[]>({
-    url: 'specialLeaveApplication/search?offset=0&limit=200',
-    method: 'POST',
-    data: [
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-    ],
-    enabled: Boolean(isOpen && tenantCode && employeeId),
-    dependencies: [isOpen, tenantCode, employeeId],
-    onSuccess: (data: any) => setSpecialApps(Array.isArray(data) ? data : []),
-    onError: () => setSpecialApps([]),
-  })
-
-  // Fetch existing leave applications to block dates on calendar
-  useGetRequest<any[]>({
-    url: 'leaveApplication/search?offset=0&limit=200',
-    method: 'POST',
-    data: [
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-    ],
-    enabled: Boolean(isOpen && tenantCode && employeeId),
-    dependencies: [isOpen, tenantCode, employeeId],
-    onSuccess: (data: any) => setLeaveApps(Array.isArray(data) ? data : []),
-    onError: () => setLeaveApps([]),
-  })
-
-  // Combined blocked date map from leaveApplication + specialLeaveApplication
-  const blockedDateMap = useMemo(() => {
-    const map: Record<string, string> = {}
-
-    const parseDDMMYYYY = (ddmmyyyy: string) => {
-      if (!ddmmyyyy) return null
-      const parts = ddmmyyyy.split('-')
-      if (parts.length !== 3) return null
-      const [dd, mm, yyyy] = parts
-      if (!dd || !mm || !yyyy) return null
-      return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
-    }
-
-    const expandRange = (fromRaw: string, toRaw: string, state: string) => {
-      const from = parseDDMMYYYY(fromRaw) ?? (fromRaw.length === 10 && fromRaw[4] === '-' ? new Date(fromRaw) : null)
-      const to   = parseDDMMYYYY(toRaw)   ?? (toRaw.length === 10   && toRaw[4]   === '-' ? new Date(toRaw)   : null)
-      if (!from || !to) return
-      const cur = new Date(from)
-      while (cur <= to) {
-        const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`
-        map[iso] = state
-        cur.setDate(cur.getDate() + 1)
-      }
-    }
-
-    // From leaveApplication — individual dates in leaves[].date, fallback to fromDate/toDate range
-    leaveApps.forEach(app => {
-      const state = (app.workflowState || '').toUpperCase()
-      if (['REJECTED', 'FAILED', 'CANCELLED'].includes(state)) return
-      const leaves = app.leaves || app.leaveDetails || []
-      if (leaves.length > 0) {
-        leaves.forEach((l: any) => {
-          if (!l.date) return
-          const parts = l.date.split('-')
-          if (parts.length === 3) {
-            const iso = parts[0]!.length === 4 ? l.date : `${parts[2]}-${parts[1]}-${parts[0]}`
-            map[iso] = state
-          }
-        })
-      } else if (app.fromDate && app.toDate) {
-        expandRange(app.fromDate, app.toDate, state)
-      }
-    })
-
-    // From specialLeaveApplication — fromDate/toDate ranges in dd-mm-yyyy
-    specialApps.forEach(app => {
-      const state = (app.workflowState || '').toUpperCase()
-      if (['REJECTED', 'FAILED', 'CANCELLED'].includes(state)) return
-      expandRange(app.fromDate, app.toDate, state)
-    })
-
-    return map
-  }, [leaveApps, specialApps])
-
-  // Fetch employee to get deployment context for leave policy filtering
-  const { data: employeeData } = useGraphQLQuery<{
-    fetchEmployees: Array<{ deployment: any }>
-  }>({
-    query: `
-      query FetchEmployees(
-        $criteriaRequests: [CriteriaRequest!]!
-        $collection: String!
-        $offset: Int
-        $limit: Int
-      ) {
-        fetchEmployees(
-          criteriaRequests: $criteriaRequests
-          collection: $collection
-          offset: $offset
-          limit: $limit
-        ) {
-          _id
-          firstName
-          middleName
-          lastName
-          employeeID
-          organizationCode
-          contractorCode
-          tenantCode
-          deployment {
-            effectiveFrom
-            subsidiary { subsidiaryCode subsidiaryName }
-            division { divisionCode divisionName }
-            department { departmentCode departmentName }
-            designation { designationCode designationName }
-            grade { gradeCode gradeName }
-            employeeCategory { employeeCategoryCode employeeCategoryName }
-            location { locationCode locationName }
-          }
-        }
-      }
-    `,
-    variables: {
-      criteriaRequests: tenantCode && employeeId
-        ? [
-            { field: 'tenantCode', operator: 'is', value: tenantCode },
-            { field: 'employeeID', operator: 'eq', value: employeeId },
-          ]
-        : [],
-      collection: 'contract_employee',
-      offset: 0,
-      limit: 1,
-    },
-    skip: !isOpen || !tenantCode || !employeeId,
-  })
-
-  const deployment = employeeData?.fetchEmployees?.[0]?.deployment
-
-  const leaveCriteria = useMemo(() => {
-    const criteria: any[] = []
-    if (tenantCode) criteria.push({ field: 'tenantCode', operator: 'is', value: tenantCode },{ field: 'leavePolicy.leaveCategory', operator: 'eq', value: "Leave of Absence" })
-    const subsidiaryCode = deployment?.subsidiary?.subsidiaryCode
-    const locationCode = deployment?.location?.locationCode
-    const designationCode = deployment?.designation?.designationCode
-    const employeeCategory = deployment?.employeeCategory?.employeeCategoryCode
-    if (subsidiaryCode) criteria.push({ field: 'subsidiary.subsidiaryCode', operator: 'eq', value: subsidiaryCode })
-    if (locationCode) criteria.push({ field: 'location.locationCode', operator: 'eq', value: locationCode })
-    if (designationCode) criteria.push({ field: 'designation.designationCode', operator: 'eq', value: designationCode })
-    if (employeeCategory) criteria.push({ field: 'employeeCategory', operator: 'in', value: [employeeCategory] })
-    return criteria
-  }, [tenantCode, deployment])
-
-  const { data: leavePolicyData, loading: leaveLoading } = useGraphQLQuery<{
-    fetchLeavePolicy: Array<{ leavePolicy: any; employeeCategory: string }>
-  }>({
-    query: `
-      query FetchLeavePolicy($criteriaRequests: [CriteriaRequest!]!, $collection: String!) {
-        fetchLeavePolicy(criteriaRequests: $criteriaRequests, collection: $collection) {
-          leavePolicy {
-            leaveCode
-            leaveTitle
-          }
-          employeeCategory
-        }
-      }
-    `,
-    variables: { criteriaRequests: leaveCriteria, collection: 'leave_policy' },
-    skip: !isOpen || !tenantCode,
-  })
-
-  const leaveOptions = useMemo(() => {
-    const list = Array.isArray(leavePolicyData?.fetchLeavePolicy)
-      ? leavePolicyData.fetchLeavePolicy
-      : []
-    return list.flatMap((item: any) => {
-      const policy = item?.leavePolicy
-      if (Array.isArray(policy)) {
-        return policy
-          .filter((p: any) => (p?.leaveCode || p?.levcode) && (p?.leaveTitle || p?.leavetitle))
-          .map((p: any) => ({
-            leaveCode: p.leaveCode || p.levcode,
-            leaveTitle: p.leaveTitle || p.leavetitle,
-          }))
-      }
-      if (policy && (policy.leaveCode || policy.levcode) && (policy.leaveTitle || policy.leavetitle)) {
-        return [{ leaveCode: policy.leaveCode || policy.levcode, leaveTitle: policy.leaveTitle || policy.leavetitle }]
-      }
-      return []
-    }) as Array<{ leaveCode: string; leaveTitle: string }>
-  }, [leavePolicyData])
-
   const showChildField =
     leaveTitle === "Maternity Leave" || leaveTitle === "Paternity Leave" || leaveTitle === "Adoption Leave"
   const childDateLabel =
@@ -469,18 +324,6 @@ export default function SpecialLeaveFormPopup({ isOpen, onClose, onSuccess }: Pr
       setErrors({})
       setSubmitted(false)
     }
-  }, [isOpen])
-
-  // Load JWT identity (same approach as NewTimeAwayFormModal)
-  useEffect(() => {
-    if (!isOpen) return
-    const run = async () => {
-      const token = await getAccessToken(); if (!token) return
-      const p = decodeJwtPayload(token); if (!p) return
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? '') || '')
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? '') || '')
-    }
-    void run()
   }, [isOpen])
 
   useEffect(() => {
@@ -1137,16 +980,18 @@ const s = StyleSheet.create({
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 14, paddingVertical: 14, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
 
   // Bottom sheet picker
-  sheetBg:    { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
-  sheet:      { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%' },
-  sheetHandle:{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#e2e8f0', alignSelf: 'center', marginTop: 10, marginBottom: 4 },
-  sheetHead:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  sheetTitle: { fontFamily: FONT, fontSize: 14, fontWeight: '700', color: '#0f172a' },
-  sheetClose: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 10, height: 38 },
-  optRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#f8fafc' },
-  optLabel:   { fontFamily: FONT, fontSize: 13, color: '#374151', flex: 1 },
-  optCheck:   { width: 18, height: 18, borderRadius: 9, backgroundColor: NAVY, alignItems: 'center', justifyContent: 'center' },
+  sheetBg:      { flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' },
+  sheet:        { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
+  sheetHandle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: '#e2e8f0', alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+  sheetHead:    { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  sheetTitle:   { fontFamily: FONT, fontSize: 16, fontWeight: '800', color: '#0f172a' },
+  sheetClose:   { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+  searchWrap:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', paddingHorizontal: 12, height: 42 },
+  optRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  optLabel:     { fontFamily: FONT, fontSize: 13, color: '#374151', flex: 1, lineHeight: 18 },
+  optCheck:     { width: 22, height: 22, borderRadius: 11, backgroundColor: NAVY, alignItems: 'center', justifyContent: 'center' },
+  optCodeBadge: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4, minWidth: 42, alignItems: 'center' },
+  optCodeText:  { fontFamily: FONT, fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
 
   // legacy (kept for form/success screens)
   balanceChip:      { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center', minWidth: 72 },

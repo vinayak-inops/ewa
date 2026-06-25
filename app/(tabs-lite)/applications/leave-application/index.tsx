@@ -2,7 +2,7 @@ import { useRolePermissions } from '@/hooks/api/useRolePermissions'
 import { useScreenPermissions } from '@/hooks/auth/useScreenPermissions'
 import { useLocalSearchParams } from 'expo-router'
 import React, { useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import LeaveApplication from './_components/leave-application/LeaveApplication'
 import LeaveApplicationApprover from './_components/leave-application/LeaveApplicationApprover'
 import NewSpecialLeaveRequestModal from './_components/special-leave-application/NewSpecialLeaveRequestModal'
@@ -170,15 +170,9 @@ export default function LeaveApplicationPage() {
 
   return (
     <>
-      <ScrollView
-        className="flex-1 bg-gray-100"
-        contentContainerStyle={{ paddingBottom: 96 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="w-full">
-          {renderContent()}
-        </View>
-      </ScrollView>
+      <View style={{ flex: 1 }}>
+        {renderContent()}
+      </View>
 
       {/* Modals - Only show for special leave application in applier mode */}
       {applicationType === 'special' && mode === 'applier' && (

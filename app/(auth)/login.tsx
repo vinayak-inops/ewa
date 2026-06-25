@@ -106,13 +106,11 @@ function FeatureGrid() {
   return (
     <View style={styles.featureWrap}>
       <View style={styles.featureRow}>
-        <FeatureCard icon={FEATURES[0].icon} title={FEATURES[0].title} desc={FEATURES[0].desc} style={{ marginRight: 10 }} />
-        <FeatureCard icon={FEATURES[1].icon} title={FEATURES[1].title} desc={FEATURES[1].desc} />
+        <FeatureCard icon={FEATURES[0].icon} title={FEATURES[0].title} desc={FEATURES[0].desc} style={{ flex: 1, marginRight: 10 }} />
+        <FeatureCard icon={FEATURES[1].icon} title={FEATURES[1].title} desc={FEATURES[1].desc} style={{ flex: 1 }} />
       </View>
       <View style={[styles.featureRow, { justifyContent: 'center', marginTop: 10 }]}>
-        <View style={{ width: '55%' }}>
-          <FeatureCard icon={FEATURES[2].icon} title={FEATURES[2].title} desc={FEATURES[2].desc} />
-        </View>
+        <FeatureCard icon={FEATURES[2].icon} title={FEATURES[2].title} desc={FEATURES[2].desc} style={{ width: '55%' }} />
       </View>
     </View>
   );
@@ -230,6 +228,7 @@ export default function LoginScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
 
       {/* Blue top area */}
+      <View style={{ flex: 1 }}>
       <View style={styles.topArea}>
         <Animated.View
           pointerEvents="none"
@@ -254,6 +253,7 @@ export default function LoginScreen() {
             <FeatureGrid />
           </View>
         </View>
+      </View>
       </View>
 
       {/* White bottom card */}
@@ -312,6 +312,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
   },
+
   orbTop: {
     position: 'absolute',
     top: -70,
@@ -380,7 +381,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   featureCard: {
-    flex: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
@@ -410,7 +410,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 28,
-    alignItems: 'center',
   },
   dragHandle: {
     width: 40,
@@ -418,6 +417,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#e2e8f0',
     marginBottom: 18,
+    alignSelf: 'center',
   },
   progressRow: {
     flexDirection: 'row',
@@ -463,8 +463,6 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   primaryButtonWrap: {
-    width: '100%',
-    alignSelf: 'stretch',
     borderRadius: 14,
   },
   primaryButton: {

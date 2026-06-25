@@ -12,15 +12,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const F = 'Inter';
 
 const C = {
   ink: '#0f172a',
   muted: '#64748b',
-  primary: '#7c3aed',
-  primaryStrong: '#6d28d9',
-  heroBg: '#ede9fe',
+  primary: '#0a1c63',
+  primaryStrong: '#0a1c63',
+  heroBg: '#e8eaf6',
   white: '#ffffff',
   border: '#e2e8f0',
   error: '#dc2626',
@@ -239,6 +240,9 @@ export function BasicInformation({
   onPeriodChange, onReportTitleChange, onReportDescriptionChange,
   onSubmit, isSubmitting = false,
 }: BasicInformationProps) {
+
+  const insets = useSafeAreaInsets();
+  const footerBottom = Math.max(14 - insets.bottom, 0) + 80;
 
   const [errors, setErrors] = useState({
     extension: '', fromDate: '', toDate: '', dateRange: '',
@@ -469,7 +473,10 @@ export function BasicInformation({
           </View>
         </View>
 
-        {/* ── Submit ── */}
+      </ScrollView>
+
+      {/* ── Sticky footer ── */}
+      <View style={[s.footer, { paddingBottom: footerBottom }]}>
         <Pressable
           style={({ pressed }) => [
             s.submitBtn,
@@ -487,7 +494,7 @@ export function BasicInformation({
             </>
           )}
         </Pressable>
-      </ScrollView>
+      </View>
 
       {/* ── Modals ── */}
       <DropdownModal
@@ -524,7 +531,12 @@ export function BasicInformation({
 
 const s = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 16, paddingBottom: 40, gap: 12 },
+  content: { padding: 16, paddingBottom: 16, gap: 12 },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1, borderTopColor: '#f1f5f9',
+    backgroundColor: '#ffffff',
+  },
 
   /* Card */
   sectionCard: {

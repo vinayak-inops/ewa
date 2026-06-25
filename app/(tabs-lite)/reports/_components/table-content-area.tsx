@@ -5,13 +5,16 @@ import {
   FlatList,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { useSelector } from 'react-redux';
 
+import type { RootState } from '@/store';
+
+import { EmployeeSearchField, type Employee } from '../../../../components/employee-search-field';
 import { TableMenuItem, TableType } from './types';
 
 const F = 'Inter';
@@ -220,30 +223,21 @@ function ContractEmployeeCard({
   const tableId = tableItem.id;
   const selectedIds = getSelectedItems(tableId);
   const allEmployees: any[] = getDataForType(tableId);
-  const [search, setSearch] = useState('');
-  const [addOpen, setAddOpen] = useState(false);
+  const selectedContractors = getSelectedItems('contractors' as TableType);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) return allEmployees;
-    return allEmployees.filter((e: any) =>
-      (e.code ?? '').toLowerCase().includes(q) ||
-      (e.name ?? '').toLowerCase().includes(q)
-    );
-  }, [search, allEmployees]);
+  // Read tenantCode from hierarchy Redux slice (populated on login)
+  const tenantCode = useSelector((s: RootState) => s.hierarchy.data?.tenantCode ?? '');
 
-  const allSelected = filtered.length > 0 && filtered.every((e: any) => selectedIds.includes(e.code));
+  // Increment key after each selection to reset EmployeeSearchField internal state,
+  // allowing the user to search and add the next employee immediately
+  const [searchFieldKey, setSearchFieldKey] = useState(0);
 
-  function toggleAll() {
-    if (allSelected) {
-      filtered.forEach((e: any) => {
-        if (selectedIds.includes(e.code)) handleRemoveItem(tableId, e.code);
-      });
-    } else {
-      const toAdd = filtered.filter((e: any) => !selectedIds.includes(e.code)).map((e: any) => e.code);
-      if (toAdd.length) handleAddItems(tableId, toAdd);
+  const handleEmployeeSelect = (emp: Employee) => {
+    if (!selectedIds.includes(emp.employeeID)) {
+      handleAddItems(tableId, [emp.employeeID]);
     }
-  }
+    setSearchFieldKey((k) => k + 1);
+  };
 
   return (
     <View style={s.card}>
@@ -259,23 +253,16 @@ function ContractEmployeeCard({
       </View>
 
       <View style={s.cardBody}>
-        {/* Add button */}
-        <Pressable
-          style={({ pressed }) => [s.addBtn, pressed && { opacity: 0.88 }]}
-          onPress={() => setAddOpen(true)}>
-          <Ionicons name="add" size={16} color="#fff" />
-          <Text style={s.addBtnTxt}>Add {tableItem.label}</Text>
-        </Pressable>
+        {/* Live employee search — replaces the old modal picker */}
+        <EmployeeSearchField
+          key={searchFieldKey}
+          tenantCode={tenantCode}
+          contractors={selectedContractors.length ? selectedContractors : undefined}
+          label="Search Employee"
+          onSelect={handleEmployeeSelect}
+        />
 
-        {/* Hint */}
-        <View style={s.hint}>
-          <Text style={s.hintIcon}>💡</Text>
-          <Text style={s.hintTxt}>
-            Tap <Text style={{ fontWeight: '700' }}>Add {tableItem.label}</Text> to search and select employees.
-          </Text>
-        </View>
-
-        {/* Selected table */}
+        {/* Selected employees table */}
         {selectedIds.length > 0 ? (
           <View style={s.table}>
             <View style={s.tableHead}>
@@ -301,75 +288,10 @@ function ContractEmployeeCard({
           </View>
         ) : (
           <View style={s.emptyRow}>
-            <Text style={s.emptyTxt}>No employees selected. Tap "Add {tableItem.label}" above.</Text>
+            <Text style={s.emptyTxt}>No employees selected. Search above to add.</Text>
           </View>
         )}
       </View>
-
-      {/* Add modal */}
-      <Modal visible={addOpen} transparent animationType="slide" onRequestClose={() => setAddOpen(false)}>
-        <Pressable style={am.backdrop} onPress={() => setAddOpen(false)} />
-        <View style={am.sheet}>
-          <View style={am.header}>
-            <Text style={am.headerTitle}>Add {tableItem.label}</Text>
-            <Pressable onPress={() => setAddOpen(false)} hitSlop={8}>
-              <Ionicons name="close" size={20} color="#374151" />
-            </Pressable>
-          </View>
-          <View style={am.searchRow}>
-            <Ionicons name="search-outline" size={16} color="#9ca3af" style={am.searchIcon} />
-            <TextInput
-              style={am.searchInput}
-              placeholder="Search by ID or name…"
-              placeholderTextColor="#9ca3af"
-              value={search}
-              onChangeText={setSearch}
-              autoCorrect={false}
-            />
-            {search.length > 0 && (
-              <Pressable onPress={() => setSearch('')} hitSlop={8}>
-                <Ionicons name="close-circle" size={16} color="#9ca3af" />
-              </Pressable>
-            )}
-          </View>
-          {filtered.length > 0 && (
-            <Pressable style={am.selectAll} onPress={toggleAll}>
-              <View style={[am.chk, allSelected && am.chkActive]}>
-                {allSelected && <Ionicons name="checkmark" size={11} color="#fff" />}
-              </View>
-              <Text style={am.selectAllTxt}>Select all ({filtered.length})</Text>
-            </Pressable>
-          )}
-          <FlatList
-            data={filtered}
-            keyExtractor={(e: any) => e.code}
-            style={am.list}
-            ListEmptyComponent={
-              <View style={am.empty}>
-                <Text style={am.emptyTxt}>No employees found.</Text>
-              </View>
-            }
-            renderItem={({ item }: { item: any }) => {
-              const isSel = selectedIds.includes(item.code);
-              return (
-                <Pressable
-                  style={({ pressed }) => [am.row, pressed && { backgroundColor: '#f3f4f6' }]}
-                  onPress={() =>
-                    isSel ? handleRemoveItem(tableId, item.code) : handleAddItems(tableId, [item.code])
-                  }>
-                  <View style={[am.chk, isSel && am.chkActive]}>
-                    {isSel && <Ionicons name="checkmark" size={11} color="#fff" />}
-                  </View>
-                  <View style={am.rowText}>
-                    <Text style={am.rowName}>{item.name || 'N/A'}</Text>
-                    <Text style={am.rowCode}>ID: {item.code}</Text>
-                  </View>
-                </Pressable>
-              );
-            }}
-          />
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -379,7 +301,7 @@ function ContractEmployeeCard({
 function TableTypeCard(props: TableContentAreaProps) {
   const {
     tableItem, visibleTables, getSelectedItems, getDataForType,
-    getLoadingForType, getFilteredDataForType, isParentSelected,
+    getLoadingForType, isParentSelected,
     handleAddItems, handleRemoveItem, handleRemoveItems,
     openAddFieldType, setOpenAddFieldType,
     filterChildByParent, PARENT_FIELD_MAP, tableMenuItems, pageSize,
@@ -389,7 +311,8 @@ function TableTypeCard(props: TableContentAreaProps) {
   const selectedCodes = getSelectedItems(tableId);
   const loading = getLoadingForType(tableId);
   const parentField = PARENT_FIELD_MAP[tableId] as TableType | '';
-  const parentOk = isParentSelected(tableId);
+  // Parent required only when it's also visible in the sidebar
+  const parentOk = !parentField || !visibleTables.has(parentField as TableType) || isParentSelected(tableId);
 
   // Per-type search/field/page from spread props
   const searchKey = tableId === 'contractors' ? 'contractorSearch'
@@ -424,7 +347,9 @@ function TableTypeCard(props: TableContentAreaProps) {
   const page: number = props[pageKey] ?? 1;
   const setPage: (v: number) => void = props[setPageKey] ?? (() => {});
 
-  const data = parentOk ? getDataForType(tableId) : [];
+  // Use filterChildByParent so that when no parent is selected, all items are shown
+  const parentCodes = parentField ? getSelectedItems(parentField as TableType) : [];
+  const data = filterChildByParent(tableId, parentField as TableType, parentCodes);
 
   // Filtered selected codes (by search)
   const filteredSelected = useMemo(() => {
@@ -508,7 +433,7 @@ function TableTypeCard(props: TableContentAreaProps) {
             style={({ pressed }) => [
               s.addBtn,
               (loading || !parentOk) && s.addBtnDisabled,
-              pressed && !(loading || !parentOk) && { opacity: 0.88 },
+              pressed && !loading && parentOk && { opacity: 0.88 },
             ]}
             onPress={() => {
               if (!loading && parentOk) setOpenAddFieldType(tableId);
@@ -752,11 +677,11 @@ const s = StyleSheet.create({
   },
   searchInput: { flex: 1, fontFamily: F, fontSize: 13, color: '#111827' },
   addBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#0a1c63',
     borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 8,
   },
-  addBtnDisabled: { backgroundColor: '#93c5fd' },
+  addBtnDisabled: { backgroundColor: '#a3aed0' },
   addBtnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: '#ffffff' },
 
   warning: {
@@ -811,9 +736,9 @@ const s = StyleSheet.create({
 
   hint: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe',
+    backgroundColor: '#e8eaf6', borderWidth: 1, borderColor: '#c7d2fe',
     borderRadius: 8, padding: 10,
   },
   hintIcon: { fontSize: 14 },
-  hintTxt: { fontFamily: F, fontSize: 12, color: '#1e40af', flex: 1, lineHeight: 17 },
+  hintTxt: { fontFamily: F, fontSize: 12, color: '#0a1c63', flex: 1, lineHeight: 17 },
 });

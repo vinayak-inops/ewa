@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StatusBar,
@@ -36,18 +38,14 @@ type ServiceDef = {
   approverRoute: string;
 };
 
+const LEAVE_POPUP_ROUTE = '__leave_popup__';
+
 const SERVICES: ServiceDef[] = [
   {
-    title: 'Leave',
+    title: 'Leave Application',
     icon: 'calendar-outline',
-    applierRoute: '/(tabs-lite)/applications/leave-application?application=leave',
-    approverRoute: '/(tabs-lite)/applications/leave-application?application=leave',
-  },
-  {
-    title: 'Special Leave',
-    icon: 'calendar-clear-outline',
-    applierRoute: '/(tabs-lite)/applications/leave-application?application=special',
-    approverRoute: '/(tabs-lite)/applications/leave-application?application=special',
+    applierRoute: LEAVE_POPUP_ROUTE,
+    approverRoute: LEAVE_POPUP_ROUTE,
   },
   {
     title: 'Edit Punch',
@@ -204,14 +202,69 @@ function BannerCarousel() {
           <View style={s.bannerContent}>
             <Text style={s.bannerTitle}>{b.title}</Text>
             <Text style={s.bannerSub}>{b.sub}</Text>
-            <View style={s.bannerLearnRow}>
-              <Text style={[s.bannerLearn, { color: b.accent }]}>Learn More</Text>
-              <Ionicons name="arrow-forward" size={11} color={b.accent} />
-            </View>
           </View>
         </View>
       ))}
     </ScrollView>
+  );
+}
+
+function LeaveTypePopup({
+  visible,
+  onClose,
+  onShortDay,
+  onLongDay,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onShortDay: () => void;
+  onLongDay: () => void;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={s.leaveOverlay}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <View style={s.leaveSheet}>
+          <View style={s.leaveDrag} />
+          <Text style={s.leaveTitle}>Select Leave Type</Text>
+          <Text style={s.leaveSub}>Choose the type of leave you want to apply for</Text>
+
+          <Pressable style={s.leaveOption} onPress={onShortDay}>
+            {({ pressed }) => (
+              <View style={[s.leaveOptionInner, pressed && { opacity: 0.75 }]}>
+                <View style={[s.leaveOptionIcon, { backgroundColor: '#eff6ff' }]}>
+                  <Ionicons name="partly-sunny-outline" size={22} color="#1d4ed8" />
+                </View>
+                <View style={s.leaveOptionBody}>
+                  <Text style={s.leaveOptionTitle}>Short Day Leave</Text>
+                  <Text style={s.leaveOptionSub}>Half day or short absence</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </View>
+            )}
+          </Pressable>
+
+          <Pressable style={s.leaveOption} onPress={onLongDay}>
+            {({ pressed }) => (
+              <View style={[s.leaveOptionInner, pressed && { opacity: 0.75 }]}>
+                <View style={[s.leaveOptionIcon, { backgroundColor: '#f0fdf4' }]}>
+                  <Ionicons name="calendar-clear-outline" size={22} color="#15803d" />
+                </View>
+                <View style={s.leaveOptionBody}>
+                  <Text style={s.leaveOptionTitle}>Long Day Leave</Text>
+                  <Text style={s.leaveOptionSub}>Full day or multi-day absence</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </View>
+            )}
+          </Pressable>
+
+          <Pressable style={s.leaveCancelBtn} onPress={onClose}>
+            <Text style={s.leaveCancelTxt}>Cancel</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -223,26 +276,43 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 function ServiceCard({ svc, onPress }: { svc: ServiceDef; onPress: () => void }) {
   return (
-    <Pressable
-      style={({ pressed }) => [s.card, pressed && { transform: [{ scale: 0.94 }], opacity: 0.8 }]}
-      onPress={onPress}
-    >
-      <View style={s.cardIconWrap}>
-        <Ionicons name={svc.icon} size={22} color="#1e3a8a" />
-      </View>
-      <Text style={s.cardTitle} numberOfLines={2}>{svc.title}</Text>
+    <Pressable style={{ flex: 1 }} onPress={onPress}>
+      {({ pressed }) => (
+        <View style={[s.card, pressed && { transform: [{ scale: 0.94 }], opacity: 0.8 }]}>
+          <View style={s.cardIconWrap}>
+            <Ionicons name={svc.icon} size={22} color="#1e3a8a" />
+          </View>
+          <Text style={s.cardTitle} numberOfLines={2}>{svc.title}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
 
-function CardGrid({ services, getRoute }: { services: ServiceDef[]; getRoute: (svc: ServiceDef) => string }) {
+function CardGrid({
+  services,
+  getRoute,
+  onLeavePress,
+}: {
+  services: ServiceDef[];
+  getRoute: (svc: ServiceDef) => string;
+  onLeavePress: () => void;
+}) {
   const router = useRouter();
   return (
     <View style={s.grid}>
       {chunk(services, 4).map((row, rowIndex) => (
         <View key={rowIndex} style={s.gridRow}>
           {row.map((svc) => (
-            <ServiceCard key={svc.title} svc={svc} onPress={() => router.push(getRoute(svc) as any)} />
+            <ServiceCard
+              key={svc.title}
+              svc={svc}
+              onPress={() => {
+                const route = getRoute(svc);
+                if (route === LEAVE_POPUP_ROUTE) { onLeavePress(); }
+                else { router.push(route as any); }
+              }}
+            />
           ))}
           {row.length < 4 && Array.from({ length: 4 - row.length }).map((_, i) => (
             <View key={`pad-${i}`} style={{ flex: 1 }} />
@@ -285,11 +355,15 @@ export default function ApplicationsHubScreen() {
   const b9  = useCanAccess('applicationApprover', 'compOff');
   const b10 = useCanAccess('applicationApprover', 'attendance');
 
-  const applierFlags = [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10];
-  const approverFlags = [b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10];
+  // Leave Application card (index 0) is visible if either leave OR specialLeave is accessible
+  const applierFlags = [a0 || a1, a2, a3, a4, a5, a6, a7, a8, a9, a10];
+  const approverFlags = [b0 || b1, b2, b3, b4, b5, b6, b7, b8, b9, b10];
 
-  const visibleApplier = loading ? SERVICES : SERVICES.filter((_, i) => applierFlags[i]);
-  const visibleApprover = loading ? SERVICES : SERVICES.filter((_, i) => approverFlags[i]);
+  const visibleApplier = loading ? [] : SERVICES.filter((_, i) => applierFlags[i]);
+  const visibleApprover = loading ? [] : SERVICES.filter((_, i) => approverFlags[i]);
+
+  const [leavePopupVisible, setLeavePopupVisible] = useState(false);
+  const [leaveMode, setLeaveMode] = useState<'applier' | 'approver'>('applier');
 
   useEffect(() => {
     const run = async () => {
@@ -331,45 +405,69 @@ export default function ApplicationsHubScreen() {
         <BannerCarousel />
       </View>
 
-      <ScrollView
-        style={s.sheet}
-        contentContainerStyle={[s.sheetContent, { paddingBottom: insets.bottom + 90 }]}
-        showsVerticalScrollIndicator={false}
-        overScrollMode="never"
-        bounces={false}
-      >
-        {(!loading || visibleApplier.length > 0) && (
-          <View style={s.panel}>
-            <View style={s.panelHead}>
-              <Text style={s.panelKicker}>MY APPLICATIONS</Text>
-              <Text style={s.panelLink}>All services: {visibleApplier.length}</Text>
+      {loading ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color="#bfdbfe" />
+          <Text style={s.loadingText}>Loading your services...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={s.sheet}
+          contentContainerStyle={[s.sheetContent, { paddingBottom: insets.bottom + 90 }]}
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
+          bounces={false}
+        >
+          {visibleApplier.length > 0 && (
+            <View style={s.panel}>
+              <View style={s.panelHead}>
+                <Text style={s.panelKicker}>MY APPLICATIONS</Text>
+                <Text style={s.panelLink}>All services: {visibleApplier.length}</Text>
+              </View>
+              <CardGrid
+                services={visibleApplier}
+                getRoute={(svc) => {
+                  if (svc.applierRoute === LEAVE_POPUP_ROUTE) return LEAVE_POPUP_ROUTE;
+                  const sep = svc.applierRoute.includes('?') ? '&' : '?';
+                  return `${svc.applierRoute}${sep}mode=applier`;
+                }}
+                onLeavePress={() => { setLeaveMode('applier'); setLeavePopupVisible(true); }}
+              />
             </View>
-            <CardGrid
-              services={visibleApplier}
-              getRoute={(svc) => {
-                const sep = svc.applierRoute.includes('?') ? '&' : '?';
-                return `${svc.applierRoute}${sep}mode=applier`;
-              }}
-            />
-          </View>
-        )}
+          )}
 
-        {(!loading || visibleApprover.length > 0) && visibleApprover.length > 0 && (
-          <View style={s.panel}>
-            <View style={s.panelHead}>
-              <Text style={s.panelKicker}>APPROVALS</Text>
-              <Text style={s.panelLink}>All services: {visibleApprover.length}</Text>
+          {visibleApprover.length > 0 && (
+            <View style={s.panel}>
+              <View style={s.panelHead}>
+                <Text style={s.panelKicker}>APPROVALS</Text>
+                <Text style={s.panelLink}>All services: {visibleApprover.length}</Text>
+              </View>
+              <CardGrid
+                services={visibleApprover}
+                getRoute={(svc) => {
+                  if (svc.approverRoute === LEAVE_POPUP_ROUTE) return LEAVE_POPUP_ROUTE;
+                  const sep = svc.approverRoute.includes('?') ? '&' : '?';
+                  return `${svc.approverRoute}${sep}mode=approver`;
+                }}
+                onLeavePress={() => { setLeaveMode('approver'); setLeavePopupVisible(true); }}
+              />
             </View>
-            <CardGrid
-              services={visibleApprover}
-              getRoute={(svc) => {
-                const sep = svc.approverRoute.includes('?') ? '&' : '?';
-                return `${svc.approverRoute}${sep}mode=approver`;
-              }}
-            />
-          </View>
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
+      )}
+
+      <LeaveTypePopup
+        visible={leavePopupVisible}
+        onClose={() => setLeavePopupVisible(false)}
+        onShortDay={() => {
+          setLeavePopupVisible(false);
+          router.push(`/(tabs-lite)/applications/leave-application?application=leave&mode=${leaveMode}` as any);
+        }}
+        onLongDay={() => {
+          setLeavePopupVisible(false);
+          router.push(`/(tabs-lite)/applications/leave-application?application=special&mode=${leaveMode}` as any);
+        }}
+      />
     </View>
   );
 }
@@ -438,10 +536,8 @@ const s = StyleSheet.create({
   gridRow: { flexDirection: 'row' },
 
   card: {
-    flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 4,
-    alignItems: 'center',
     backgroundColor: 'transparent',
   },
   cardIconWrap: {
@@ -449,9 +545,63 @@ const s = StyleSheet.create({
     backgroundColor: '#eff6ff',
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 6,
+    alignSelf: 'center',
   },
   cardTitle: {
     fontSize: 10.5, fontWeight: '500',
     color: '#334155', textAlign: 'center', lineHeight: 14,
   },
+
+  leaveOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  leaveSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+    gap: 4,
+  },
+  leaveDrag: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: '#e2e8f0',
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  leaveTitle: {
+    fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 2,
+  },
+  leaveSub: {
+    fontSize: 13, color: '#64748b', marginBottom: 14,
+  },
+  leaveOption: { marginBottom: 8 },
+  leaveOptionInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: '#e2e8f0',
+  },
+  leaveOptionIcon: {
+    width: 46, height: 46, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  leaveOptionBody: { flex: 1, gap: 2 },
+  leaveOptionTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
+  leaveOptionSub: { fontSize: 12, color: '#64748b' },
+  leaveCancelBtn: {
+    marginTop: 6,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  leaveCancelTxt: { fontSize: 15, fontWeight: '600', color: '#64748b' },
+
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  loadingText: { color: '#64748b', fontSize: 13, fontWeight: '500', marginTop: 14 },
 });

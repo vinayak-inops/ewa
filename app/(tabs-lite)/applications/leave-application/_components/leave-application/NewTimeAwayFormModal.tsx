@@ -1,7 +1,4 @@
-import { useGetRequest } from '@/hooks/api/useGetRequest'
-import { useGraphQLQuery } from '@/hooks/api/useGraphQLQuery'
 import { usePostRequest } from '@/hooks/api/usePostRequest'
-import { getAccessToken } from '@/hooks/auth/token-store'
 import { Ionicons } from '@expo/vector-icons'
 import { Check, ChevronDown, Search, X } from 'lucide-react-native'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -19,7 +16,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { useLeaveApplications } from '../hooks/useLeaveApplications'
+import { useBlockedDates } from '../hooks/useBlockedDates'
+import { useLeaveIdentity } from '../hooks/useLeaveIdentity'
+import { useLeavePolicy } from '../hooks/useLeavePolicy'
 
 const FONT = 'Inter'
 const NAVY = '#13206b'
@@ -57,17 +56,6 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function decodeJwtPayload(token: string) {
-  try {
-    const p = token.split('.')[1]; if (!p) return null
-    const b64 = p.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=')
-    return JSON.parse(
-      decodeURIComponent(atob(padded).split('').map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(''))
-    ) as Record<string, unknown>
-  } catch { return null }
-}
-
 function toddmmyyyy(d: Date) {
   return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`
 }
@@ -77,6 +65,7 @@ function toyyyymmdd(d: Date) {
 function isPast(d: Date) { const t = new Date(); t.setHours(0, 0, 0, 0); return d < t }
 
 const BALANCE_COLORS = ['#1e40af', '#2563eb', '#1d4ed8', '#1e3a8a', '#3b82f6']
+const CHIP_COLORS    = ['#1e40af','#0369a1','#0f766e','#7c3aed','#b45309','#be185d','#15803d','#9333ea']
 
 // ── Reusable field pieces ─────────────────────────────────────────────────────
 
@@ -127,50 +116,87 @@ function PickerModal({ visible, onClose, title, options, onSelect, selectedValue
       <View style={s.sheetBg}>
         <View style={s.sheet}>
           <View style={s.sheetHandle} />
+
+          {/* Header */}
           <View style={s.sheetHead}>
-            <Text style={s.sheetTitle}>{title}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.sheetTitle}>{title}</Text>
+              {!loading && (
+                <Text style={[s.muted, { marginTop: 2 }]}>
+                  {filtered.length} type{filtered.length !== 1 ? 's' : ''} available
+                </Text>
+              )}
+            </View>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <View style={s.sheetClose}><X size={13} color="#64748b" /></View>
+              <View style={s.sheetClose}><X size={14} color="#64748b" /></View>
             </TouchableOpacity>
           </View>
-          <View style={{ paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
+
+          {/* Search */}
+          <View style={{ paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
             <View style={s.searchWrap}>
-              <Search size={13} color="#9ca3af" />
+              <Search size={14} color="#9ca3af" />
               <TextInput
                 value={search} onChangeText={setSearch}
-                placeholder="Search..." placeholderTextColor="#9ca3af"
+                placeholder="Search leave types..." placeholderTextColor="#9ca3af"
                 style={{ flex: 1, marginLeft: 8, fontSize: 13, fontFamily: FONT, color: '#0f172a' }}
               />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+                  <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' }}>
+                    <X size={10} color="#64748b" />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
+
+          {/* Content */}
           {loading ? (
-            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color={NAVY} />
-              <Text style={[s.muted, { marginTop: 6 }]}>Loading...</Text>
+            <View style={{ paddingVertical: 48, alignItems: 'center', gap: 10 }}>
+              <ActivityIndicator size="large" color={NAVY} />
+              <Text style={[s.muted, { fontSize: 13 }]}>Loading leave types...</Text>
             </View>
           ) : filtered.length === 0 ? (
-            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <Text style={s.muted}>No options found</Text>
+            <View style={{ paddingVertical: 48, alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+                <Search size={20} color="#94a3b8" />
+              </View>
+              <Text style={{ fontFamily: FONT, fontSize: 14, fontWeight: '600', color: '#374151' }}>No results found</Text>
+              <Text style={s.muted}>Try a different search term</Text>
             </View>
           ) : (
             <FlatList
               data={filtered}
               keyExtractor={item => item.value}
-              style={{ maxHeight: 340 }}
-              renderItem={({ item }) => {
+              style={{ maxHeight: '80%' }}
+              ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#f8fafc', marginLeft: 16 }} />}
+              renderItem={({ item, index }) => {
                 const sel = item.value === selectedValue
+                const chipColor = CHIP_COLORS[index % CHIP_COLORS.length]!
                 return (
                   <TouchableOpacity
                     onPress={() => { onSelect(item.value, item.label); onClose() }}
-                    style={[s.optRow, sel && { backgroundColor: '#f0f4ff' }]}
+                    activeOpacity={0.7}
+                    style={[
+                      s.optRow,
+                      sel && { backgroundColor: '#eef2ff', borderLeftWidth: 3, borderLeftColor: NAVY },
+                    ]}
                   >
-                    <Text style={[s.optLabel, sel && { color: NAVY, fontWeight: '700' }]}>{item.label}</Text>
-                    {sel && <View style={s.optCheck}><Check size={10} color="#fff" /></View>}
+                    <View style={[s.optCodeBadge, { backgroundColor: `${chipColor}18`, borderColor: `${chipColor}40` }]}>
+                      <Text style={[s.optCodeText, { color: chipColor }]}>{item.value.slice(0, 3).toUpperCase()}</Text>
+                    </View>
+                    <Text style={[s.optLabel, sel && { color: NAVY, fontWeight: '700' }]} numberOfLines={2}>{item.label}</Text>
+                    <View style={[s.optCheck, sel ? { backgroundColor: NAVY } : { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#d1d5db' }]}>
+                      {sel && <Check size={11} color="#fff" />}
+                    </View>
                   </TouchableOpacity>
                 )
               }}
             />
           )}
+
+          <View style={{ height: 20 }} />
         </View>
       </View>
     </Modal>
@@ -200,14 +226,22 @@ export default function NewTimeAwayFormModal({ isOpen, onClose, onSuccess }: Pro
   const [submitApiError, setSubmitApiError] = useState('')
   const [successData, setSuccessData] = useState<{ employeeID: string; dates: string; leaveCode: string } | null>(null)
 
-  // Identity
-  const [employeeId, setEmployeeId] = useState('')
-  const [tenantCode, setTenantCode] = useState('')
+  // Identity — from Redux (decoded at login by StoreProvider)
+  const { employeeId, tenantCode } = useLeaveIdentity()
 
   const pulseAnim = useRef(new Animated.Value(0)).current
 
-  const { applicationsData, updateApplicationsData, setLoadingState: setAppsLoading, setErrorState: setAppsError } = useLeaveApplications()
-  const [specialApps, setSpecialApps] = useState<any[]>([])
+  // Leave policy options (employee deployment → filtered leave types)
+  const { leaveOptions, loading: leaveLoading } = useLeavePolicy({ isOpen, tenantCode, employeeId })
+
+  // Blocked dates (existing leave + special leave applications)
+  const blockedDateMap = useBlockedDates({ isOpen, tenantCode, employeeId })
+
+  const { post, loading: posting } = usePostRequest<any>({
+    url: 'leaveApplication',
+    onSuccess: () => { setStep('success') },
+    onError: (err) => setSubmitApiError(err?.message ?? 'Submission failed. Please try again.'),
+  })
 
   // Reset fully on open
   useEffect(() => {
@@ -237,120 +271,6 @@ export default function NewTimeAwayFormModal({ isOpen, onClose, onSuccess }: Pro
     return () => loop.stop()
   }, [step])
 
-  // Load JWT identity
-  useEffect(() => {
-    if (!isOpen) return
-    const run = async () => {
-      const token = await getAccessToken(); if (!token) return
-      const p = decodeJwtPayload(token); if (!p) return
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? '') || '')
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? '') || '')
-    }
-    void run()
-  }, [isOpen])
-
-  // Fetch employee to get deployment context for leave policy filtering
-  const { data: employeeData } = useGraphQLQuery<{
-    fetchEmployees: Array<{ deployment: any }>
-  }>({
-    query: `
-      query FetchEmployees(
-        $criteriaRequests: [CriteriaRequest!]!
-        $collection: String!
-        $offset: Int
-        $limit: Int
-      ) {
-        fetchEmployees(
-          criteriaRequests: $criteriaRequests
-          collection: $collection
-          offset: $offset
-          limit: $limit
-        ) {
-          _id
-          employeeID
-          tenantCode
-          deployment {
-            effectiveFrom
-            subsidiary { subsidiaryCode subsidiaryName }
-            division { divisionCode divisionName }
-            department { departmentCode departmentName }
-            designation { designationCode designationName }
-            grade { gradeCode gradeName }
-            employeeCategory { employeeCategoryCode employeeCategoryName }
-            location { locationCode locationName }
-          }
-        }
-      }
-    `,
-    variables: {
-      criteriaRequests: tenantCode && employeeId
-        ? [
-            { field: 'tenantCode', operator: 'is', value: tenantCode },
-            { field: 'employeeID', operator: 'eq', value: employeeId },
-          ]
-        : [],
-      collection: 'contract_employee',
-      offset: 0,
-      limit: 1,
-    },
-    skip: !isOpen || !tenantCode || !employeeId,
-  })
-
-  const deployment = employeeData?.fetchEmployees?.[0]?.deployment
-
-  const leaveCriteria = useMemo(() => {
-    const criteria: any[] = []
-    if (tenantCode) criteria.push({ field: 'tenantCode', operator: 'is', value: tenantCode },{ field: 'leavePolicy.leaveCategory', operator: 'eq', value: "Time Away" })
-    const subsidiaryCode = deployment?.subsidiary?.subsidiaryCode
-    const locationCode = deployment?.location?.locationCode
-    const designationCode = deployment?.designation?.designationCode
-    const employeeCategory = deployment?.employeeCategory?.employeeCategoryCode
-    if (subsidiaryCode) criteria.push({ field: 'subsidiary.subsidiaryCode', operator: 'eq', value: subsidiaryCode })
-    if (locationCode) criteria.push({ field: 'location.locationCode', operator: 'eq', value: locationCode })
-    if (designationCode) criteria.push({ field: 'designation.designationCode', operator: 'eq', value: designationCode })
-    if (employeeCategory) criteria.push({ field: 'employeeCategory', operator: 'in', value: [employeeCategory] })
-    return criteria
-  }, [tenantCode, deployment])
-
-  const { data: leavePolicyData, loading: leaveLoading } = useGraphQLQuery<{
-    fetchLeavePolicy: Array<{ leavePolicy: any; employeeCategory: string }>
-  }>({
-    query: `
-      query FetchLeavePolicy($criteriaRequests: [CriteriaRequest!]!, $collection: String!) {
-        fetchLeavePolicy(criteriaRequests: $criteriaRequests, collection: $collection) {
-          leavePolicy {
-            leaveCode
-            leaveTitle
-          }
-          employeeCategory
-        }
-      }
-    `,
-    variables: { criteriaRequests: leaveCriteria, collection: 'leave_policy' },
-    skip: !isOpen || !tenantCode,
-  })
-
-  const leaveOptions = useMemo(() => {
-    const list = Array.isArray(leavePolicyData?.fetchLeavePolicy)
-      ? leavePolicyData.fetchLeavePolicy
-      : []
-    return list.flatMap((item: any) => {
-      const policy = item?.leavePolicy
-      if (Array.isArray(policy)) {
-        return policy
-          .filter((p: any) => (p?.leaveCode || p?.levcode) && (p?.leaveTitle || p?.leavetitle))
-          .map((p: any) => ({
-            leaveCode: p.leaveCode || p.levcode,
-            leaveTitle: p.leaveTitle || p.leavetitle,
-          }))
-      }
-      if (policy && (policy.leaveCode || policy.levcode) && (policy.leaveTitle || policy.leavetitle)) {
-        return [{ leaveCode: policy.leaveCode || policy.levcode, leaveTitle: policy.leaveTitle || policy.leavetitle }]
-      }
-      return []
-    }) as Array<{ leaveCode: string; leaveTitle: string }>
-  }, [leavePolicyData])
-
   // Pre-select first leave option on step change to form
   useEffect(() => {
     if (step === 'form' && !leaveCode && leaveOptions.length > 0) {
@@ -358,110 +278,6 @@ export default function NewTimeAwayFormModal({ isOpen, onClose, onSuccess }: Pro
       setLeaveTitle(leaveOptions[0]!.leaveTitle)
     }
   }, [step, leaveOptions])
-
-  // Fetch existing leave applications to block dates on calendar
-  useGetRequest<any[]>({
-    url: 'leaveApplication/search?offset=0&limit=200',
-    method: 'POST',
-    data: [
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-    ],
-    enabled: Boolean(isOpen && tenantCode && employeeId),
-    dependencies: [isOpen, tenantCode, employeeId],
-    onSuccess: (data: any) => { setAppsLoading(false); updateApplicationsData(data) },
-    onError: (err: any) => { setAppsLoading(false); setAppsError(err?.message ?? 'Failed to load applications') },
-  })
-
-  // Fetch special leave applications to block dates on calendar
-  useGetRequest<any[]>({
-    url: 'specialLeaveApplication/search?offset=0&limit=200',
-    method: 'POST',
-    data: [
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-    ],
-    enabled: Boolean(isOpen && tenantCode && employeeId),
-    dependencies: [isOpen, tenantCode, employeeId],
-    onSuccess: (data: any) => setSpecialApps(Array.isArray(data) ? data : []),
-    onError: () => setSpecialApps([]),
-  })
-
-  const { post, loading: posting } = usePostRequest<any>({
-    url: 'leaveApplication',
-    onSuccess: () => { setStep('success') },
-    onError: (err) => setSubmitApiError(err?.message ?? 'Submission failed. Please try again.'),
-  })
-
-  // Combined blocked date map from leaveApplication + specialLeaveApplication
-  const blockedDateMap = useMemo(() => {
-    const map: Record<string, string> = {}
-
-    const parseDDMMYYYY = (ddmmyyyy: string) => {
-      if (!ddmmyyyy) return null
-      const parts = ddmmyyyy.split('-')
-      if (parts.length !== 3) return null
-      const [dd, mm, yyyy] = parts
-      if (!dd || !mm || !yyyy) return null
-      return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
-    }
-
-    const expandRange = (fromRaw: string, toRaw: string, state: string) => {
-      const from = parseDDMMYYYY(fromRaw) ?? (fromRaw.length === 10 && fromRaw[4] === '-' ? new Date(fromRaw) : null)
-      const to   = parseDDMMYYYY(toRaw)   ?? (toRaw.length === 10   && toRaw[4]   === '-' ? new Date(toRaw)   : null)
-      if (!from || !to) return
-      const cur = new Date(from)
-      while (cur <= to) {
-        const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`
-        map[iso] = state
-        cur.setDate(cur.getDate() + 1)
-      }
-    }
-
-    // From leaveApplication — individual leave dates in leaves[].date
-    applicationsData.forEach(app => {
-      const state = (app.workflowState || '').toUpperCase()
-      if (['REJECTED', 'FAILED', 'CANCELLED'].includes(state)) return
-      if (app.leaves && app.leaves.length > 0) {
-        app.leaves.forEach((l: any) => {
-          if (!l.date) return
-          const parts = l.date.split('-')
-          if (parts.length === 3) {
-            const iso = parts[0]!.length === 4 ? l.date : `${parts[2]}-${parts[1]}-${parts[0]}`
-            map[iso] = state
-          }
-        })
-      } else if (app.fromDate && app.toDate) {
-        // Fallback: expand fromDate–toDate range when leaves array is absent
-        expandRange(app.fromDate, app.toDate, state)
-      }
-    })
-
-    // From specialLeaveApplication (fromDate/toDate ranges in dd-mm-yyyy)
-    const parseDate = (ddmmyyyy: string) => {
-      if (!ddmmyyyy) return null
-      const parts = ddmmyyyy.split('-')
-      if (parts.length !== 3) return null
-      const [dd, mm, yyyy] = parts
-      if (!dd || !mm || !yyyy) return null
-      return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
-    }
-    specialApps.forEach(app => {
-      const state = (app.workflowState || '').toUpperCase()
-      if (['REJECTED', 'FAILED', 'CANCELLED'].includes(state)) return
-      const from = parseDate(app.fromDate)
-      const to   = parseDate(app.toDate)
-      if (!from || !to) return
-      const cur = new Date(from)
-      while (cur <= to) {
-        const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`
-        map[iso] = state
-        cur.setDate(cur.getDate() + 1)
-      }
-    })
-
-    return map
-  }, [applicationsData, specialApps])
 
   const STATE_COLOR: Record<string, string> = {
     INITIATED:  '#f59e0b',
@@ -1126,16 +942,18 @@ const s = StyleSheet.create({
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 14, paddingVertical: 14, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
 
   // Bottom sheet picker
-  sheetBg:    { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
-  sheet:      { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%' },
-  sheetHandle:{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#e2e8f0', alignSelf: 'center', marginTop: 10, marginBottom: 4 },
-  sheetHead:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  sheetTitle: { fontFamily: FONT, fontSize: 14, fontWeight: '700', color: '#0f172a' },
-  sheetClose: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 10, height: 38 },
-  optRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#f8fafc' },
+  sheetBg:    { flex: 1, backgroundColor: 'rgba(15,23,42,0.55)', justifyContent: 'flex-end' },
+  sheet:      { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '85%' },
+  sheetHandle:{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#e2e8f0', alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+  sheetHead:  { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  sheetTitle: { fontFamily: FONT, fontSize: 16, fontWeight: '800', color: '#0f172a' },
+  sheetClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 10, borderWidth: 1.5, borderColor: '#e2e8f0', paddingHorizontal: 10, height: 42 },
+  optRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
   optLabel:   { fontFamily: FONT, fontSize: 13, color: '#374151', flex: 1 },
-  optCheck:   { width: 18, height: 18, borderRadius: 9, backgroundColor: NAVY, alignItems: 'center', justifyContent: 'center' },
+  optCheck:   { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  optCodeBadge: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 3, alignItems: 'center', justifyContent: 'center', minWidth: 36 },
+  optCodeText:  { fontFamily: FONT, fontSize: 10, fontWeight: '800', letterSpacing: 0.4 },
 
   muted: { fontFamily: FONT, fontSize: 11, color: '#9ca3af' },
 })

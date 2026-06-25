@@ -7,7 +7,7 @@ export default function ReportApplicationScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
 
   return (
-    <View style={{ flex: 1, overflow: 'hidden' }}>
+    <View style={{ flex: 1 }}>
       <ReportInfoSection fileId={id ?? ''} />
     </View>
   );
