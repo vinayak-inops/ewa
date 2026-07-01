@@ -180,6 +180,7 @@ export function TableFilterSection({
 
   const [visibleTables, setVisibleTables] = useState<Set<TableType>>(new Set());
   const visibleTablesInitialized = useRef(false);
+  const selectionRestoredRef = useRef(false);
 
   // ── Selected items ────────────────────────────────────────────────────────
 
@@ -250,10 +251,14 @@ export function TableFilterSection({
 
   const pageSize = 5;
 
-  // ── Restore from initialFilterData ───────────────────────────────────────
+  // ── Restore from initialFilterData (runs exactly once after menu items load) ──
 
   useEffect(() => {
+    if (selectionRestoredRef.current) return;
     if (!initialFilterData) return;
+    if (filteredTableMenuItems.length === 0) return;
+
+    selectionRestoredRef.current = true;
 
     setSelectedSubsidiaries(initialFilterData.subsidiaries ?? []);
     setSelectedDivisions(initialFilterData.divisions ?? []);
@@ -270,7 +275,7 @@ export function TableFilterSection({
     setSelectedShifts(initialFilterData.shifts ?? []);
     setSelectedContractEmployees(initialFilterData.contractEmployees ?? []);
 
-    if (!visibleTablesInitialized.current && filteredTableMenuItems.length > 0) {
+    if (!visibleTablesInitialized.current) {
       const tablesWithSelections = new Set<TableType>();
       filteredTableMenuItems.forEach((item) => {
         if ((initialFilterData[item.id] ?? []).length > 0) {
@@ -552,6 +557,21 @@ export function TableFilterSection({
     return Array.from(byCode.values());
   }, [empCategoriesRes]);
 
+  // ── Refs for raw data (used in cascade effects without adding to deps) ───
+
+  const rawDivisionsRef = useRef(rawDivisions);
+  rawDivisionsRef.current = rawDivisions;
+  const rawDepartmentsRef = useRef(rawDepartments);
+  rawDepartmentsRef.current = rawDepartments;
+  const rawSubDepartmentsRef = useRef(rawSubDepartments);
+  rawSubDepartmentsRef.current = rawSubDepartments;
+  const rawSectionsRef = useRef(rawSections);
+  rawSectionsRef.current = rawSections;
+  const rawWorkOrdersRef = useRef(rawWorkOrders);
+  rawWorkOrdersRef.current = rawWorkOrders;
+  const rawShiftsRef = useRef(rawShifts);
+  rawShiftsRef.current = rawShifts;
+
   // ── Lookup helpers ────────────────────────────────────────────────────────
 
   const getSelectedItems = useCallback((type: TableType): string[] => {
@@ -774,48 +794,102 @@ export function TableFilterSection({
     });
   }, []);
 
-  // ── Parent-child cascade clear effects ───────────────────────────────────
+  // ── Parent-child cascade (same-reference bailout prevents re-render loops) ─
 
   useEffect(() => {
     if (selectedSubsidiaries.length === 0) {
-      if (selectedDivisions.length > 0) setSelectedDivisions([]);
+      setSelectedDivisions((prev) => (prev.length === 0 ? prev : []));
+      return;
     }
+    const parentSet = new Set(selectedSubsidiaries);
+    const raw = rawDivisionsRef.current;
+    setSelectedDivisions((prev) => {
+      const next = prev.filter((code) =>
+        raw.every((d: any) => d.subsidiaryCode === undefined) ||
+        raw.some((d: any) => d.divisionCode === code && parentSet.has(d.subsidiaryCode))
+      );
+      return next.length === prev.length ? prev : next;
+    });
   }, [selectedSubsidiaries]);
 
   useEffect(() => {
     if (selectedDivisions.length === 0) {
-      if (selectedDepartments.length > 0) setSelectedDepartments([]);
+      setSelectedDepartments((prev) => (prev.length === 0 ? prev : []));
+      return;
     }
+    const parentSet = new Set(selectedDivisions);
+    const raw = rawDepartmentsRef.current;
+    setSelectedDepartments((prev) => {
+      const next = prev.filter((code) =>
+        raw.every((d: any) => d.divisionCode === undefined) ||
+        raw.some((d: any) => d.departmentCode === code && parentSet.has(d.divisionCode))
+      );
+      return next.length === prev.length ? prev : next;
+    });
   }, [selectedDivisions]);
 
   useEffect(() => {
     if (selectedDepartments.length === 0) {
-      if (selectedSubDepartments.length > 0) setSelectedSubDepartments([]);
+      setSelectedSubDepartments((prev) => (prev.length === 0 ? prev : []));
+      return;
     }
+    const parentSet = new Set(selectedDepartments);
+    const raw = rawSubDepartmentsRef.current;
+    setSelectedSubDepartments((prev) => {
+      const next = prev.filter((code) =>
+        raw.every((d: any) => d.departmentCode === undefined) ||
+        raw.some((d: any) => d.subDepartmentCode === code && parentSet.has(d.departmentCode))
+      );
+      return next.length === prev.length ? prev : next;
+    });
   }, [selectedDepartments]);
 
   useEffect(() => {
     if (selectedSubDepartments.length === 0) {
-      if (selectedSections.length > 0) setSelectedSections([]);
+      setSelectedSections((prev) => (prev.length === 0 ? prev : []));
+      return;
     }
+    const parentSet = new Set(selectedSubDepartments);
+    const raw = rawSectionsRef.current;
+    setSelectedSections((prev) => {
+      const next = prev.filter((code) =>
+        raw.every((d: any) => d.subDepartmentCode === undefined) ||
+        raw.some((d: any) => d.sectionCode === code && parentSet.has(d.subDepartmentCode))
+      );
+      return next.length === prev.length ? prev : next;
+    });
   }, [selectedSubDepartments]);
 
   useEffect(() => {
-    if (selectedDesignations.length === 0) {
-      if (selectedGrades.length > 0) setSelectedGrades([]);
-    }
-  }, [selectedDesignations]);
-
-  useEffect(() => {
     if (selectedContractors.length === 0) {
-      if (selectedWorkOrders.length > 0) setSelectedWorkOrders([]);
+      setSelectedWorkOrders((prev) => (prev.length === 0 ? prev : []));
+      return;
     }
+    const parentSet = new Set(selectedContractors);
+    const raw = rawWorkOrdersRef.current;
+    setSelectedWorkOrders((prev) => {
+      const next = prev.filter((code) =>
+        raw.every((wo: any) => wo.contractorCode === undefined) ||
+        raw.some((wo: any) => wo.workOrderNumber === code && parentSet.has(wo.contractorCode))
+      );
+      return next.length === prev.length ? prev : next;
+    });
   }, [selectedContractors]);
 
   useEffect(() => {
     if (selectedShiftGroups.length === 0) {
-      if (selectedShifts.length > 0) setSelectedShifts([]);
+      setSelectedShifts((prev) => (prev.length === 0 ? prev : []));
+      return;
     }
+    const parentSet = new Set(selectedShiftGroups);
+    const raw = rawShiftsRef.current;
+    setSelectedShifts((prev) => {
+      const next = prev.filter((code) =>
+        raw.every((s: any) => s.shiftGroupCode === undefined) ||
+        raw.some((s: any) => s.shiftCode === code && parentSet.has(s.shiftGroupCode))
+      );
+      return next.length === prev.length ? prev : next;
+    });
   }, [selectedShiftGroups]);
 
   // ── Notify parent of filter changes ──────────────────────────────────────

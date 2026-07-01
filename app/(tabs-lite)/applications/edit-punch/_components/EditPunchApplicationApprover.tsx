@@ -84,6 +84,7 @@ export default function EditPunchApplicationApprover({ isApprovalPermission: _is
           .map((item: any) => ({
             _id: item._id || "",
             employeeID: item.employeeID || "",
+            employeeName: item.employeeName || "",
             punchedTime: item.punchedTime || "",
             transactionTime: item.transactionTime || "",
             inOut: item.inOut || "",

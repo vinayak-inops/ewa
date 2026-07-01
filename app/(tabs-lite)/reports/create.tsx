@@ -274,7 +274,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    paddingTop: 28,
+    paddingTop: 48,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },

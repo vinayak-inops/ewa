@@ -242,7 +242,7 @@ export function BasicInformation({
 }: BasicInformationProps) {
 
   const insets = useSafeAreaInsets();
-  const footerBottom = Math.max(14 - insets.bottom, 0) + 80;
+  const footerBottom = Math.max(insets.bottom, 90) + 12;
 
   const [errors, setErrors] = useState({
     extension: '', fromDate: '', toDate: '', dateRange: '',

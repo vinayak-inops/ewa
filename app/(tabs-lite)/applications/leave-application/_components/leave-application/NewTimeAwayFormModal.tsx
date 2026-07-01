@@ -326,8 +326,8 @@ export default function NewTimeAwayFormModal({ isOpen, onClose, onSuccess }: Pro
 
     const now = new Date()
     const pad = (n: number) => n < 10 ? `0${n}` : String(n)
-    const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-    const uploadTime = `${ist.getFullYear()}-${pad(ist.getMonth() + 1)}-${pad(ist.getDate())}T${pad(ist.getHours())}:${pad(ist.getMinutes())}:${pad(ist.getSeconds())}`
+    const ist = new Date(Date.now() + 330 * 60 * 1000)
+    const uploadTime = `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())}T${pad(ist.getUTCHours())}:${pad(ist.getUTCMinutes())}:${pad(ist.getUTCSeconds())}`
 
     post({
       tenant: tenantCode,

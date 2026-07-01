@@ -819,11 +819,7 @@ export default function SpecialLeaveFormPopup({ isOpen, onClose, onSuccess }: Pr
         visible={showLeaveTitle}
         onClose={() => setShowLeaveTitle(false)}
         title="Select Leave Title"
-        options={
-          leaveOptions.length > 0
-            ? leaveOptions.map(o => ({ value: o.leaveCode, label: o.leaveTitle }))
-            : LEAVE_TITLES.map(t => ({ value: DEFAULT_LEAVE_CODE[t] || t, label: t }))
-        }
+        options={leaveOptions.map(o => ({ value: o.leaveCode, label: o.leaveTitle }))}
         selectedValue={leaveCode}
         loading={leaveLoading}
         onSelect={(code, label) => {

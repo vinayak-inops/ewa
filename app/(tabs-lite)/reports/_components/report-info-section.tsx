@@ -676,46 +676,66 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
         contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}>
 
-        {/* Report identity + details card */}
+        {/* ── Report identity card ── */}
         <View style={s.identityCard}>
-          {/* Top: icon + title + date + status icon */}
+          {/* Navy header: icon + title + status badge */}
           <View style={s.identityTop}>
             <View style={[s.fileIconBox, { backgroundColor: fileBg }]}>
-              <Ionicons name={fileIconName} size={24} color={fileColor} />
+              <Ionicons name={fileIconName} size={26} color={fileColor} />
             </View>
             <View style={s.identityText}>
               <Text style={s.identityTitle} numberOfLines={2}>{title}</Text>
               {createdAt ? (
-                <Text style={s.identityDate}>{fmtDate(createdAt)}</Text>
+                <View style={s.identityDateRow}>
+                  <Ionicons name="calendar-outline" size={11} color="rgba(255,255,255,0.5)" />
+                  <Text style={s.identityDate}>{fmtDate(createdAt)}</Text>
+                </View>
               ) : null}
             </View>
-            <Pressable
-              onPress={() => setStatusOpen(true)}
-              hitSlop={10}
-              style={[s.statusIconBtn, { backgroundColor: sm.bg }]}>
+            <Pressable onPress={() => setStatusOpen(true)} hitSlop={10} style={[s.statusBadge, { backgroundColor: sm.bg }]}>
               <Ionicons
-                name={
-                  sm.label === 'Completed' ? 'checkmark-circle' :
-                  sm.label === 'Failed'    ? 'close-circle'     : 'time'
-                }
-                size={22}
-                color={sm.txt}
+                name={sm.label === 'Completed' ? 'checkmark-circle' : sm.label === 'Failed' ? 'close-circle' : 'time'}
+                size={13} color={sm.txt}
               />
+              <Text style={[s.statusBadgeTxt, { color: sm.txt }]}>{sm.label}</Text>
             </Pressable>
           </View>
-          {/* Divider */}
-          <View style={s.identityDivider} />
-          {/* Meta rows */}
-          {metaRows.map((row, i) => (
-            <MetaRow key={row.label} label={row.label} value={row.value} last={i === metaRows.length - 1} />
-          ))}
-        </View>
 
-        {/* Action buttons */}
-        {report.report && (
+          {/* Info grid */}
+          <View style={s.infoGrid}>
+            {/* Extension pill */}
+            <View style={s.infoCell}>
+              <Text style={s.infoCellLabel}>Extension</Text>
+              <View style={[s.extPill, { backgroundColor: isPdf ? C.redBg : C.greenBg }]}>
+                <Ionicons name={fileIconName} size={12} color={fileColor} />
+                <Text style={[s.extPillTxt, { color: fileColor }]}>{extLabel}</Text>
+              </View>
+            </View>
+
+            {/* Period */}
+            <View style={[s.infoCell, s.infoCellBorderLeft]}>
+              <Text style={s.infoCellLabel}>Period</Text>
+              <Text style={s.infoCellValue}>{report.period ? capitalize(report.period) : '—'}</Text>
+            </View>
+
+            {hasDateRange && (
+              <>
+                <View style={[s.infoCell, s.infoCellBorderTop]}>
+                  <Text style={s.infoCellLabel}>From</Text>
+                  <Text style={s.infoCellValue}>{fmtDate(report.fromDate)}</Text>
+                </View>
+                <View style={[s.infoCell, s.infoCellBorderLeft, s.infoCellBorderTop]}>
+                  <Text style={s.infoCellLabel}>To</Text>
+                  <Text style={s.infoCellValue}>{fmtDate(report.toDate)}</Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Action buttons inside card */}
           <View style={s.actionRow}>
             <Pressable
-              style={({ pressed }) => [s.btn, s.btnPrimary, pressed && { opacity: 0.88 }]}
+              style={({ pressed }) => [s.btn, s.btnPrimary, !report.report && s.btnDisabled, pressed && !!report.report && !downloadLoading && { opacity: 0.88 }]}
               onPress={handleDownload}
               disabled={downloadLoading}>
               {downloadLoading
@@ -724,13 +744,13 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
               <Text style={s.btnTxt}>Download</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [s.btn, s.btnOutline, pressed && { opacity: 0.88 }]}
+              style={({ pressed }) => [s.btn, s.btnOutline, !report.report && s.btnOutlineDisabled, pressed && !!report.report && { opacity: 0.88 }]}
               onPress={handlePreview}>
-              <Ionicons name="eye-outline" size={16} color={C.primary} />
-              <Text style={[s.btnTxt, { color: C.primary }]}>Preview</Text>
+              <Ionicons name="eye-outline" size={16} color={report.report ? C.primary : C.faint} />
+              <Text style={[s.btnTxt, { color: report.report ? C.primary : C.faint }]}>Preview</Text>
             </Pressable>
           </View>
-        )}
+        </View>
 
         <View style={{ height: 6 }} />
         {SECTIONS.map((sec) => {
@@ -830,40 +850,83 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  // Identity card — below header in scroll area
+  // Identity card
   identityCard: {
     backgroundColor: C.white,
-    borderRadius: 16, overflow: 'hidden',
+    borderRadius: 20, overflow: 'hidden',
     borderWidth: 1, borderColor: C.divider,
-    shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
-    marginBottom: 4,
+    shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10, shadowRadius: 12, elevation: 4,
+    marginBottom: 16,
   },
   identityTop: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row', alignItems: 'flex-start',
     backgroundColor: C.navy,
-    padding: 14,
-  },
-  identityDivider: {
-    height: 1, backgroundColor: C.divider,
+    padding: 16,
   },
   fileIconBox: {
-    width: 48, height: 48, borderRadius: 14,
+    width: 52, height: 52, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
+    marginRight: 12,
   },
-  identityText: { flex: 1 },
+  identityText: { flex: 1, paddingTop: 2 },
   identityTitle: {
-    fontFamily: F, fontSize: 14, fontWeight: '800', color: C.white,
-    lineHeight: 19,
+    fontFamily: F, fontSize: 15, fontWeight: '800', color: C.white,
+    lineHeight: 20,
+  },
+  identityDateRow: {
+    flexDirection: 'row', alignItems: 'center', marginTop: 5,
   },
   identityDate: {
-    fontFamily: F, fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 3,
+    fontFamily: F, fontSize: 11, color: 'rgba(255,255,255,0.55)',
+    marginLeft: 4,
   },
+  statusBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+    marginLeft: 8, marginTop: 2,
+  },
+  statusBadgeTxt: {
+    fontFamily: F, fontSize: 11, fontWeight: '700', marginLeft: 4,
+  },
+
+  // Info grid
+  infoGrid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    borderTopWidth: 1, borderTopColor: C.divider,
+  },
+  infoCell: {
+    width: '50%', padding: 14,
+    justifyContent: 'center',
+  },
+  infoCellBorderLeft: {
+    borderLeftWidth: 1, borderLeftColor: C.divider,
+  },
+  infoCellBorderTop: {
+    borderTopWidth: 1, borderTopColor: C.divider,
+  },
+  infoCellLabel: {
+    fontFamily: F, fontSize: 10, fontWeight: '700',
+    color: C.faint, textTransform: 'uppercase', letterSpacing: 0.5,
+    marginBottom: 5,
+  },
+  infoCellValue: {
+    fontFamily: F, fontSize: 13, fontWeight: '700', color: C.ink,
+  },
+  extPill: {
+    flexDirection: 'row', alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+  },
+  extPillTxt: {
+    fontFamily: F, fontSize: 12, fontWeight: '800', marginLeft: 4,
+  },
+
   // Scroll
   scroll: { flex: 1 },
   content: { padding: 14 },
 
-  // Meta rows
+  // Meta rows (kept for loading/error states)
   metaRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 14, paddingVertical: 11,
@@ -876,14 +939,21 @@ const s = StyleSheet.create({
   },
 
   // Action buttons
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 12, marginBottom: 20 },
+  actionRow: {
+    flexDirection: 'row',
+    marginHorizontal: 14, marginBottom: 16,
+    borderTopWidth: 1, borderTopColor: C.divider,
+    paddingTop: 14,
+  },
   btn: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 7, borderRadius: 12, height: 46,
+    justifyContent: 'center', borderRadius: 12, height: 44,
   },
-  btnPrimary: { backgroundColor: C.navy },
+  btnPrimary: { backgroundColor: C.navy, marginRight: 8 },
+  btnDisabled: { backgroundColor: C.faint, marginRight: 8 },
   btnOutline: { backgroundColor: C.white, borderWidth: 1.5, borderColor: C.primary },
-  btnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: C.white },
+  btnOutlineDisabled: { backgroundColor: C.white, borderWidth: 1.5, borderColor: C.border },
+  btnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: C.white, marginLeft: 6 },
 
   // No filters
   noFilters: {

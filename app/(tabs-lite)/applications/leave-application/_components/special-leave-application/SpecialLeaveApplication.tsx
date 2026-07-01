@@ -25,13 +25,14 @@ type SearchField = {
 }
 
 const SEARCH_FIELDS: SearchField[] = [
-  { label: 'Employee ID',   field: 'employeeID',    icon: 'person-outline',       iconColor: '#6366f1', iconBg: '#eef2ff' },
+  { label: 'Employee ID',   field: 'employeeID',    icon: 'person-outline',        iconColor: '#6366f1', iconBg: '#eef2ff' },
+  { label: 'Employee Name', field: 'employeeName',  icon: 'people-outline',        iconColor: '#0891b2', iconBg: '#ecfeff' },
   { label: 'Leave Title',   field: 'leaveTitle',    icon: 'document-text-outline', iconColor: '#0ea5e9', iconBg: '#f0f9ff' },
-  { label: 'From Date',     field: 'fromDate',      icon: 'calendar-outline',     iconColor: '#f97316', iconBg: '#fff7ed' },
-  { label: 'To Date',       field: 'toDate',        icon: 'calendar-outline',     iconColor: '#ef4444', iconBg: '#fef2f2' },
-  { label: 'Applied Date',  field: 'appliedDate',   icon: 'time-outline',         iconColor: '#10b981', iconBg: '#ecfdf5' },
-  { label: 'Remarks',       field: 'remarks',       icon: 'chatbox-outline',      iconColor: '#64748b', iconBg: '#f1f5f9' },
-  { label: 'Status',        field: 'workflowState', icon: 'flag-outline',         iconColor: '#8b5cf6', iconBg: '#f5f3ff' },
+  { label: 'From Date',     field: 'fromDate',      icon: 'calendar-outline',      iconColor: '#f97316', iconBg: '#fff7ed' },
+  { label: 'To Date',       field: 'toDate',        icon: 'calendar-outline',      iconColor: '#ef4444', iconBg: '#fef2f2' },
+  { label: 'Applied Date',  field: 'appliedDate',   icon: 'time-outline',          iconColor: '#10b981', iconBg: '#ecfdf5' },
+  { label: 'Remarks',       field: 'remarks',       icon: 'chatbox-outline',       iconColor: '#64748b', iconBg: '#f1f5f9' },
+  { label: 'Status',        field: 'workflowState', icon: 'flag-outline',          iconColor: '#8b5cf6', iconBg: '#f5f3ff' },
 ]
 
 export default function SpecialLeaveApplication({
@@ -56,12 +57,12 @@ export default function SpecialLeaveApplication({
   const tenantCode = useSelector((s: RootState) => s.role.org) ?? ""
 
   const visibleSearchFields = useMemo(
-    () => isSelfPermission ? SEARCH_FIELDS.filter(f => f.field !== 'employeeID') : SEARCH_FIELDS,
+    () => isSelfPermission ? SEARCH_FIELDS.filter(f => f.field !== 'employeeID' && f.field !== 'employeeName') : SEARCH_FIELDS,
     [isSelfPermission]
   )
 
   const [activeSearchField, setActiveSearchField] = useState<SearchField>(() =>
-    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID') ?? SEARCH_FIELDS[1]!) : SEARCH_FIELDS[0]!
+    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID' && f.field !== 'employeeName') ?? SEARCH_FIELDS[2]!) : SEARCH_FIELDS[0]!
   )
 
   const applierPerms = useScreenPermissions('applicationApplier', 'specialLeave')
@@ -111,6 +112,7 @@ export default function SpecialLeaveApplication({
            uploadedBy: i.uploadedBy || "",
            createdOn: i.createdOn || "",
            employeeID: i.employeeID || "",
+           employeeName: i.employeeName || "",
            fromDate: i.fromDate || "",
            toDate: i.toDate || "",
            appliedDate: i.appliedDate || "",

@@ -117,7 +117,7 @@ export function SelectReports({
   searchPlaceholder = 'Report title, category, or keyword',
 }: SelectReportsProps) {
   const insets = useSafeAreaInsets();
-  const footerBottom = Math.max(14 - insets.bottom, 0) + 80;
+  const footerBottom = Math.max(insets.bottom, 90) + 12;
 
   const [tenantCode, setTenantCode] = useState('');
   const [query, setQuery] = useState('');
@@ -303,7 +303,7 @@ export function SelectReports({
           onPress={onSaveAndContinue}
         >
           <Text style={s.continueBtnTxt}>Save & Continue</Text>
-          <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+          <Ionicons name="arrow-forward" size={16} color="#ffffff" style={{ marginLeft: 8 }} />
         </Pressable>
       </View>
     </View>
@@ -407,7 +407,7 @@ const s = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   continueBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: PRIMARY, borderRadius: 12, height: 46,
   },
   continueBtnOff: { backgroundColor: '#cbd5e1' },

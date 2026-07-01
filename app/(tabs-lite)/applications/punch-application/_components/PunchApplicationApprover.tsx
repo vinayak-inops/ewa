@@ -67,7 +67,7 @@ export default function PunchApplicationApprover() {
       console.log("Punch Applications Data:", d)
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(d.filter((i: any) => i && typeof i === "object" && Object.keys(i).length > 0).map((i: any) => ({
-        _id: i._id || "", employeeID: i.employeeID || "",
+        _id: i._id || "", employeeID: i.employeeID || "", employeeName: i.employeeName || "",
         attendanceDate: i.attendanceDate || "", punchedTime: i.punchedTime || "",
         inOut: i.inOut || "", typeOfMovement: i.typeOfMovement || "",
         workflowState: i.workflowState || "INITIATED", status: i.workflowState || "INITIATED",
@@ -116,7 +116,6 @@ export default function PunchApplicationApprover() {
         onOpenDetails={row => { if (!row?._id) return; setSelectedRequestId(row._id); setIsPopupOpen(true) }}
         loading={loading}
         title="Punch Approvals"
-        subtitle="Review and action punch applications assigned to you"
         activeTab={activeTab}
         onTabChange={handleTabChange}
         externalPagination={{ currentPage, totalPages, totalItems: totalCount, itemsPerPage, startIndex, endIndex, onPageChange: setCurrentPage }}

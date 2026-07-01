@@ -70,7 +70,7 @@ export default function EncashmentApplicationApprover({ isApprovalPermission: _i
     onSuccess: (d: any) => {
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(d.filter((i: any) => i && typeof i === "object" && Object.keys(i).length > 0).map((i: any) => ({
-        _id: i._id || "", employeeID: i.employeeID || "",
+        _id: i._id || "", employeeID: i.employeeID || "", employeeName: i.employeeName || "",
         leaveCode: i.leaveCode || "",
         balance: typeof i.balance === "number" ? i.balance : Number(i.balance ?? 0),
         appliedDate: i.appliedDate || "",

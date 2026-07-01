@@ -76,6 +76,7 @@ export default function SpecialLeaveApplicationApprover({ isApprovalPermission: 
            uploadedBy: i.uploadedBy || "",
            createdOn: i.createdOn || "",
            employeeID: i.employeeID || "",
+           employeeName: i.employeeName || "",
            fromDate: i.fromDate || "",
            toDate: i.toDate || "",
            appliedDate: i.appliedDate || "",

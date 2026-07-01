@@ -119,6 +119,7 @@ export default function ShiftApplicationApprover({ isApprovalPermission: _isAppr
           .map((item: any) => ({
             _id: item._id || "",
             employeeID: item.employeeID || "",
+            employeeName: item.employeeName || "",
             appliedDate: item.appliedDate || item.createdOn || "",
             fromDate: item.fromDate || "",
             toDate: item.toDate || "",
@@ -191,6 +192,8 @@ export default function ShiftApplicationApprover({ isApprovalPermission: _isAppr
         data={otApplications}
         onOpenDetails={handleOpenDetails}
         loading={isLoading}
+        activeTab={activeTab}
+        onTabChange={(tab) => { setActiveTab(tab as TabKey); setCurrentPage(1) }}
         externalPagination={{
           currentPage,
           totalPages,

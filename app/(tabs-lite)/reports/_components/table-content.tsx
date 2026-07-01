@@ -111,7 +111,7 @@ interface TableContentProps {
 export function TableContent(props: TableContentProps) {
   const { tableMenuItems, visibleTables, getSelectedItems, onSaveAndContinue } = props;
   const insets = useSafeAreaInsets();
-  const footerBottom = Math.max(14 - insets.bottom, 0) + 80;
+  const footerBottom = Math.max(insets.bottom, 90) + 12;
 
   const visibleItems = tableMenuItems.filter((item) => visibleTables.has(item.id));
 
@@ -250,7 +250,7 @@ export function TableContent(props: TableContentProps) {
       <View style={[s.footer, { paddingBottom: footerBottom }]}>
         {!isValid && missingTables.length > 0 && (
           <View style={s.validationRow}>
-            <Ionicons name="warning-outline" size={14} color="#dc2626" />
+            <Ionicons name="warning-outline" size={14} color="#dc2626" style={{ marginRight: 6 }} />
             <Text style={s.validationTxt} numberOfLines={2}>
               Select at least one item for: {missingTables.join(', ')}
             </Text>
@@ -276,14 +276,13 @@ const s = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    gap: 16,
+    paddingBottom: 24,
   },
   emptyWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 400,
-    gap: 10,
     padding: 24,
   },
   emptyTitle: {
@@ -299,22 +298,22 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   footer: {
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
     backgroundColor: '#ffffff',
-    gap: 8,
   },
   validationRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
     backgroundColor: '#fef2f2',
     borderWidth: 1,
     borderColor: '#fecaca',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
+    marginBottom: 8,
   },
   validationTxt: {
     fontFamily: 'Inter',

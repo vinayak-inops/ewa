@@ -9,6 +9,7 @@ export type EditPunchTabKey = "all" | "pending" | "approved" | "rejected" | "can
 export interface EditPunchRecord {
   _id: string
   employeeID: string
+  employeeName?: string
   punchedTime?: string
   transactionTime?: string
   inOut?: string
@@ -211,7 +212,12 @@ export default function ApplicationTable({
                         <PenLine size={15} color="#334155" />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>{row.employeeID}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>{row.employeeID}</Text>
+                          {row.employeeName ? (
+                            <Text style={{ fontSize: 12, color: "#475569", fontWeight: "500" }} numberOfLines={1}>· {row.employeeName}</Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontSize: 12, color: "#64748b" }} numberOfLines={1}>{subText}</Text>
                         {muted ? <Text style={{ fontSize: 11, color: "#94a3b8" }} numberOfLines={1}>{muted}</Text> : null}
                       </View>

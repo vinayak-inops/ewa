@@ -26,6 +26,7 @@ type SearchField = {
 
 const SEARCH_FIELDS: SearchField[] = [
   { label: 'Employee ID',   field: 'employeeID',        icon: 'person-outline',          iconColor: '#6366f1', iconBg: '#eef2ff' },
+  { label: 'Employee Name', field: 'employeeName',      icon: 'people-outline',          iconColor: '#0891b2', iconBg: '#ecfeff' },
   { label: 'Att. Date',     field: 'attendanceDate',    icon: 'calendar-outline',        iconColor: '#f97316', iconBg: '#fff7ed' },
   { label: 'New Att. Date', field: 'newAttendanceDate', icon: 'calendar-outline',        iconColor: '#ef4444', iconBg: '#fef2f2' },
   { label: 'In/Out',        field: 'inOut',             icon: 'swap-horizontal-outline', iconColor: '#0ea5e9', iconBg: '#f0f9ff' },
@@ -59,12 +60,12 @@ export default function EditPunchApplication({
   const tenantCode = useSelector((s: RootState) => s.role.org) ?? ""
 
   const visibleSearchFields = useMemo(
-    () => isSelfPermission ? SEARCH_FIELDS.filter(f => f.field !== 'employeeID') : SEARCH_FIELDS,
+    () => isSelfPermission ? SEARCH_FIELDS.filter(f => f.field !== 'employeeID' && f.field !== 'employeeName') : SEARCH_FIELDS,
     [isSelfPermission]
   )
 
   const [activeSearchField, setActiveSearchField] = useState<SearchField>(() =>
-    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID') ?? SEARCH_FIELDS[1]!) : SEARCH_FIELDS[0]!
+    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID' && f.field !== 'employeeName') ?? SEARCH_FIELDS[2]!) : SEARCH_FIELDS[0]!
   )
 
   const applierPerms = useScreenPermissions('applicationApplier', 'editPunchApplication')
@@ -115,6 +116,7 @@ export default function EditPunchApplication({
           .map((item: any) => ({
             _id: item._id || "",
             employeeID: item.employeeID || "",
+            employeeName: item.employeeName || "",
             punchedTime: item.punchedTime || "",
             transactionTime: item.transactionTime || "",
             inOut: item.inOut || "",

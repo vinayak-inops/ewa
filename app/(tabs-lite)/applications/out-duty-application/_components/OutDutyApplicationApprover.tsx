@@ -116,7 +116,6 @@ export default function OutDutyApplicationApprover() {
         onOpenDetails={row => { if (!row?._id) return; setSelectedRequestId(row._id); setIsPopupOpen(true) }}
         loading={loading}
         title="Out Duty Approvals"
-        subtitle="Review and action out duty applications assigned to you"
         activeTab={activeTab}
         onTabChange={handleTabChange}
         externalPagination={{ currentPage, totalPages, totalItems: totalCount, itemsPerPage, startIndex, endIndex, onPageChange: setCurrentPage }}

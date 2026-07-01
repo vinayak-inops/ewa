@@ -30,8 +30,8 @@ export default function OtApplicationApprover() {
   const offset = useMemo(() => (currentPage - 1) * itemsPerPage, [currentPage])
 
   const collectionName = useMemo(() => {
-    if (activeTab === "pending" || activeTab === "failed" || activeTab === "all") return "outDutyApplication"
-    return "outDutyApplicationTransaction"
+    if (activeTab === "pending" || activeTab === "failed" || activeTab === "all") return "otApplication"
+    return "otApplicationTransaction"
   }, [activeTab])
 
   const buildRequestData = useMemo(() => {
@@ -66,10 +66,8 @@ export default function OtApplicationApprover() {
     onSuccess: (d: any) => {
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(d.filter((i: any) => i && typeof i === "object" && Object.keys(i).length > 0).map((i: any) => ({
-        _id: i._id || "", employeeID: i.employeeID || "", outDutyType: i.outDutyType || "",
-        fromDate: i.fromDate || "", toDate: i.toDate || "",
-        duration: i.duration || { noOfDays: 0, noOfHours: 0 },
-        Reason: i.Reason || "", OutDutyAddress: i.OutDutyAddress || "",
+        _id: i._id || "", employeeID: i.employeeID || "", employeeName: i.employeeName || "",
+        date: i.date || "", calculatedOT: i.calculatedOT ?? 0, approvedOT: i.approvedOT ?? 0,
         workflowState: i.workflowState || "INITIATED", status: i.workflowState || "INITIATED",
         uploadedBy: i.uploadedBy || "", createdOn: i.createdOn || "", remarks: i.remarks || "",
       })))
@@ -116,7 +114,6 @@ export default function OtApplicationApprover() {
         onOpenDetails={row => { if (!row?._id) return; setSelectedRequestId(row._id); setIsPopupOpen(true) }}
         loading={loading}
         title="OT Approvals"
-        subtitle="Review and action out duty applications assigned to you"
         activeTab={activeTab}
         onTabChange={handleTabChange}
         externalPagination={{ currentPage, totalPages, totalItems: totalCount, itemsPerPage, startIndex, endIndex, onPageChange: setCurrentPage }}

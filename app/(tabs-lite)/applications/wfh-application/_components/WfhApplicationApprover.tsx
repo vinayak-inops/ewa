@@ -66,7 +66,7 @@ export default function WfhApplicationApprover() {
     onSuccess: (d: any) => {
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(d.filter((i: any) => i && typeof i === "object" && Object.keys(i).length > 0).map((i: any) => ({
-        _id: i._id || "", employeeID: i.employeeID || "",
+        _id: i._id || "", employeeID: i.employeeID || "", employeeName: i.employeeName || "",
         fromDate: i.fromDate || "", toDate: i.toDate || "",
         fromDuration: i.fromDuration || "", toDuration: i.toDuration || "",
         description: i.description || "",

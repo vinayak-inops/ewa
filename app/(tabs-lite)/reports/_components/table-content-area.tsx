@@ -5,6 +5,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -243,11 +244,8 @@ function ContractEmployeeCard({
     <View style={s.card}>
       {/* Card header */}
       <View style={s.cardHeader}>
-        <View style={s.iconBox}>
-          <Ionicons name={(tableItem.icon ?? 'people-outline') as any} size={16} color="#4b5563" />
-        </View>
-        <View style={s.cardHeaderText}>
-          <Text style={s.cardTitle}>{tableItem.label}</Text>
+        <Text style={s.cardTitle}>{tableItem.label.toUpperCase()}</Text>
+        <View style={s.cardHeaderRight}>
           <Text style={s.cardSub}>{selectedIds.length} selected</Text>
         </View>
       </View>
@@ -388,60 +386,56 @@ function TableTypeCard(props: TableContentAreaProps) {
     <View style={s.card}>
       {/* Header */}
       <View style={s.cardHeader}>
-        <View style={s.iconBox}>
-          <Ionicons name={(tableItem.icon ?? 'business-outline') as any} size={16} color="#4b5563" />
-        </View>
-        <View style={s.cardHeaderText}>
-          <Text style={s.cardTitle}>{tableItem.label}</Text>
+        <Text style={s.cardTitle}>{tableItem.label.toUpperCase()}</Text>
+        <View style={s.cardHeaderRight}>
+          {loading && <ActivityIndicator size="small" color="#7c3aed" style={{ marginRight: 8 }} />}
           <Text style={s.cardSub}>{selectedCodes.length} selected</Text>
         </View>
-        {loading && <ActivityIndicator size="small" color="#7c3aed" />}
       </View>
 
       <View style={s.cardBody}>
-        {/* Toolbar: search + field toggle + add button */}
-        <View style={s.toolbar}>
-          {/* Field toggle */}
+        {/* Search bar row */}
+        <View style={s.searchRow}>
+          <Ionicons name="search-outline" size={15} color="#9ca3af" />
+          <TextInput
+            style={s.searchInput}
+            placeholder={`Search ${tableItem.label} name…`}
+            placeholderTextColor="#9ca3af"
+            value={searchTerm}
+            onChangeText={(t) => { setSearchTerm(t); setPage(1); }}
+            autoCorrect={false}
+          />
+          {searchTerm.length > 0 && (
+            <Pressable onPress={() => { setSearchTerm(''); setPage(1); }} hitSlop={8}>
+              <Ionicons name="close-circle" size={15} color="#9ca3af" />
+            </Pressable>
+          )}
           <Pressable
-            style={s.fieldToggle}
-            onPress={() => setField(field === 'code' ? 'name' : 'code')}>
-            <Ionicons name="funnel-outline" size={13} color="#6b7280" />
-            <Text style={s.fieldToggleTxt}>{field === 'code' ? 'Code' : 'Name'}</Text>
-            <Ionicons name="chevron-down" size={11} color="#9ca3af" />
-          </Pressable>
-
-          {/* Search */}
-          <View style={s.searchBox}>
-            <Ionicons name="search-outline" size={14} color="#9ca3af" />
-            <TextInput
-              style={s.searchInput}
-              placeholder={`Search by ${field}…`}
-              placeholderTextColor="#9ca3af"
-              value={searchTerm}
-              onChangeText={(t) => { setSearchTerm(t); setPage(1); }}
-              autoCorrect={false}
+            style={[s.filterBtn, field === 'name' && s.filterBtnActive]}
+            onPress={() => { setField(field === 'code' ? 'name' : 'code'); setPage(1); }}
+            hitSlop={4}>
+            <Ionicons
+              name="reorder-three-outline"
+              size={18}
+              color={field === 'name' ? '#0a1c63' : '#6b7280'}
             />
-            {searchTerm.length > 0 && (
-              <Pressable onPress={() => { setSearchTerm(''); setPage(1); }} hitSlop={6}>
-                <Ionicons name="close-circle" size={14} color="#9ca3af" />
-              </Pressable>
-            )}
-          </View>
-
-          {/* Add button */}
-          <Pressable
-            style={({ pressed }) => [
-              s.addBtn,
-              (loading || !parentOk) && s.addBtnDisabled,
-              pressed && !loading && parentOk && { opacity: 0.88 },
-            ]}
-            onPress={() => {
-              if (!loading && parentOk) setOpenAddFieldType(tableId);
-            }}
-            disabled={loading || !parentOk}>
-            <Text style={s.addBtnTxt}>Add</Text>
           </Pressable>
         </View>
+
+        {/* Add button row */}
+        <Pressable
+          style={({ pressed }) => [
+            s.addBtn,
+            (loading || !parentOk) && s.addBtnDisabled,
+            pressed && !loading && parentOk && { opacity: 0.88 },
+          ]}
+          onPress={() => {
+            if (!loading && parentOk) setOpenAddFieldType(tableId);
+          }}
+          disabled={loading || !parentOk}>
+          <Ionicons name="add" size={16} color="#ffffff" />
+          <Text style={s.addBtnTxt}>Add {tableItem.label}</Text>
+        </Pressable>
 
         {/* Parent warning */}
         {missingParent && (
@@ -454,39 +448,41 @@ function TableTypeCard(props: TableContentAreaProps) {
         )}
 
         {/* Table */}
-        <View style={s.table}>
-          {/* Table header */}
-          <View style={s.tableHead}>
-            <Text style={[s.th, { flex: 1 }]}>{CODE_LABEL[tableId]}</Text>
-            <Text style={[s.th, { flex: 2 }]}>{NAME_LABEL[tableId]}</Text>
-            <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Del</Text>
-          </View>
-
-          {/* Rows */}
-          {paged.length > 0 ? (
-            paged.map((code, idx) => {
-              const item = data.find((d: any) => d.code === code);
-              return (
-                <View key={code} style={[s.tableRow, idx % 2 === 1 && s.tableRowAlt]}>
-                  <Text style={[s.tdMono, { flex: 1 }]} numberOfLines={1}>{code}</Text>
-                  <Text style={[s.td, { flex: 2 }]} numberOfLines={1}>{item?.name ?? code}</Text>
-                  <Pressable
-                    style={{ width: 40, alignItems: 'flex-end', justifyContent: 'center' }}
-                    onPress={() => handleRemoveItem(tableId, code)}
-                    hitSlop={6}>
-                    <Ionicons name="trash-outline" size={14} color="#94a3b8" />
-                  </Pressable>
-                </View>
-              );
-            })
-          ) : (
-            <View style={s.emptyRow}>
-              <Text style={s.emptyTxt}>
-                No {tableItem.label.toLowerCase()} selected. Tap "Add" to select.
-              </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tableScroll}>
+          <View style={s.table}>
+            {/* Table header */}
+            <View style={s.tableHead}>
+              <Text style={[s.th, { width: 110 }]}>{CODE_LABEL[tableId]}</Text>
+              <Text style={[s.th, { width: 200 }]}>{NAME_LABEL[tableId]}</Text>
+              <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Del</Text>
             </View>
-          )}
-        </View>
+
+            {/* Rows */}
+            {paged.length > 0 ? (
+              paged.map((code, idx) => {
+                const item = data.find((d: any) => d.code === code);
+                return (
+                  <View key={code} style={[s.tableRow, idx % 2 === 1 && s.tableRowAlt]}>
+                    <Text style={[s.tdMono, { width: 110 }]} numberOfLines={1}>{code}</Text>
+                    <Text style={[s.td, { width: 200 }]} numberOfLines={1}>{item?.name ?? code}</Text>
+                    <Pressable
+                      style={{ width: 40, alignItems: 'flex-end', justifyContent: 'center' }}
+                      onPress={() => handleRemoveItem(tableId, code)}
+                      hitSlop={6}>
+                      <Ionicons name="trash-outline" size={14} color="#94a3b8" />
+                    </Pressable>
+                  </View>
+                );
+              })
+            ) : (
+              <View style={s.emptyRow}>
+                <Text style={s.emptyTxt}>
+                  No {tableItem.label.toLowerCase()} selected. Tap "Add" to select.
+                </Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
 
         {/* Pagination */}
         {filteredSelected.length > pageSize && (
@@ -587,20 +583,20 @@ const am = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     borderRadius: 10,
-    gap: 8,
   },
-  searchIcon: {},
+  searchIcon: { marginRight: 8 },
   searchInput: {
     flex: 1, fontFamily: F, fontSize: 14, color: '#111827',
   },
   selectAll: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: '#e5e7eb',
     backgroundColor: '#f9fafb',
   },
   selectAllTxt: {
     fontFamily: F, fontSize: 13, fontWeight: '600', color: '#374151',
+    marginLeft: 8,
   },
   list: { flex: 1 },
   empty: {
@@ -610,16 +606,17 @@ const am = StyleSheet.create({
     fontFamily: F, fontSize: 13, color: '#9ca3af',
   },
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
   },
-  rowText: { flex: 1 },
+  rowText: { flex: 1, marginLeft: 12 },
   rowName: { fontFamily: F, fontSize: 13, fontWeight: '600', color: '#111827' },
   rowCode: { fontFamily: F, fontSize: 11, color: '#6b7280', marginTop: 1 },
   chk: {
     width: 18, height: 18, borderRadius: 4, borderWidth: 1.5,
     borderColor: '#d1d5db', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
   chkActive: { backgroundColor: '#16a34a', borderColor: '#16a34a' },
 });
@@ -642,57 +639,64 @@ const s = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#eef2ff',
   },
-  iconBox: {
-    width: 30, height: 30, borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center', justifyContent: 'center',
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  cardHeaderText: { flex: 1 },
-  cardTitle: { fontFamily: F, fontSize: 13, fontWeight: '700', color: '#111827' },
-  cardSub: { fontFamily: F, fontSize: 11, color: '#6b7280', marginTop: 1 },
-  cardBody: { padding: 12, gap: 10 },
+  cardTitle: {
+    fontFamily: F, fontSize: 12, fontWeight: '700',
+    color: '#0a1c63', letterSpacing: 0.8,
+  },
+  cardSub: {
+    fontFamily: F, fontSize: 11, fontWeight: '600',
+    color: '#6b7280',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: 10,
+  },
+  cardBody: { padding: 12 },
 
-  toolbar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-  },
-  fieldToggle: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 8,
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 9,
     borderWidth: 1, borderColor: '#e5e7eb',
-    borderRadius: 8, backgroundColor: '#f9fafb',
+    borderRadius: 10, backgroundColor: '#f9fafb',
+    marginBottom: 10,
   },
-  fieldToggleTxt: { fontFamily: F, fontSize: 12, fontWeight: '600', color: '#374151' },
-  searchBox: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 10, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    borderRadius: 8, backgroundColor: '#f9fafb',
+  searchInput: { flex: 1, fontFamily: F, fontSize: 13, color: '#111827', padding: 0, marginLeft: 8 },
+  filterBtn: {
+    padding: 4, borderRadius: 6, marginLeft: 4,
   },
-  searchInput: { flex: 1, fontFamily: F, fontSize: 13, color: '#111827' },
+  filterBtnActive: {
+    backgroundColor: '#e8eaf6',
+  },
   addBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#0a1c63',
-    borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 10, height: 40,
+    marginBottom: 10,
   },
   addBtnDisabled: { backgroundColor: '#a3aed0' },
-  addBtnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: '#ffffff' },
+  addBtnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: '#ffffff', marginLeft: 4 },
 
   warning: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a',
     borderRadius: 8, padding: 10,
+    marginBottom: 10,
   },
   warningTxt: { fontFamily: F, fontSize: 12, color: '#92400e', flex: 1 },
 
-  table: {
+  tableScroll: {
     borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8,
+  },
+  table: {
+    minWidth: '100%',
     overflow: 'hidden',
   },
   tableHead: {
@@ -725,20 +729,22 @@ const s = StyleSheet.create({
     paddingTop: 6,
   },
   pageInfo: { fontFamily: F, fontSize: 11, color: '#6b7280' },
-  pageButtons: { flexDirection: 'row', gap: 6 },
+  pageButtons: { flexDirection: 'row' },
   pageBtn: {
     paddingHorizontal: 12, paddingVertical: 5,
     borderWidth: 1, borderColor: '#e5e7eb',
     borderRadius: 6, backgroundColor: '#ffffff',
+    marginLeft: 6,
   },
   pageBtnDisabled: { opacity: 0.4 },
   pageBtnTxt: { fontFamily: F, fontSize: 12, fontWeight: '600', color: '#374151' },
 
   hint: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    flexDirection: 'row', alignItems: 'flex-start',
     backgroundColor: '#e8eaf6', borderWidth: 1, borderColor: '#c7d2fe',
     borderRadius: 8, padding: 10,
   },
+  hintIconWrap: { marginRight: 8 },
   hintIcon: { fontSize: 14 },
   hintTxt: { fontFamily: F, fontSize: 12, color: '#0a1c63', flex: 1, lineHeight: 17 },
 });

@@ -223,10 +223,10 @@ export default function OutDutyFormPopup({ onClose, onSuccess }: Props) {
     })
 
     const pad = (n: number) => n < 10 ? `0${n}` : String(n)
-    const ist = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }))
-    const yy = ist.getFullYear(), mo = pad(ist.getMonth()+1), dd = pad(ist.getDate())
-    const hh = pad(ist.getHours()), mi = pad(ist.getMinutes()), ss = pad(ist.getSeconds())
-    const ms = String(ist.getMilliseconds()).padStart(3, "0")
+    const ist = new Date(Date.now() + 330 * 60 * 1000)
+    const yy = ist.getUTCFullYear(), mo = pad(ist.getUTCMonth()+1), dd = pad(ist.getUTCDate())
+    const hh = pad(ist.getUTCHours()), mi = pad(ist.getUTCMinutes()), ss = pad(ist.getUTCSeconds())
+    const ms = String(ist.getUTCMilliseconds()).padStart(3, "0")
     const createdOn = `${yy}-${mo}-${dd}T${hh}:${mi}:${ss}.${ms}+05:30`
 
     post({

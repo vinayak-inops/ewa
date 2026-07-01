@@ -11,6 +11,7 @@ interface Application {
   uploadedBy: string
   createdOn: string
   employeeID: string
+  employeeName?: string
   fromDate?: string
   toDate?: string
   appliedDate?: string
@@ -298,7 +299,7 @@ export default function ApplicationTable({
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={{ fontSize: 13, fontWeight: '600', color: '#0f172a' }} numberOfLines={1}>
-                          {leaveTitle} — {row.employeeID || '—'}
+                          {leaveTitle} — {row.employeeID || '—'}{row.employeeName ? ` · ${row.employeeName}` : ''}
                         </Text>
                         {dateRange !== '-' && (
                           <Text style={{ fontSize: 12, color: '#64748b' }} numberOfLines={1}>{dateRange}</Text>

@@ -14,6 +14,7 @@ interface Application {
   uploadedBy: string
   createdOn: string
   employeeID: string
+  employeeName?: string
   fromDate?: string
   toDate?: string
   uploadTime?: string
@@ -300,7 +301,12 @@ export default function ApplicationTable({
                         <FileText size={15} color="#334155" />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#0f172a' }} numberOfLines={1}>{row.employeeID || 'Leave Request'}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#0f172a' }} numberOfLines={1}>{row.employeeID || 'Leave Request'}</Text>
+                          {row.employeeName ? (
+                            <Text style={{ fontSize: 12, color: '#475569', fontWeight: '500' }} numberOfLines={1}>· {row.employeeName}</Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontSize: 12, color: '#64748b' }} numberOfLines={1}>{dateRange}</Text>
                         {row.remarks ? <Text style={{ fontSize: 11, color: '#94a3b8' }} numberOfLines={1}>{row.remarks}</Text> : null}
                       </View>

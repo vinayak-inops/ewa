@@ -24,12 +24,13 @@ type SearchField = {
 }
 
 const SEARCH_FIELDS: SearchField[] = [
-  { label: 'Employee ID',    field: 'employeeID',     icon: 'person-outline',         iconColor: '#6366f1', iconBg: '#eef2ff' },
-  { label: 'Att. Date',      field: 'attendanceDate', icon: 'calendar-outline',       iconColor: '#f97316', iconBg: '#fff7ed' },
-  { label: 'Punched Time',   field: 'punchedTime',    icon: 'time-outline',           iconColor: '#10b981', iconBg: '#ecfdf5' },
+  { label: 'Employee ID',    field: 'employeeID',     icon: 'person-outline',          iconColor: '#6366f1', iconBg: '#eef2ff' },
+  { label: 'Employee Name',  field: 'employeeName',   icon: 'people-outline',          iconColor: '#0891b2', iconBg: '#ecfeff' },
+  { label: 'Att. Date',      field: 'attendanceDate', icon: 'calendar-outline',        iconColor: '#f97316', iconBg: '#fff7ed' },
+  { label: 'Punched Time',   field: 'punchedTime',    icon: 'time-outline',            iconColor: '#10b981', iconBg: '#ecfdf5' },
   { label: 'In/Out',         field: 'inOut',          icon: 'swap-horizontal-outline', iconColor: '#0ea5e9', iconBg: '#f0f9ff' },
-  { label: 'Remarks',        field: 'remarks',        icon: 'chatbox-outline',        iconColor: '#64748b', iconBg: '#f1f5f9' },
-  { label: 'Status',         field: 'workflowState',  icon: 'flag-outline',           iconColor: '#8b5cf6', iconBg: '#f5f3ff' },
+  { label: 'Remarks',        field: 'remarks',        icon: 'chatbox-outline',         iconColor: '#64748b', iconBg: '#f1f5f9' },
+  { label: 'Status',         field: 'workflowState',  icon: 'flag-outline',            iconColor: '#8b5cf6', iconBg: '#f5f3ff' },
 ]
 
 export default function PunchApplication({ isSelfPermission = false, isAllPermission = false, refreshTrigger }: Props) {
@@ -50,12 +51,12 @@ export default function PunchApplication({ isSelfPermission = false, isAllPermis
   const tenantCode = useSelector((s: RootState) => s.role.org) ?? ""
 
   const visibleSearchFields = useMemo(
-    () => isSelfPermission ? SEARCH_FIELDS.filter(f => f.field !== 'employeeID') : SEARCH_FIELDS,
+    () => isSelfPermission ? SEARCH_FIELDS.filter(f => f.field !== 'employeeID' && f.field !== 'employeeName') : SEARCH_FIELDS,
     [isSelfPermission]
   )
 
   const [activeSearchField, setActiveSearchField] = useState<SearchField>(() =>
-    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID') ?? SEARCH_FIELDS[1]!) : SEARCH_FIELDS[0]!
+    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID' && f.field !== 'employeeName') ?? SEARCH_FIELDS[2]!) : SEARCH_FIELDS[0]!
   )
 
   const applierPerms = useScreenPermissions('applicationApplier', 'punch')
@@ -99,7 +100,7 @@ export default function PunchApplication({ isSelfPermission = false, isAllPermis
     onSuccess: (d: any) => {
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(d.filter((i: any) => i && typeof i === "object" && Object.keys(i).length > 0).map((i: any) => ({
-        _id: i._id || "", employeeID: i.employeeID || "",
+        _id: i._id || "", employeeID: i.employeeID || "", employeeName: i.employeeName || "",
         attendanceDate: i.attendanceDate || "", punchedTime: i.punchedTime || "",
         inOut: i.inOut || "", typeOfMovement: i.typeOfMovement || "",
         workflowState: i.workflowState || "INITIATED", status: i.workflowState || "INITIATED",

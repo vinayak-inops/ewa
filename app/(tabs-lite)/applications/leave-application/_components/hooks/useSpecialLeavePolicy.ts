@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
 import { useGraphQLQuery } from '@/hooks/api/useGraphQLQuery'
 import { useUserEntitlement, type UserEntitlement } from '@/hooks/api/useUserEntitlement'
+import { useMemo } from 'react'
 
 export interface SpecialLeaveOption {
   leaveCode: string
@@ -104,6 +104,7 @@ export function useSpecialLeavePolicy({
     if (employeeCategory) criteria.push({ field: 'employeeCategory', operator: 'in', value: [employeeCategory] })
     return criteria
   }, [tenantCode, deployment])
+
 
   const { data: leavePolicyData, loading } = useGraphQLQuery<{
     fetchLeavePolicy: Array<{ leavePolicy: any; employeeCategory: string }>

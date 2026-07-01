@@ -1,118 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ReportsEditor from './_components/reports-editor';
 
 const F = 'Inter';
-
-type BannerDef = {
-  id: string;
-  title: string;
-  sub: string;
-  bg: string;
-  ringA: string;
-  ringB: string;
-  accent: string;
-  primaryIcon: React.ComponentProps<typeof Ionicons>['name'];
-  secondaryIcon: React.ComponentProps<typeof Ionicons>['name'];
-  tertiaryIcon: React.ComponentProps<typeof Ionicons>['name'];
-};
-
-const BANNERS: BannerDef[] = [
-  {
-    id: 'b1',
-    title: 'Generate\nReports Fast.',
-    sub: 'Export attendance & HR data as Excel or PDF',
-    bg: '#1d4ed8',
-    ringA: 'rgba(59,130,246,0.35)',
-    ringB: 'rgba(96,165,250,0.2)',
-    accent: '#bfdbfe',
-    primaryIcon: 'document-text-outline',
-    secondaryIcon: 'checkmark-done-outline',
-    tertiaryIcon: 'cloud-download-outline',
-  },
-  {
-    id: 'b2',
-    title: 'Track Report\nStatus.',
-    sub: 'Monitor pending and completed report jobs',
-    bg: '#0369a1',
-    ringA: 'rgba(14,165,233,0.35)',
-    ringB: 'rgba(56,189,248,0.2)',
-    accent: '#bae6fd',
-    primaryIcon: 'stats-chart-outline',
-    secondaryIcon: 'time-outline',
-    tertiaryIcon: 'refresh-outline',
-  },
-  {
-    id: 'b3',
-    title: 'Export\nAny Format.',
-    sub: 'Download as Excel spreadsheets or PDF documents',
-    bg: '#1e3a8a',
-    ringA: 'rgba(37,99,235,0.4)',
-    ringB: 'rgba(59,130,246,0.2)',
-    accent: '#93c5fd',
-    primaryIcon: 'grid-outline',
-    secondaryIcon: 'download-outline',
-    tertiaryIcon: 'folder-outline',
-  },
-  {
-    id: 'b4',
-    title: 'Filter &\nSearch Reports.',
-    sub: 'Find reports quickly by name, type or status',
-    bg: '#4338ca',
-    ringA: 'rgba(99,102,241,0.4)',
-    ringB: 'rgba(129,140,248,0.2)',
-    accent: '#c7d2fe',
-    primaryIcon: 'search-outline',
-    secondaryIcon: 'filter-outline',
-    tertiaryIcon: 'list-outline',
-  },
-];
-
-function BannerIllustration({ b }: { b: BannerDef }) {
-  return (
-    <View pointerEvents="none" style={s.illustrationWrap}>
-      <View style={[s.ringOuter, { backgroundColor: b.ringB }]} />
-      <View style={[s.ringInner, { backgroundColor: b.ringA }]} />
-      <View style={s.ringCenter}>
-        <Ionicons name={b.primaryIcon} size={36} color={b.accent} />
-      </View>
-      <View style={[s.floatIconA, { backgroundColor: b.ringA }]}>
-        <Ionicons name={b.secondaryIcon} size={14} color={b.accent} />
-      </View>
-      <View style={[s.floatIconB, { backgroundColor: b.ringA }]}>
-        <Ionicons name={b.tertiaryIcon} size={12} color={b.accent} />
-      </View>
-    </View>
-  );
-}
-
-function BannerCarousel() {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      decelerationRate="fast"
-      snapToInterval={272}
-      snapToAlignment="start"
-      contentContainerStyle={s.bannerScroll}
-    >
-      {BANNERS.map((b) => (
-        <View key={b.id} style={[s.bannerCard, { backgroundColor: b.bg }]}>
-          <View pointerEvents="none" style={[s.bannerShine, { backgroundColor: b.ringA }]} />
-          <BannerIllustration b={b} />
-          <View style={s.bannerContent}>
-            <Text style={s.bannerTitle}>{b.title}</Text>
-            <Text style={s.bannerSub}>{b.sub}</Text>
-          </View>
-        </View>
-      ))}
-    </ScrollView>
-  );
-}
 
 export default function ReportsScreen() {
   const insets = useSafeAreaInsets();
@@ -142,9 +36,24 @@ export default function ReportsScreen() {
         </View>
       </View>
 
-      {/* Banner carousel */}
+      {/* Single banner */}
       <View style={s.bannerSection}>
-        <BannerCarousel />
+        <View style={s.banner}>
+          {/* Glow blobs */}
+          <View style={s.bannerGlowA} />
+          <View style={s.bannerGlowB} />
+
+          {/* Text */}
+          <View style={s.bannerContent}>
+            <Text style={s.bannerTitle}>Generate Reports, Fast.</Text>
+            <Text style={s.bannerSub}>Export attendance & HR data as Excel or PDF</Text>
+          </View>
+
+          {/* Icon */}
+          <View style={s.bannerIconWrap}>
+            <Ionicons name="document-text-outline" size={32} color="rgba(255,255,255,0.85)" />
+          </View>
+        </View>
       </View>
 
       {/* White rounded sheet */}
@@ -186,7 +95,30 @@ const s = StyleSheet.create({
   greeting: { fontFamily: F, color: '#fff', fontSize: 20, fontWeight: '700' },
   topIcons: { flexDirection: 'row', gap: 14 },
 
-  bannerSection: { backgroundColor: '#0a1c63', paddingTop: 0, paddingBottom: 16 },
+  bannerSection: { backgroundColor: '#0a1c63', paddingHorizontal: 16, paddingBottom: 16 },
+  banner: {
+    borderRadius: 16, overflow: 'hidden',
+    backgroundColor: '#1a3a8f',
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 18, paddingVertical: 18,
+  },
+  bannerGlowA: {
+    position: 'absolute', width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(59,130,246,0.25)', right: 30, top: -40,
+  },
+  bannerGlowB: {
+    position: 'absolute', width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(96,165,250,0.15)', right: -10, bottom: -20,
+  },
+  bannerContent: { flex: 1 },
+  bannerTitle: { fontFamily: F, fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  bannerSub: { fontFamily: F, fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 4, lineHeight: 16 },
+  bannerIconWrap: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: 12,
+  },
 
   sheetOuter: { flex: 1 },
   sheet: { flex: 1, backgroundColor: '#f8fafc', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
@@ -209,37 +141,4 @@ const s = StyleSheet.create({
   genBtnSub: { fontFamily: F, fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: '500' },
 
 
-  /* Banner */
-  bannerScroll: { gap: 12, paddingHorizontal: 16 },
-  bannerCard: { width: 260, height: 160, borderRadius: 18, overflow: 'hidden', flexDirection: 'row' },
-  bannerShine: {
-    position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    top: -80, right: -60, opacity: 0.4,
-  },
-  illustrationWrap: {
-    position: 'absolute', right: 0, top: 0, bottom: 0, width: 110,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ringOuter: { position: 'absolute', width: 96, height: 96, borderRadius: 48 },
-  ringInner: { position: 'absolute', width: 68, height: 68, borderRadius: 34 },
-  ringCenter: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  floatIconA: {
-    position: 'absolute', top: 14, right: 10,
-    width: 26, height: 26, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  floatIconB: {
-    position: 'absolute', bottom: 18, left: 6,
-    width: 22, height: 22, borderRadius: 11,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  bannerContent: { flex: 1, paddingVertical: 16, paddingLeft: 16, paddingRight: 4, justifyContent: 'flex-end' },
-  bannerTitle: { fontSize: 16, fontWeight: '800', color: '#fff', lineHeight: 22, letterSpacing: -0.3, marginBottom: 4 },
-  bannerSub: { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '500', lineHeight: 14, marginBottom: 10 },
-  bannerLearnRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  bannerLearn: { fontSize: 11, fontWeight: '700' },
 });

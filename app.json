@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ewa",
+    "name": "EARNED WAGE",
     "slug": "ewa",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -45,7 +45,7 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow EWA to use Face ID or Touch ID to unlock your saved session."
+          "faceIDPermission": "Allow EARNED WAGE to use Face ID or Touch ID to unlock your saved session."
         }
       ]
     ],

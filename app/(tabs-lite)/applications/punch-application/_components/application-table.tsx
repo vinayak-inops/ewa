@@ -9,6 +9,7 @@ export type PunchTabKey = "all" | "pending" | "approved" | "rejected" | "cancell
 export interface PunchRecord {
   _id: string
   employeeID: string
+  employeeName?: string
   attendanceDate: string
   punchedTime?: string
   transactionTime?: string
@@ -208,9 +209,14 @@ export default function ApplicationTable({
                         <LogIn size={15} color="#334155" />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
-                          {row.employeeID || "Punch Request"}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
+                            {row.employeeID || "Punch Request"}
+                          </Text>
+                          {row.employeeName ? (
+                            <Text style={{ fontSize: 12, color: "#475569", fontWeight: "500" }} numberOfLines={1}>· {row.employeeName}</Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontSize: 12, color: "#64748b" }} numberOfLines={1}>
                           {fmtDate(row.attendanceDate)}{fmtTime(row.punchedTime) !== "-" ? `  ·  ${fmtTime(row.punchedTime)}` : ""}
                         </Text>

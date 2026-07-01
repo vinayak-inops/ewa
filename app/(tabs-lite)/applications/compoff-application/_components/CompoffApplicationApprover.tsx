@@ -71,7 +71,7 @@ export default function CompoffApplicationApprover({ isApprovalPermission: _isAp
     onSuccess: (d: any) => {
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(d.filter((i: any) => i && typeof i === "object" && Object.keys(i).length > 0).map((i: any) => ({
-        _id: i._id || "", employeeID: i.employeeID || "",
+        _id: i._id || "", employeeID: i.employeeID || "", employeeName: i.employeeName || "",
         fromDate: i.fromDate || "", toDate: i.toDate || "",
         fromDuration: i.fromDuration || "", toDuration: i.toDuration || "",
         availForDates: i.availForDates || [],
@@ -127,7 +127,6 @@ export default function CompoffApplicationApprover({ isApprovalPermission: _isAp
         onOpenDetails={handleOpenDetails}
         loading={loading}
         title="Comp Off Approvals"
-        subtitle="Review and action compensatory off requests"
         activeTab={activeTab}
         onTabChange={handleTabChange}
         externalPagination={{ currentPage, totalPages, totalItems: totalCount, itemsPerPage, startIndex, endIndex, onPageChange: (p: number) => setCurrentPage(p) }}

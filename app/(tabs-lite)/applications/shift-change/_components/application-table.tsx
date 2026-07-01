@@ -18,6 +18,7 @@ export type ShiftTabKey = "all" | "pending" | "approved" | "rejected" | "cancell
 interface Application {
   _id: string
   employeeID: string
+  employeeName?: string
   appliedDate?: string
   fromDate: string
   toDate: string
@@ -220,9 +221,14 @@ export default function ApplicationTable({
                         <Repeat2 size={15} color="#334155" />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
-                          {row.shiftName || row.employeeID || "Shift Request"}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
+                            {row.shiftName || row.employeeID || "Shift Request"}
+                          </Text>
+                          {row.employeeName ? (
+                            <Text style={{ fontSize: 12, color: "#475569", fontWeight: "500" }} numberOfLines={1}>· {row.employeeName}</Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontSize: 12, color: "#64748b" }} numberOfLines={1}>
                           {formatDate(row.fromDate)}{row.toDate && row.toDate !== row.fromDate ? ` → ${formatDate(row.toDate)}` : ""}
                         </Text>

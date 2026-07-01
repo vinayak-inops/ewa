@@ -9,6 +9,7 @@ export type EncashmentTabKey = "all" | "pending" | "failed" | "approved" | "reje
 export interface EncashmentRecord {
   _id: string
   employeeID: string
+  employeeName?: string
   leaveCode: string
   balance: number
   appliedDate: string
@@ -194,9 +195,14 @@ export default function EncashmentTable({
                         <Wallet size={15} color="#334155" />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
-                          {row.employeeID || "Encashment Request"}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
+                            {row.employeeID || "Encashment Request"}
+                          </Text>
+                          {row.employeeName ? (
+                            <Text style={{ fontSize: 12, color: "#475569", fontWeight: "500" }} numberOfLines={1}>· {row.employeeName}</Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontSize: 12, color: "#64748b" }} numberOfLines={1}>{subLine || formatDate(row.appliedDate)}</Text>
                         {detail ? <Text style={{ fontSize: 11, color: "#94a3b8" }} numberOfLines={1}>{detail}</Text> : null}
                       </View>

@@ -24,12 +24,11 @@ type SearchField = {
 }
 
 const SEARCH_FIELDS: SearchField[] = [
-  { label: 'Employee ID', field: 'employeeID',    icon: 'person-outline',   iconColor: '#6366f1', iconBg: '#eef2ff' },
-  { label: 'Duty Type',   field: 'outDutyType',   icon: 'briefcase-outline', iconColor: '#0ea5e9', iconBg: '#f0f9ff' },
-  { label: 'From Date',   field: 'fromDate',       icon: 'calendar-outline', iconColor: '#f97316', iconBg: '#fff7ed' },
-  { label: 'To Date',     field: 'toDate',          icon: 'calendar-outline', iconColor: '#ef4444', iconBg: '#fef2f2' },
-  { label: 'Reason',      field: 'Reason',          icon: 'chatbox-outline',  iconColor: '#64748b', iconBg: '#f1f5f9' },
-  { label: 'Status',      field: 'workflowState',   icon: 'flag-outline',     iconColor: '#8b5cf6', iconBg: '#f5f3ff' },
+  { label: 'Employee ID',   field: 'employeeID',    icon: 'person-outline',   iconColor: '#6366f1', iconBg: '#eef2ff' },
+  { label: 'Employee Name', field: 'employeeName',  icon: 'people-outline',   iconColor: '#0891b2', iconBg: '#ecfeff' },
+  { label: 'Date',          field: 'date',           icon: 'calendar-outline', iconColor: '#f97316', iconBg: '#fff7ed' },
+  { label: 'Approved OT',  field: 'approvedOT',     icon: 'time-outline',     iconColor: '#0ea5e9', iconBg: '#f0f9ff' },
+  { label: 'Status',        field: 'workflowState',  icon: 'flag-outline',     iconColor: '#8b5cf6', iconBg: '#f5f3ff' },
 ]
 
 export default function OtApplication({ isSelfPermission = false, isAllPermission = false, refreshTrigger }: Props) {
@@ -44,18 +43,18 @@ export default function OtApplication({ isSelfPermission = false, isAllPermissio
   const [searchTerm, setSearchTerm] = useState("")
   const [showFieldPicker, setShowFieldPicker] = useState(false)
   const itemsPerPage = 10
-  const collectionName = "outDutyApplication"
+  const collectionName = "otApplication"
 
   const employeeId = useSelector((s: RootState) => s.role.employeeId) ?? ""
   const tenantCode = useSelector((s: RootState) => s.role.org) ?? ""
 
   const visibleSearchFields = useMemo(
-    () => isSelfPermission ? SEARCH_FIELDS.filter(f => f.field !== 'employeeID') : SEARCH_FIELDS,
+    () => isSelfPermission ? SEARCH_FIELDS.filter(f => f.field !== 'employeeID' && f.field !== 'employeeName') : SEARCH_FIELDS,
     [isSelfPermission]
   )
 
   const [activeSearchField, setActiveSearchField] = useState<SearchField>(() =>
-    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID') ?? SEARCH_FIELDS[1]!) : SEARCH_FIELDS[0]!
+    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID' && f.field !== 'employeeName') ?? SEARCH_FIELDS[2]!) : SEARCH_FIELDS[0]!
   )
 
   const applierPerms = useScreenPermissions('applicationApplier', 'overtime')
@@ -97,12 +96,11 @@ export default function OtApplication({ isSelfPermission = false, isAllPermissio
     url: `${collectionName}/search?offset=${offset}&limit=${itemsPerPage}`,
     method: "POST", data: buildRequestData,
     onSuccess: (d: any) => {
+      console.log("Fetched OT Applications:", d)
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(d.filter((i: any) => i && typeof i === "object" && Object.keys(i).length > 0).map((i: any) => ({
-        _id: i._id || "", employeeID: i.employeeID || "", outDutyType: i.outDutyType || "",
-        fromDate: i.fromDate || "", toDate: i.toDate || "",
-        duration: i.duration || { noOfDays: 0, noOfHours: 0 },
-        Reason: i.Reason || "", OutDutyAddress: i.OutDutyAddress || "",
+        _id: i._id || "", employeeID: i.employeeID || "", employeeName: i.employeeName || "",
+        date: i.date || "", calculatedOT: i.calculatedOT ?? 0, approvedOT: i.approvedOT ?? 0,
         workflowState: i.workflowState || "INITIATED", status: i.workflowState || "INITIATED",
         uploadedBy: i.uploadedBy || "", createdOn: i.createdOn || "", remarks: i.remarks || "",
       })))
@@ -146,7 +144,7 @@ export default function OtApplication({ isSelfPermission = false, isAllPermissio
             </View>
             <View style={s.newCardText}>
               <Text style={s.newCardTitle}>New Application</Text>
-              <Text style={s.newCardSub}>Create a new overtime / out duty request</Text>
+              <Text style={s.newCardSub}>Create a new overtime request</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#93c5fd" />
           </View>
@@ -230,7 +228,7 @@ export default function OtApplication({ isSelfPermission = false, isAllPermissio
         onOpenDetails={row => { if (!row?._id) return; setSelectedRequestId(row._id); setIsPopupOpen(true) }}
         loading={loading}
         onNew={() => setIsFormOpen(true)}
-        title="OT / Out Duty Applications"
+        title="OT Applications"
         activeTab={activeTab}
         onTabChange={handleTabChange}
         externalPagination={{ currentPage, totalPages, totalItems: totalCount, itemsPerPage, startIndex, endIndex, onPageChange: setCurrentPage }}

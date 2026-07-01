@@ -160,8 +160,10 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
 
   // ── Report card ───────────────────────────────────────────────────────────
   const renderCard = ({ item }: { item: any }) => {
-    const { bg, txt } = statusColors(item.status);
+    const { txt } = statusColors(item.status);
     const isPdf = (item.extension ?? '').toLowerCase() === 'pdf';
+    const status = (item.status ?? 'Pending').toUpperCase();
+    const createdDate = fmtDate(item.createdOn ?? item.createdAt ?? '');
 
     return (
       <Pressable
@@ -170,39 +172,40 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
         }
       >
         {({ pressed }) => (
-          <View style={[s.card, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
-            {/* Icon */}
-            <View style={[s.cardIcon, { backgroundColor: isPdf ? '#fef2f2' : '#eff6ff' }]}>
+          <View style={[s.card, pressed && { opacity: 0.92 }]}>
+            {/* Left icon */}
+            <View style={s.cardAvatar}>
               <Ionicons
                 name={isPdf ? 'document-text-outline' : 'grid-outline'}
-                size={24}
-                color={isPdf ? '#dc2626' : '#1d4ed8'}
+                size={20}
+                color="#64748b"
               />
             </View>
 
             {/* Body */}
             <View style={s.cardBody}>
               <Text style={s.cardTitle} numberOfLines={1}>
-                {item.reportName ?? item.reportTitle ?? 'Untitled'}
+                {item.reportTitle ?? item.reportName ?? 'Untitled'}
               </Text>
+              {item.reportName ? (
+                <Text style={s.cardWorkflow} numberOfLines={1}>{item.reportName}</Text>
+              ) : null}
               <View style={s.cardFooter}>
-                <Ionicons name="calendar-outline" size={11} color="#94a3b8" />
-                <Text style={s.cardMeta}>{fmtDate(item.createdOn ?? item.createdAt ?? '') || '—'}</Text>
+                <Text style={s.cardDate}>{createdDate || '—'}</Text>
                 <View style={s.cardTypeDot} />
-                <Text style={[s.cardTypeTag, isPdf && { color: '#dc2626' }]}>
+                <Text style={[s.cardExt, isPdf && { color: '#dc2626' }]}>
                   {(item.extension ?? 'EXCEL').toUpperCase()}
                 </Text>
               </View>
             </View>
 
-            {/* Status badge */}
-            <View style={[s.statusBadge, { backgroundColor: bg }]}>
-              <View style={[s.statusDot, { backgroundColor: txt }]} />
-              <Text style={[s.statusTxt, { color: txt }]}>{item.status ?? 'Pending'}</Text>
+            {/* Right: status + date */}
+            <View style={s.cardRight}>
+              <View style={[s.statusPill, { backgroundColor: txt }]}>
+                <Text style={s.statusPillTxt}>{status}</Text>
+              </View>
+              <Text style={s.cardRightDate}>{createdDate || '—'}</Text>
             </View>
-
-            {/* Chevron */}
-            <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
           </View>
         )}
       </Pressable>
@@ -262,16 +265,17 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
         </View>
       )}
 
-      {/* Search bar (light) — shown when header is hidden */}
+      {/* Applications-style header + tabs — shown when header is hidden */}
       {hideHeader && (
-        <View style={s.searchBarLightWrap}>
+        <View style={s.appHeader}>
+          {/* Search row */}
           <View style={s.searchBarLight}>
             <View style={s.searchIconBox}>
               <Ionicons name="search-outline" size={15} color="#1d4ed8" />
             </View>
             <TextInput
               style={s.searchInputLight}
-              placeholder="Search reports…"
+              placeholder="Search Att. Data..."
               placeholderTextColor="#94a3b8"
               value={searchTerm}
               onChangeText={setSearchTerm}
@@ -283,58 +287,29 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
                 <Ionicons name="close-circle" size={16} color="#cbd5e1" />
               </Pressable>
             )}
-            <View style={s.searchDivider} />
-            <Pressable
-              onPress={() => setShowFilters((v) => !v)}
-              hitSlop={8}
-              style={[s.filterIconBtn, showFilters && s.filterIconBtnOn]}
-            >
-              <Ionicons
-                name="options-outline"
-                size={18}
-                color={showFilters ? '#1d4ed8' : '#64748b'}
-              />
-              {activeChip !== 'All' && <View style={s.filterDot} />}
+            <Pressable hitSlop={8}>
+              <Ionicons name="menu-outline" size={20} color="#64748b" />
             </Pressable>
           </View>
 
-          {/* Collapsible filter panel */}
-          {showFilters && (
-            <View style={s.filterPanel}>
-              <View style={s.filterPanelHead}>
-                <Text style={s.filterPanelLabel}>FILTER BY</Text>
-                <Pressable hitSlop={8} onPress={() => { setActiveChip('All'); setShowFilters(false); }}>
-                  <Text style={s.filterPanelClear}>Clear</Text>
+          {/* Section label + count */}
+          <View style={s.sectionRow}>
+            <Text style={s.sectionLabel}>REPORTS</Text>
+            <Text style={s.sectionCount}>{totalCount} total</Text>
+          </View>
+
+          {/* Tab bar */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabBarContent}>
+            {FILTER_CHIPS.map((chip) => {
+              const isOn = activeChip === chip;
+              return (
+                <Pressable key={chip} style={s.tabItem} onPress={() => setActiveChip(chip)}>
+                  <Text style={[s.tabTxt, isOn && s.tabTxtOn]}>{chip}</Text>
+                  {isOn && <View style={s.tabUnderline} />}
                 </Pressable>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterPanelRow}>
-                {FILTER_CHIPS.map((chip) => {
-                  const isOn = activeChip === chip;
-                  const chipIcons: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
-                    All: 'apps-outline',
-                    Excel: 'grid-outline',
-                    PDF: 'document-outline',
-                    Pending: 'time-outline',
-                    Completed: 'checkmark-circle-outline',
-                  };
-                  return (
-                    <Pressable
-                      key={chip}
-                      style={[s.filterChip, isOn && s.filterChipOn]}
-                      onPress={() => { setActiveChip(chip); setShowFilters(false); }}
-                    >
-                      <Ionicons
-                        name={chipIcons[chip] ?? 'ellipse-outline'}
-                        size={14}
-                        color={isOn ? '#1d4ed8' : '#64748b'}
-                      />
-                      <Text style={[s.filterChipTxt, isOn && s.filterChipTxtOn]}>{chip}</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
+              );
+            })}
+          </ScrollView>
         </View>
       )}
 
@@ -533,37 +508,47 @@ const s = StyleSheet.create({
   chipTxt: { fontFamily: F, fontSize: 13, fontWeight: '600', color: '#64748b' },
   chipTxtOn: { color: '#6d28d9' },
 
-  listContent: { padding: 14, gap: 10, paddingBottom: 32 },
+  appHeader: { backgroundColor: '#fff', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 0 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 2 },
+  sectionLabel: { fontFamily: F, fontSize: 11, fontWeight: '700', color: '#94a3b8', letterSpacing: 0.8 },
+  sectionCount: { fontFamily: F, fontSize: 11, color: '#94a3b8' },
+  tabBarContent: { flexDirection: 'row', gap: 0, paddingTop: 6 },
+  tabItem: { paddingHorizontal: 14, paddingBottom: 10, alignItems: 'center' },
+  tabTxt: { fontFamily: F, fontSize: 13, fontWeight: '500', color: '#94a3b8' },
+  tabTxtOn: { color: '#0f172a', fontWeight: '700' },
+  tabUnderline: { position: 'absolute', bottom: 0, left: 14, right: 14, height: 2, borderRadius: 2, backgroundColor: '#0f172a' },
+
+  listContent: { paddingHorizontal: 14, paddingTop: 4, gap: 0, paddingBottom: 90 },
 
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#ffffff', borderRadius: 16,
-    padding: 14,
-    shadowColor: '#0f172a', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    backgroundColor: '#ffffff',
+    paddingVertical: 14, paddingHorizontal: 4,
+    borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
   },
-  cardIcon: {
-    width: 46, height: 46, borderRadius: 13,
+  cardAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#f1f5f9',
     alignItems: 'center', justifyContent: 'center',
   },
-  cardBody: { flex: 1, gap: 4 },
-  cardTitle: { fontFamily: F, fontSize: 14, fontWeight: '700', color: '#0f172a' },
+  cardIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  cardBody: { flex: 1, gap: 2 },
+  cardTitle: { fontFamily: F, fontSize: 13, fontWeight: '700', color: '#0f172a' },
+  cardDate: { fontFamily: F, fontSize: 11, color: '#94a3b8', marginTop: 1 },
+  cardExt: { fontFamily: F, fontSize: 11, color: '#64748b', fontWeight: '600', marginTop: 1 },
   cardWorkflow: { fontFamily: F, fontSize: 11, color: '#64748b', fontWeight: '500' },
   cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   cardMeta: { fontFamily: F, fontSize: 11, color: '#94a3b8' },
   cardTypeDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#cbd5e1' },
   cardTypeTag: { fontFamily: F, fontSize: 11, fontWeight: '700', color: '#1d4ed8' },
-  cardRight: { alignItems: 'flex-end', gap: 8 },
-  statusBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-  },
+  cardRight: { alignItems: 'flex-end', gap: 5 },
+  cardRightDate: { fontFamily: F, fontSize: 10, color: '#94a3b8', marginTop: 2 },
+  statusPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  statusPillTxt: { fontFamily: F, fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusTxt: { fontFamily: F, fontSize: 11, fontWeight: '700' },
-  extBadge: {
-    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
-    backgroundColor: '#eff6ff',
-  },
+  extBadge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, backgroundColor: '#eff6ff' },
   extBadgePdf: { backgroundColor: '#fef2f2' },
   extTxt: { fontFamily: F, fontSize: 10, fontWeight: '700', color: '#1d4ed8' },
   extTxtPdf: { color: '#dc2626' },

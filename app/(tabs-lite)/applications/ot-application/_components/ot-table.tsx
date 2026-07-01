@@ -9,17 +9,15 @@ export type OtTabKey = "all" | "pending" | "approved" | "rejected" | "cancelled"
 export interface OtRecord {
   _id: string
   employeeID: string
-  outDutyType: string
-  fromDate: string
-  toDate: string
-  duration?: { noOfDays?: number; noOfHours?: number }
-  Reason: string
-  OutDutyAddress: string
+  employeeName?: string
+  date: string
+  calculatedOT: number
+  approvedOT: number
   workflowState: string
   status: string
   uploadedBy: string
   createdOn: string
-  remarks: string
+  remarks?: string
 }
 
 interface ExternalPagination {
@@ -70,14 +68,6 @@ const fmtDate = (v?: string) => {
   try { return new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) } catch { return v }
 }
 
-const fmtDuration = (d?: { noOfDays?: number; noOfHours?: number }) => {
-  const days = d?.noOfDays ?? 0, hours = d?.noOfHours ?? 0
-  if (days === 0 && hours === 0) return ""
-  const parts: string[] = []
-  if (days > 0)  parts.push(`${days}d`)
-  if (hours > 0) parts.push(`${hours}h`)
-  return parts.join(" ")
-}
 
 export default function OtTable({
   data, onOpenDetails, loading = false, externalPagination,
@@ -194,10 +184,6 @@ export default function OtTable({
               currentData.map((row, idx) => {
                 const st = statusStyle(row.status || row.workflowState)
                 const isLast = idx === currentData.length - 1
-                const dateRange = fmtDate(row.fromDate) + (row.toDate && row.toDate !== row.fromDate ? `  →  ${fmtDate(row.toDate)}` : "")
-                const dur = fmtDuration(row.duration)
-                const subLine = [row.outDutyType, dur].filter(Boolean).join("  ·  ")
-                const detail = row.Reason || row.OutDutyAddress || ""
                 return (
                   <React.Fragment key={row._id || idx}>
                     <Pressable
@@ -208,13 +194,22 @@ export default function OtTable({
                         <Clock size={15} color="#334155" />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
-                          {row.employeeID || "OT Request"}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
+                            {row.employeeID || "OT Request"}
+                          </Text>
+                          {row.employeeName ? (
+                            <Text style={{ fontSize: 12, color: "#475569", fontWeight: "500" }} numberOfLines={1}>
+                              · {row.employeeName}
+                            </Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontSize: 12, color: "#64748b" }} numberOfLines={1}>
-                          {dateRange}{subLine ? `  ·  ${subLine}` : ""}
+                          {row.date ? fmtDate(row.date) : "—"}
                         </Text>
-                        {detail ? <Text style={{ fontSize: 11, color: "#94a3b8" }} numberOfLines={1}>{detail}</Text> : null}
+                        <Text style={{ fontSize: 11, color: "#94a3b8" }} numberOfLines={1}>
+                          {`Calc: ${row.calculatedOT ?? 0}h  ·  Approved: ${row.approvedOT ?? 0}h`}
+                        </Text>
                       </View>
                       <View style={{ alignItems: "flex-end", flexShrink: 0, gap: 4 }}>
                         <View style={{ borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: st.bg, borderColor: st.border }}>

@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons"
+import { useGetRequest } from "@/hooks/api/useGetRequest"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
 import { RootState } from "@/store"
 import { ChevronDown, X } from "lucide-react-native"
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { useSelector } from "react-redux"
 import {
   ActivityIndicator,
@@ -21,7 +22,6 @@ import {
 const FONT = "Inter"
 const NAVY = "#13206b"
 
-const DUTY_TYPES: ("Days" | "Hours")[] = ["Days", "Hours"]
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 
 interface Props {
@@ -30,10 +30,8 @@ interface Props {
 }
 
 type Errors = Partial<{
-  fromDate: string
-  toDate: string
-  reason: string
-  remarks: string
+  date: string
+  approvedOT: string
 }>
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -53,27 +51,23 @@ function formatDisplayDate(iso: string) {
 
 // ── Date Picker ───────────────────────────────────────────────────────────────
 
-function DatePickerModal({ visible, onClose, onSelect, minDate, title, selected }: {
+function DatePickerModal({ visible, onClose, onSelect, title, selected }: {
   visible: boolean; onClose: () => void; onSelect: (iso: string) => void
-  minDate?: string; title: string; selected: string
+  title: string; selected: string
 }) {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
 
-  const minObj = useMemo(() => {
-    const d = minDate ? new Date(minDate) : new Date(); d.setHours(0,0,0,0); return d
-  }, [minDate])
-
-  const days = useMemo(() => {
+  const days = React.useMemo(() => {
     const count = new Date(year, month + 1, 0).getDate()
     const today = new Date(); today.setHours(0,0,0,0)
     return Array.from({ length: count }, (_, i) => {
       const d = i + 1
       const date = new Date(year, month, d); date.setHours(0,0,0,0)
-      return { d, disabled: date < minObj, isToday: date.getTime() === today.getTime() }
+      return { d, isToday: date.getTime() === today.getTime() }
     })
-  }, [year, month, minObj])
+  }, [year, month])
 
   const blanks = Array(new Date(year, month, 1).getDay()).fill(null)
   const prev = () => month === 0 ? (setMonth(11), setYear(y => y - 1)) : setMonth(m => m - 1)
@@ -108,15 +102,14 @@ function DatePickerModal({ visible, onClose, onSelect, minDate, title, selected 
             </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
               {blanks.map((_, i) => <View key={`b${i}`} style={{ width: `${100/7}%` }} />)}
-              {days.map(({ d, disabled, isToday }) => {
+              {days.map(({ d, isToday }) => {
                 const iso = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`
                 const sel = iso === selected
                 return (
                   <View key={d} style={{ width: `${100/7}%`, alignItems: "center", paddingVertical: 2 }}>
                     <TouchableOpacity
-                      disabled={disabled}
                       onPress={() => { onSelect(iso); onClose() }}
-                      style={[s.dayCell, sel && s.daySel, isToday && !sel && s.dayToday, disabled && { opacity: 0.25 }]}
+                      style={[s.dayCell, sel && s.daySel, isToday && !sel && s.dayToday]}
                     >
                       <Text style={[s.dayNum, sel && { color: "#fff", fontWeight: "700" }, isToday && !sel && { color: NAVY }]}>
                         {d}
@@ -135,7 +128,7 @@ function DatePickerModal({ visible, onClose, onSelect, minDate, title, selected 
 
 // ── Reusable pieces ───────────────────────────────────────────────────────────
 
-function Label({ text, optional }: { text: string; optional?: boolean }) {
+function FieldLabel({ text, optional }: { text: string; optional?: boolean }) {
   return (
     <Text style={s.label}>
       {text}{!optional && <Text style={{ color: "#ef4444" }}> *</Text>}
@@ -167,22 +160,54 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
   const employeeId = useSelector((s: RootState) => s.role.employeeId) ?? ""
   const tenantCode = useSelector((s: RootState) => s.role.org) ?? ""
 
-  const [fromDate, setFromDate] = useState("")
-  const [toDate, setToDate] = useState("")
-  const [outDutyType, setOutDutyType] = useState<"Days" | "Hours">("Days")
-  const [noOfDays, setNoOfDays] = useState("1")
-  const [noOfHours, setNoOfHours] = useState("0")
-  const [reason, setReason] = useState("")
-  const [address, setAddress] = useState("")
-  const [remarks, setRemarks] = useState("")
+  const [date, setDate] = useState("")
+  const [calculatedOT, setCalculatedOT] = useState(0)
+  const [approvedOT, setApprovedOT] = useState("")
+  const [noOTRecord, setNoOTRecord] = useState(false)
   const [errors, setErrors] = useState<Errors>({})
   const [submitted, setSubmitted] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
-  const [successData, setSuccessData] = useState<{ employeeID: string; fromDate: string; toDate: string; type: string } | null>(null)
+  const [successData, setSuccessData] = useState<{
+    employeeID: string; date: string; calculatedOT: number; approvedOT: number
+  } | null>(null)
   const pulseAnim = useRef(new Animated.Value(0)).current
 
-  const [showFrom, setShowFrom] = useState(false)
-  const [showTo, setShowTo] = useState(false)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+
+  // ── Daily OT fetch ──────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    setCalculatedOT(0)
+    setApprovedOT("")
+    setNoOTRecord(false)
+  }, [date, employeeId, tenantCode])
+
+  const { loading: dailyOTLoading } = useGetRequest<any>({
+    url: "muster/dailyOT/search",
+    method: "POST",
+    data: date && employeeId ? [
+      { field: "tenantCode", value: tenantCode, operator: "eq" },
+      { field: "employeeID", value: employeeId, operator: "eq" },
+      { field: "attendanceDate", value: date, operator: "eq" },
+    ] : [],
+    enabled: !!(employeeId && date),
+    dependencies: [date, employeeId, tenantCode],
+    onSuccess: (data) => {
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        setCalculatedOT(0)
+        setNoOTRecord(true)
+        return
+      }
+      setNoOTRecord(false)
+      const record = Array.isArray(data) ? data[0] : data
+      setCalculatedOT(record?.calculatedOT !== undefined ? record.calculatedOT : 0)
+    },
+    onError: () => { setCalculatedOT(0); setNoOTRecord(false) },
+  })
+
+  const canEnterApprovedOT = !!(employeeId && date && calculatedOT > 0 && !dailyOTLoading)
+
+  // ── Success pulse animation ─────────────────────────────────────────────────
 
   useEffect(() => {
     if (!showSuccess) return
@@ -194,19 +219,25 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
     return () => loop.stop()
   }, [showSuccess])
 
-  const { post, loading: posting } = usePostRequest({
-    url: "outDutyApplication",
-    onSuccess: () => { setShowSuccess(true) },
-    onError: () => setErrors(p => ({ ...p, reason: "Submission failed. Please try again." })),
+  // ── Submit ──────────────────────────────────────────────────────────────────
+
+  const { post: postOT, loading: posting } = usePostRequest<any>({
+    url: "otApplication",
+    onSuccess: () => setShowSuccess(true),
+    onError: () => setErrors(p => ({ ...p, approvedOT: "Submission failed. Please try again." })),
   })
 
   const validate = (): Errors => {
     const e: Errors = {}
-    if (!fromDate) e.fromDate = "From date is required"
-    if (!toDate) { e.toDate = "To date is required" }
-    else if (fromDate && new Date(toDate) < new Date(fromDate)) { e.toDate = "To date cannot be before from date" }
-    if (!reason.trim()) { e.reason = "Reason is required" }
-    else if (reason.trim().length < 10) { e.reason = "Reason must be at least 10 characters" }
+    if (!date) e.date = "Date is required"
+    const val = parseFloat(approvedOT)
+    if (approvedOT === "" || isNaN(val)) {
+      e.approvedOT = "Approved OT is required"
+    } else if (val < 0) {
+      e.approvedOT = "Approved OT cannot be negative"
+    } else if (val > calculatedOT) {
+      e.approvedOT = `Approved OT cannot exceed Calculated OT (${calculatedOT})`
+    }
     return e
   }
 
@@ -216,44 +247,52 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
 
+    const approvedVal = parseFloat(approvedOT) || 0
+
     setSuccessData({
       employeeID: employeeId,
-      fromDate: formatDisplayDate(fromDate),
-      toDate: formatDisplayDate(toDate),
-      type: `${outDutyType} — ${outDutyType === "Days" ? `${noOfDays} day(s)` : `${noOfHours} hr(s)`}`,
+      date: formatDisplayDate(date),
+      calculatedOT,
+      approvedOT: approvedVal,
     })
 
     const pad = (n: number) => n < 10 ? `0${n}` : String(n)
-    const ist = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }))
-    const yy = ist.getFullYear(), mo = pad(ist.getMonth()+1), dd = pad(ist.getDate())
-    const hh = pad(ist.getHours()), mi = pad(ist.getMinutes()), ss = pad(ist.getSeconds())
-    const ms = String(ist.getMilliseconds()).padStart(3, "0")
+    const ist = new Date(Date.now() + 330 * 60 * 1000)
+    const yy = ist.getUTCFullYear(), mo = pad(ist.getUTCMonth()+1), dd = pad(ist.getUTCDate())
+    const hh = pad(ist.getUTCHours()), mi = pad(ist.getUTCMinutes()), ss = pad(ist.getUTCSeconds())
+    const ms = String(ist.getUTCMilliseconds()).padStart(3, "0")
     const createdOn = `${yy}-${mo}-${dd}T${hh}:${mi}:${ss}.${ms}+05:30`
+    const uploadTime = `${yy}-${mo}-${dd}T${hh}:${mi}:${ss}`
+    const appliedDate = `${yy}-${mo}-${dd}`
 
-    post({
-      tenant: tenantCode, action: "insert", id: "", event: "application", collectionName: "outDutyApplication",
+    postOT({
+      tenant: tenantCode,
+      action: "insert",
+      id: null,
+      event: "application1",
+      collectionName: "otApplication",
       data: {
         employeeID: employeeId,
-        fromDate, toDate,
-        outDutyType: outDutyType.toLowerCase(),
-        duration: { noOfDays: parseInt(noOfDays) || 0, noOfHours: parseInt(noOfHours) || 0 },
-        Reason: reason.trim(),
-        OutDutyAddress: address.trim(),
-        remarks: remarks.trim(),
+        date,
+        calculatedOT,
+        approvedOT: approvedVal,
         tenantCode,
-        workflowName: "outDuty Application",
-        uploadedBy: employeeId, createdBy: employeeId,
-        createdOn, uploadTime: createdOn,
         organizationCode: tenantCode,
-        stateEvent: "NEXT", workflowState: "INITIATED",
-        appliedDate: `${yy}-${mo}-${dd}`,
+        uploadedBy: employeeId,
+        createdBy: employeeId,
+        createdOn,
+        uploadTime,
+        appliedDate,
+        workflowState: "INITIATED",
+        stateEvent: "NEXT",
+        workflowName: "ot Application",
       },
     })
   }
 
   const handleClose = () => { setErrors({}); setSubmitted(false); onClose() }
 
-  // ── Success ─────────────────────────────────────────────────────────────────
+  // ── Success screen ──────────────────────────────────────────────────────────
 
   if (showSuccess) {
     const rippleScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.28] })
@@ -269,12 +308,12 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
             </View>
             <Text style={s.successTitle}>Request Submitted</Text>
             <Text style={s.successSub}>
-              Your OT / Out Duty application has been submitted successfully and is now pending approval.
+              Your OT application has been submitted successfully and is now pending approval.
             </Text>
             <View style={s.successCard}>
               <View style={s.successRefRow}>
                 <View style={s.successRefIcon}>
-                  <Ionicons name="briefcase-outline" size={16} color="#2563eb" />
+                  <Ionicons name="time-outline" size={16} color="#2563eb" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.successRefLabel}>Employee ID</Text>
@@ -283,16 +322,16 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
               </View>
               <View style={s.successGrid}>
                 <View style={s.successGridItem}>
-                  <Text style={s.successGridLabel}>From Date</Text>
-                  <Text style={s.successGridValue}>{successData?.fromDate || "—"}</Text>
+                  <Text style={s.successGridLabel}>Date</Text>
+                  <Text style={s.successGridValue}>{successData?.date || "—"}</Text>
                 </View>
                 <View style={s.successGridItem}>
-                  <Text style={s.successGridLabel}>To Date</Text>
-                  <Text style={s.successGridValue}>{successData?.toDate || "—"}</Text>
+                  <Text style={s.successGridLabel}>Calculated OT</Text>
+                  <Text style={s.successGridValue}>{successData?.calculatedOT ?? "—"} hrs</Text>
                 </View>
                 <View style={s.successGridItem}>
-                  <Text style={s.successGridLabel}>Duty Type</Text>
-                  <Text style={s.successGridValue}>{successData?.type || "—"}</Text>
+                  <Text style={s.successGridLabel}>Approved OT</Text>
+                  <Text style={s.successGridValue}>{successData?.approvedOT ?? "—"} hrs</Text>
                 </View>
                 <View style={s.successGridItem}>
                   <Text style={s.successGridLabel}>Status</Text>
@@ -332,7 +371,7 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
               <Pressable onPress={handleClose} hitSlop={8} style={s.backBtn}>
                 <X size={16} color="#0f172a" />
               </Pressable>
-              <Text style={s.greeting}>OT / Out Duty</Text>
+              <Text style={s.greeting}>OT Application</Text>
             </View>
           </View>
 
@@ -340,133 +379,87 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
           <View style={s.titleRow}>
             <Text style={s.titleLabel}>New Application</Text>
             <View style={s.badge}>
-              <Text style={s.badgeText}>Out Duty</Text>
+              <Text style={s.badgeText}>Overtime</Text>
             </View>
           </View>
 
           {/* Main card */}
           <View style={s.card}>
             <Text style={s.cardTitle}>Fill in the details below</Text>
-            <Text style={s.cardSub}>Enter date range, duty type, duration and reason to submit your out duty request.</Text>
+            <Text style={s.cardSub}>Select a date to auto-fetch calculated OT, then enter your approved OT hours.</Text>
             <View style={s.separator} />
 
             {/* Employee ID (read-only) */}
-            <Label text="Employee ID" optional />
+            <FieldLabel text="Employee ID" optional />
             <View style={[s.inputWrap, { backgroundColor: "#f1f5f9" }]}>
               <Text style={[s.inputText, { color: "#64748b" }]}>{employeeId || "Loading..."}</Text>
             </View>
 
-            {/* Out Duty Type */}
-            <Label text="Out Duty Type" />
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              {DUTY_TYPES.map(dt => {
-                const active = outDutyType === dt
-                return (
-                  <TouchableOpacity
-                    key={dt}
-                    onPress={() => setOutDutyType(dt)}
-                    style={[s.toggleBtn, active && s.toggleActive]}
-                  >
-                    <Text style={[s.toggleText, active && s.toggleTextActive]}>{dt}</Text>
-                  </TouchableOpacity>
-                )
-              })}
-            </View>
+            {/* Date */}
+            <FieldLabel text="Date" />
+            <SelectRow
+              value={date ? formatDisplayDate(date) : ""}
+              placeholder="Select date"
+              onPress={() => setShowDatePicker(true)}
+              error={errors.date}
+            />
+            <ErrText msg={errors.date} />
 
-            {/* Duration */}
+            {/* Calculated OT & Approved OT */}
             <View style={{ flexDirection: "row", gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <Label text="No. of Days" optional />
-                <TextInput
-                  value={noOfDays}
-                  onChangeText={setNoOfDays}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor="#9ca3af"
-                  style={s.inputWrap}
-                />
+                <FieldLabel text="Calculated OT" optional />
+                <View style={[s.inputWrap, { backgroundColor: "#f1f5f9", position: "relative" }]}>
+                  {dailyOTLoading ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <ActivityIndicator size="small" color="#94a3b8" />
+                      <Text style={[s.inputText, { color: "#94a3b8" }]}>Fetching...</Text>
+                    </View>
+                  ) : (
+                    <Text style={[s.inputText, { color: "#64748b" }]}>
+                      {date ? String(calculatedOT) : "—"}
+                    </Text>
+                  )}
+                </View>
               </View>
               <View style={{ flex: 1 }}>
-                <Label text="No. of Hours" optional />
+                <FieldLabel text="Approved OT" />
                 <TextInput
-                  value={noOfHours}
-                  onChangeText={setNoOfHours}
+                  value={approvedOT}
+                  onChangeText={v => {
+                    setApprovedOT(v)
+                    if (submitted) {
+                      const val = parseFloat(v)
+                      const e = v === "" || isNaN(val)
+                        ? "Approved OT is required"
+                        : val < 0
+                        ? "Cannot be negative"
+                        : val > calculatedOT
+                        ? `Cannot exceed ${calculatedOT}`
+                        : undefined
+                      setErrors(p => ({ ...p, approvedOT: e }))
+                    }
+                  }}
                   keyboardType="numeric"
-                  placeholder="0"
+                  placeholder={canEnterApprovedOT ? "Enter hours" : "—"}
                   placeholderTextColor="#9ca3af"
-                  style={s.inputWrap}
+                  editable={canEnterApprovedOT}
+                  style={[
+                    s.inputWrap,
+                    errors.approvedOT ? s.inputError : null,
+                    !canEnterApprovedOT ? { backgroundColor: "#f1f5f9" } : null,
+                  ]}
                 />
+                <ErrText msg={errors.approvedOT} />
               </View>
             </View>
 
-            {/* Dates */}
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Label text="From Date" />
-                <SelectRow
-                  value={fromDate ? formatDisplayDate(fromDate) : ""}
-                  placeholder="Select date"
-                  onPress={() => setShowFrom(true)}
-                  error={errors.fromDate}
-                />
-                <ErrText msg={errors.fromDate} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Label text="To Date" />
-                <SelectRow
-                  value={toDate ? formatDisplayDate(toDate) : ""}
-                  placeholder="Select date"
-                  onPress={() => setShowTo(true)}
-                  error={errors.toDate}
-                />
-                <ErrText msg={errors.toDate} />
-              </View>
-            </View>
-
-            {/* Reason */}
-            <Label text="Reason" />
-            <TextInput
-              value={reason}
-              onChangeText={v => {
-                setReason(v)
-                if (submitted) {
-                  const e = !v.trim() ? "Reason is required"
-                    : v.trim().length < 10 ? "Minimum 10 characters"
-                    : undefined
-                  setErrors(p => ({ ...p, reason: e }))
-                }
-              }}
-              placeholder="Enter reason for out duty (minimum 10 characters)"
-              placeholderTextColor="#9ca3af"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              style={[s.textArea, errors.reason ? s.inputError : null]}
-            />
-            <ErrText msg={errors.reason} />
-
-            {/* Address */}
-            <Label text="Address / Location" optional />
-            <TextInput
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Enter address or location..."
-              placeholderTextColor="#9ca3af"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              style={s.textArea}
-            />
-
-            {/* Remarks */}
-            <Label text="Remarks" optional />
-            <TextInput
-              value={remarks}
-              onChangeText={setRemarks}
-              placeholder="Any additional remarks..."
-              placeholderTextColor="#9ca3af"
-              style={s.inputWrap}
-            />
+            {/* Helper hint */}
+            {date && !dailyOTLoading && noOTRecord && (
+              <Text style={[s.errText, { color: "#f59e0b", marginTop: 6 }]}>
+                You do not have any OT recorded for the selected date.
+              </Text>
+            )}
           </View>
 
           {/* Error summary */}
@@ -486,13 +479,13 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
 
           {/* Submit */}
           <TouchableOpacity
-            style={[s.btn, posting && s.btnDisabled]}
+            style={[s.btn, (posting || !canEnterApprovedOT) && s.btnDisabled]}
             onPress={handleSubmit}
-            disabled={posting}
+            disabled={posting || !canEnterApprovedOT}
           >
             {posting
               ? <><ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} /><Text style={s.btnText}>Submitting...</Text></>
-              : <Text style={s.btnText}>Submit OT / Out Duty Request</Text>
+              : <Text style={s.btnText}>Submit OT Application</Text>
             }
           </TouchableOpacity>
 
@@ -503,20 +496,16 @@ export default function OtFormPopup({ onClose, onSuccess }: Props) {
         </View>
       </ScrollView>
 
-      {/* Date pickers */}
+      {/* Date picker */}
       <DatePickerModal
-        visible={showFrom} onClose={() => setShowFrom(false)} title="Select From Date"
-        selected={fromDate} minDate={todayStr()}
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        title="Select Date"
+        selected={date}
         onSelect={v => {
-          setFromDate(v)
-          if (toDate && new Date(toDate) < new Date(v)) setToDate("")
-          if (submitted) setErrors(p => ({ ...p, fromDate: undefined }))
+          setDate(v)
+          if (submitted) setErrors(p => ({ ...p, date: undefined }))
         }}
-      />
-      <DatePickerModal
-        visible={showTo} onClose={() => setShowTo(false)} title="Select To Date"
-        selected={toDate} minDate={fromDate || todayStr()}
-        onSelect={v => { setToDate(v); if (submitted) setErrors(p => ({ ...p, toDate: undefined })) }}
       />
     </View>
   )
@@ -553,20 +542,7 @@ const s = StyleSheet.create({
   inputError: { borderColor: "#fca5a5", backgroundColor: "#fff5f5" },
   inputText: { fontFamily: FONT, flex: 1, fontSize: 13, color: "#0f172a", paddingVertical: 10 },
   placeholder: { color: "#9ca3af" },
-  textArea: {
-    fontFamily: FONT, minHeight: 80, borderWidth: 1, borderColor: "#e2e8f0",
-    borderRadius: 6, backgroundColor: "#f8fafc", paddingHorizontal: 10,
-    paddingVertical: 10, fontSize: 13, color: "#0f172a",
-  },
   errText: { fontFamily: FONT, marginTop: 4, fontSize: 11, color: "#b91c1c" },
-
-  toggleBtn: {
-    flex: 1, height: 38, borderRadius: 6, borderWidth: 1, borderColor: "#e2e8f0",
-    alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc",
-  },
-  toggleActive: { borderColor: NAVY, backgroundColor: "#eef2ff" },
-  toggleText: { fontFamily: FONT, fontSize: 12, fontWeight: "600", color: "#64748b" },
-  toggleTextActive: { color: NAVY, fontWeight: "700" },
 
   errBox: { marginTop: 12, backgroundColor: "#fff5f5", borderWidth: 1, borderColor: "#fecaca", borderRadius: 10, padding: 12 },
   errBoxTitle: { fontFamily: FONT, fontSize: 12, fontWeight: "700", color: "#dc2626", marginBottom: 4 },
@@ -574,7 +550,7 @@ const s = StyleSheet.create({
 
   note: { fontFamily: FONT, marginTop: 20, fontSize: 10, color: "#64748b", textAlign: "center", lineHeight: 14, paddingHorizontal: 12 },
   btn: { marginTop: 12, height: 44, borderRadius: 6, backgroundColor: NAVY, alignItems: "center", justifyContent: "center", flexDirection: "row" },
-  btnDisabled: { opacity: 0.7 },
+  btnDisabled: { opacity: 0.5 },
   btnText: { fontFamily: FONT, color: "#fff", fontSize: 15, fontWeight: "700" },
   cancelLink: { fontFamily: FONT, fontSize: 12, color: "#64748b" },
 
@@ -606,5 +582,4 @@ const s = StyleSheet.create({
   daySel: { backgroundColor: NAVY },
   dayToday: { backgroundColor: "#e0e7ff" },
   dayNum: { fontFamily: FONT, fontSize: 11, color: "#374151" },
-  muted: { fontFamily: FONT, fontSize: 12, color: "#9ca3af" },
 })

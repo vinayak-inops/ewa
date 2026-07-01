@@ -77,6 +77,7 @@ export default function LeaveApplicationApprover({ isApprovalPermission: _isAppr
            uploadedBy: i.uploadedBy || '',
            createdOn: i.createdOn || '',
            employeeID: i.employeeID || '',
+           employeeName: i.employeeName || '',
            fromDate: i.fromDate || '',
            toDate: i.toDate || '',
            uploadTime: i.uploadTime || '',

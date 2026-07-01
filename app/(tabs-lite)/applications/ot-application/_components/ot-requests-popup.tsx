@@ -21,19 +21,16 @@ function decodeJwtPayload(token: string) {
 interface OtRequest {
   _id: string
   employeeID: string
-  outDutyType: string
-  fromDate: string
-  toDate: string
-  duration?: { noOfDays?: number; noOfHours?: number }
-  Reason: string
-  OutDutyAddress: string
+  date: string
+  calculatedOT: number
+  approvedOT: number
   workflowState: string
   status: string
   uploadedBy: string
   createdOn: string
   uploadTime?: string
   appliedDate?: string
-  remarks: string
+  remarks?: string
   tenantCode: string
   organizationCode?: string
   approverID?: string
@@ -58,15 +55,6 @@ const fmtDate = (v?: string) => {
   try { return new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) } catch { return v }
 }
 
-const fmtDuration = (d?: { noOfDays?: number; noOfHours?: number }) => {
-  const days = d?.noOfDays ?? 0
-  const hours = d?.noOfHours ?? 0
-  if (days === 0 && hours === 0) return "-"
-  const parts: string[] = []
-  if (days > 0) parts.push(`${days} day${days > 1 ? "s" : ""}`)
-  if (hours > 0) parts.push(`${hours} hour${hours > 1 ? "s" : ""}`)
-  return parts.join(", ")
-}
 
 const getStatusStyle = (s?: string) => {
   const u = (s || "").toLowerCase()
@@ -88,15 +76,13 @@ const getStatusIcon = (s?: string, size = 14) => {
 function mapBackend(i: any): OtRequest {
   return {
     _id: i._id || "", employeeID: i.employeeID || "",
-    outDutyType: i.outDutyType || "", fromDate: i.fromDate || "", toDate: i.toDate || "",
-    duration: i.duration || { noOfDays: 0, noOfHours: 0 },
-    Reason: i.Reason || "", OutDutyAddress: i.OutDutyAddress || "",
+    date: i.date || "", calculatedOT: i.calculatedOT ?? 0, approvedOT: i.approvedOT ?? 0,
     workflowState: i.workflowState || "INITIATED", status: i.workflowState || "INITIATED",
     uploadedBy: i.uploadedBy || "", createdOn: i.createdOn || "",
     uploadTime: i.uploadTime, appliedDate: i.appliedDate || "",
     remarks: i.remarks || "", tenantCode: i.tenantCode || "",
     organizationCode: i.organizationCode || "", approverID: i.approverID || "",
-    workflowName: i.workflowName || "outDuty Application",
+    workflowName: i.workflowName || "ot Application",
     createdBy: i.createdBy || "", isDeleted: i.isDeleted ?? false,
     stateEvent: i.stateEvent || "NEXT",
   }
@@ -206,19 +192,17 @@ export default function OtRequestsPopup({ isOpen, onClose, selectedRequestId, in
       data: {
         _id: selectedRequest._id,
         tenantCode: selectedRequest.tenantCode || tenantCode,
-        workflowName: selectedRequest.workflowName || "outDuty Application",
+        workflowName: selectedRequest.workflowName || "ot Application",
         stateEvent,
         organizationCode: selectedRequest.organizationCode || tenantCode,
         isDeleted: selectedRequest.isDeleted ?? false,
         employeeID: selectedRequest.employeeID,
-        fromDate: selectedRequest.fromDate,
-        toDate: selectedRequest.toDate,
-        outDutyType: selectedRequest.outDutyType,
-        duration: selectedRequest.duration,
-        Reason: selectedRequest.Reason,
-        OutDutyAddress: selectedRequest.OutDutyAddress,
+        date: selectedRequest.date,
+        calculatedOT: selectedRequest.calculatedOT,
+        approvedOT: selectedRequest.approvedOT,
         remarks: selectedRequest.remarks,
         uploadedBy: selectedRequest.uploadedBy || employeeId || "user",
+        createdBy: selectedRequest.createdBy || employeeId || "user",
         createdOn: selectedRequest.createdOn || createdOnIST,
         uploadTime: selectedRequest.uploadTime,
         appliedDate: selectedRequest.appliedDate,
@@ -313,10 +297,10 @@ export default function OtRequestsPopup({ isOpen, onClose, selectedRequestId, in
                   </View>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 14, rowGap: 14 }}>
                     {[
-                      { label: "From Date", value: fmtDate(selectedRequest.fromDate) },
-                      { label: "To Date",   value: fmtDate(selectedRequest.toDate) },
-                      { label: "OT Type",   value: selectedRequest.outDutyType || "—" },
-                      { label: "Status",    value: isApprove ? "Approved" : isReject ? "Rejected" : "Cancelled" },
+                      { label: "Date",           value: fmtDate(selectedRequest.date) },
+                      { label: "Calculated OT",  value: `${selectedRequest.calculatedOT} hrs` },
+                      { label: "Approved OT",    value: `${selectedRequest.approvedOT} hrs` },
+                      { label: "Status",         value: isApprove ? "Approved" : isReject ? "Rejected" : "Cancelled" },
                     ].map(({ label, value }) => (
                       <View key={label} style={{ width: "50%", paddingRight: 12 }}>
                         <Text style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>{label}</Text>
@@ -389,12 +373,9 @@ export default function OtRequestsPopup({ isOpen, onClose, selectedRequestId, in
               <View className="bg-white rounded-lg border border-gray-100 p-4 mb-3">
                 <DetailRow label="Employee ID" value={selectedRequest.employeeID} />
                 {!!selectedRequest.uploadedBy && <DetailRow label="Applied By" value={selectedRequest.uploadedBy} />}
-                {!!selectedRequest.outDutyType && <DetailRow label="OT Type" value={selectedRequest.outDutyType} />}
-                {fmtDuration(selectedRequest.duration) !== "-" && <DetailRow label="Duration" value={fmtDuration(selectedRequest.duration)} />}
-                {!!selectedRequest.fromDate && <DetailRow label="From Date" value={fmtDate(selectedRequest.fromDate)} />}
-                {!!selectedRequest.toDate && <DetailRow label="To Date" value={fmtDate(selectedRequest.toDate)} />}
-                {!!selectedRequest.Reason && <DetailRow label="Reason" value={selectedRequest.Reason} />}
-                {!!selectedRequest.OutDutyAddress && <DetailRow label="Address / Location" value={selectedRequest.OutDutyAddress} />}
+                {!!selectedRequest.date && <DetailRow label="Date" value={fmtDate(selectedRequest.date)} />}
+                <DetailRow label="Calculated OT" value={`${selectedRequest.calculatedOT} hrs`} />
+                <DetailRow label="Approved OT" value={`${selectedRequest.approvedOT} hrs`} />
                 {!!selectedRequest.remarks && <DetailRow label="Remarks" value={selectedRequest.remarks} />}
                 {!!selectedRequest.appliedDate && <DetailRow label="Applied Date" value={fmtDate(selectedRequest.appliedDate)} />}
                 {!!selectedRequest.createdOn && (

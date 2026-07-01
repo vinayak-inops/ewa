@@ -3,7 +3,7 @@ import type { RootState } from '@/store';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, StatusBar, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Pressable, StatusBar, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 
@@ -357,17 +357,6 @@ export default function MainLaunchpadScreen() {
   const insets = useSafeAreaInsets();
   const { loading, visibility: visible } = useCardVisibility();
 
-  const shimmer = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-  const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] });
-
   return (
     <View style={{ flex: 1, backgroundColor: '#f1f5f9' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#f1f5f9" />
@@ -381,46 +370,17 @@ export default function MainLaunchpadScreen() {
         }}
       >
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <View>
-            <Text style={{ fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#0f172a', letterSpacing: 0 }}>
-              Launchpad
-            </Text>
-            <Text style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: '400', color: '#64748b', marginTop: 2, letterSpacing: 0 }}>
-              Select an app to get started
+        <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image
+              source={require('@/assets/images/salary.png')}
+              style={{ width: 32, height: 32, marginRight: 8 }}
+              resizeMode="contain"
+            />
+            <Text style={{ fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#0f172a', letterSpacing: 0.5 }}>
+              Salary Earned Wage Access
             </Text>
           </View>
-
-          {!loading && visible && (
-            <Animated.View
-              style={{
-                opacity: shimmerOpacity,
-                backgroundColor: '#1e3a8a',
-                borderRadius: 14,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                flexDirection: 'row',
-                alignItems: 'center',
-                shadowColor: '#1e40af',
-                shadowOpacity: 0.35,
-                shadowRadius: 8,
-                shadowOffset: { width: 0, height: 3 },
-                elevation: 4,
-              }}
-            >
-              <View
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: 3.5,
-                  backgroundColor: '#4ade80',
-                }}
-              />
-              <Text style={{ color: '#fff', fontSize: 11.5, fontWeight: '700', letterSpacing: 0.3, marginLeft: 6 }}>
-                {Object.values(visible).filter(Boolean).length} Apps
-              </Text>
-            </Animated.View>
-          )}
         </View>
 
         {loading || !visible ? (
