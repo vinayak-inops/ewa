@@ -139,7 +139,8 @@ function InlineAddField({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={am.backdrop} onPress={onClose} />
+      <View style={am.overlay}>
+      <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
       <View style={am.sheet}>
         {/* Header */}
         <View style={am.header}>
@@ -204,6 +205,7 @@ function InlineAddField({
             );
           }}
         />
+      </View>
       </View>
     </Modal>
   );
@@ -448,18 +450,15 @@ function TableTypeCard(props: TableContentAreaProps) {
         )}
 
         {/* Table */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tableScroll}>
-          <View style={s.table}>
-            {/* Table header */}
-            <View style={s.tableHead}>
-              <Text style={[s.th, { width: 110 }]}>{CODE_LABEL[tableId]}</Text>
-              <Text style={[s.th, { width: 200 }]}>{NAME_LABEL[tableId]}</Text>
-              <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Del</Text>
-            </View>
-
-            {/* Rows */}
-            {paged.length > 0 ? (
-              paged.map((code, idx) => {
+        {paged.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tableScroll}>
+            <View style={s.table}>
+              <View style={s.tableHead}>
+                <Text style={[s.th, { width: 110 }]}>{CODE_LABEL[tableId]}</Text>
+                <Text style={[s.th, { width: 200 }]}>{NAME_LABEL[tableId]}</Text>
+                <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Del</Text>
+              </View>
+              {paged.map((code, idx) => {
                 const item = data.find((d: any) => d.code === code);
                 return (
                   <View key={code} style={[s.tableRow, idx % 2 === 1 && s.tableRowAlt]}>
@@ -473,16 +472,16 @@ function TableTypeCard(props: TableContentAreaProps) {
                     </Pressable>
                   </View>
                 );
-              })
-            ) : (
-              <View style={s.emptyRow}>
-                <Text style={s.emptyTxt}>
-                  No {tableItem.label.toLowerCase()} selected. Tap "Add" to select.
-                </Text>
-              </View>
-            )}
+              })}
+            </View>
+          </ScrollView>
+        ) : (
+          <View style={[s.tableScroll, s.emptyRow]}>
+            <Text style={s.emptyTxt}>
+              No {tableItem.label.toLowerCase()} selected. Tap "Add" to select.
+            </Text>
           </View>
-        </ScrollView>
+        )}
 
         {/* Pagination */}
         {filteredSelected.length > pageSize && (
@@ -549,17 +548,17 @@ export function TableContentArea(props: TableContentAreaProps) {
 // ── Modal styles (InlineAddField) ─────────────────────────────────────────────
 
 const am = StyleSheet.create({
-  backdrop: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+  overlay: {
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
   },
   sheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    height: '65%',
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 20,
+    maxHeight: '70%',
   },
   header: {
     flexDirection: 'row',

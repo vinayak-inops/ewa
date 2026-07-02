@@ -111,7 +111,6 @@ export default function ShiftApplicationApprover({ isApprovalPermission: _isAppr
     method: "POST",
     data: buildRequestData,
     onSuccess: (data: any) => {
-      console.log("Shift Change Applications Data:", data)
       if (!data || !Array.isArray(data)) { setOtApplications([]); return }
       setOtApplications(
         data

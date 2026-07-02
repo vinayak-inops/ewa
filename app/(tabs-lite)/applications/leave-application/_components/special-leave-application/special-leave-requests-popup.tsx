@@ -263,7 +263,7 @@ export default function SpecialLeaveRequestsPopup({
     data: buildRequestData,
     enabled: Boolean(selectedRequestId),
     onSuccess: () => {},
-    onError: (error: any) => { console.error("Error fetching special leave data:", error) },
+    onError: (error: any) => { },
   })
 
   const { post: postAction } = usePostRequest<any>({
@@ -278,7 +278,6 @@ export default function SpecialLeaveRequestsPopup({
       setStatusError("")
     },
     onError: (error: any) => {
-      console.error("POST error:", error)
       setStatusLoading(false)
       setStatusError("Failed to update request. Please try again.")
     },

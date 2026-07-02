@@ -1,11 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const OVAL_W = Math.min(196, Math.round(SCREEN_W * 0.50));
+const OVAL_H = Math.round(OVAL_W * 1.21);
 
 const APP_FONT_FAMILY = 'Inter';
 const ATTENDANCE_SEARCH_URL = process.env.EXPO_PUBLIC_ATTENDANCE_SEARCH_URL ?? 'muster/muster/search';
@@ -756,11 +760,9 @@ export default function LiteAttendanceScreen() {
     enabled: Boolean(employeeId && tenantCode),
     dependencies: [employeeId, tenantCode, selectedMonthNumber],
     onSuccess: (data) => {
-      console.log('[attendance] fetched attendance data', data);
       const normalizedRows = normalizeAttendanceRows(data);
       setAttendanceRows(normalizedRows);
       if (__DEV__) {
-        console.log('[attendance] normalized attendance rows', normalizedRows.length);
       }
     },
     onError: () => {
@@ -1232,7 +1234,8 @@ export default function LiteAttendanceScreen() {
           transparent
           animationType="slide"
           onRequestClose={() => setShowCalendar(false)}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowCalendar(false)} />
+          <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowCalendar(false)} />
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
 
@@ -1320,6 +1323,7 @@ export default function LiteAttendanceScreen() {
                 <Text style={styles.legendLabel}>Present</Text>
               </View>
             </View>
+          </View>
           </View>
         </Modal>
 
@@ -1598,6 +1602,7 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
   },
   modalSheet: {
     backgroundColor: COLORS.white,
@@ -1605,6 +1610,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     paddingHorizontal: 14,
     paddingBottom: 32,
+    maxHeight: SCREEN_H * 0.88,
     elevation: 20,
   },
   modalHandle: {
@@ -2029,6 +2035,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingBottom: 36,
+    maxHeight: SCREEN_H * 0.88,
   },
   faceModalHeader: {
     flexDirection: 'row',
@@ -2056,20 +2063,20 @@ const styles = StyleSheet.create({
   faceViewfinder: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 12,
   },
   faceRipple: {
     position: 'absolute',
-    width: 200,
-    height: 240,
-    borderRadius: 120,
+    width: OVAL_W + 4,
+    height: OVAL_H + 4,
+    borderRadius: (OVAL_W + 4) / 2,
     borderWidth: 1.5,
     borderColor: 'rgba(37,99,235,0.5)',
   },
   faceOval: {
-    width: 196,
-    height: 236,
-    borderRadius: 98,
+    width: OVAL_W,
+    height: OVAL_H,
+    borderRadius: OVAL_W / 2,
     borderWidth: 2.5,
     borderColor: '#cbd5e1',
     alignItems: 'center',
@@ -2078,8 +2085,8 @@ const styles = StyleSheet.create({
   },
   corner: {
     position: 'absolute',
-    width: 22,
-    height: 22,
+    width: Math.round(OVAL_W * 0.11),
+    height: Math.round(OVAL_W * 0.11),
     borderColor: COLORS.primary,
   },
   corner_tl: { top: 12, left: 12, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 6 },

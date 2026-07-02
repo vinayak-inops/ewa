@@ -151,13 +151,6 @@ export function usePostRequest<T>({
         };
 
         xhr.onload = () => {
-          if (__DEV__) {
-            console.log('[usePostRequest] response', {
-              method: 'POST',
-              url: requestUrl,
-              status: xhr.status,
-            });
-          }
 
           if (xhr.status === 401 && Platform.OS === 'web' && typeof window !== 'undefined') {
             window.location.assign(getLoginRedirectUrl());

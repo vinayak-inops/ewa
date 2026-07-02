@@ -152,7 +152,6 @@ export default function LiteInformationScreen() {
   const { post: updateAllowedWithdrawal, loading: updatingAllowedWithdrawal } = usePostRequest<any>({
     url: EWA_ALLOWED_WITHDRAWAL_COMMAND_URL,
     onSuccess: (response) => {
-      console.log('[allowed_withdrawal] response', response);
       setError('');
       setSuccessState({
         amount: pendingWithdrawalAmount.current,
@@ -177,7 +176,6 @@ export default function LiteInformationScreen() {
       setShowAutoStatus(false);
       pendingRequestReference.current = null;
       pendingWithdrawalAmount.current = 0;
-      console.log('[allowed_withdrawal] error', message);
       redirectToLogin();
     },
   });
@@ -231,7 +229,6 @@ export default function LiteInformationScreen() {
     onSuccess: async (response) => {
       const requestReference = resolveRequestReference(response as Record<string, any>);
       pendingRequestReference.current = requestReference;
-      console.log('[withdrawal] request reference', requestReference);
       setCreatedRequestId(requestReference);
       setShowAutoStatus(Boolean(requestReference));
 
@@ -264,7 +261,6 @@ export default function LiteInformationScreen() {
       setSuccessState(null);
       pendingRequestReference.current = null;
       pendingWithdrawalAmount.current = 0;
-      console.log('[withdrawal] error', message);
       redirectToLogin();
     },
   });

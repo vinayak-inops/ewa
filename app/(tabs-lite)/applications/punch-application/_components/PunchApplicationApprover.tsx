@@ -64,7 +64,6 @@ export default function PunchApplicationApprover() {
     url: `${collectionName}/search?offset=${offset}&limit=${itemsPerPage}`,
     method: "POST", data: buildRequestData,
     onSuccess: (d: any) => {
-      console.log("Punch Applications Data:", d)
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(d.filter((i: any) => i && typeof i === "object" && Object.keys(i).length > 0).map((i: any) => ({
         _id: i._id || "", employeeID: i.employeeID || "", employeeName: i.employeeName || "",

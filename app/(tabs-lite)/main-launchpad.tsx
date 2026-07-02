@@ -358,8 +358,8 @@ export default function MainLaunchpadScreen() {
   const { loading, visibility: visible } = useCardVisibility();
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f1f5f9' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f1f5f9" />
+    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       <View
         style={{

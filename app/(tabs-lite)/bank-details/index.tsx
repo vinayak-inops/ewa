@@ -95,7 +95,6 @@ export default function BankDetailsScreen() {
     enabled: Boolean(employeeId && tenantCode),
     dependencies: [employeeId, tenantCode],
     onSuccess: (data) => {
-      console.log('Fetched employee profile:', data);
       if (Array.isArray(data) && data.length > 0) {
         setEmployeeProfile(data[0]);
       } else {

@@ -47,11 +47,10 @@ export default function LogoutScreen() {
         try {
           await fetch(logoutUrl);
         } catch (error) {
-          if (__DEV__) console.warn('[logout] server logout failed, continuing', error);
         }
       }
     } catch (error) {
-      if (__DEV__) console.warn('[logout] error, continuing with local logout', error);
+      if (__DEV__)
     } finally {
       await clearAuthTokens();
       setBiometricSessionUnlocked(false);

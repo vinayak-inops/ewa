@@ -90,13 +90,11 @@ export const useLeaveBalances = () => {
       setLastUpdated(new Date())
       setError(null)
     } catch (err) {
-      console.error('[useLeaveBalances] Error processing balance data:', err)
       setError(err instanceof Error ? err.message : 'Failed to process balance data')
     }
   }
 
   const handleApiError = (err: any) => {
-    console.error('[useLeaveBalances] Error fetching balance data:', err)
     setError(err instanceof Error ? err.message : 'Failed to fetch balance data')
   }
 

@@ -76,7 +76,6 @@ export default function BiometricScreen() {
       router.replace(getPostLoginRoute());
     } catch (error) {
       if (__DEV__) {
-        console.error('[biometric] authentication failed', error);
       }
       await fallbackToKeycloak();
     } finally {

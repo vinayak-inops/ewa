@@ -98,13 +98,12 @@ export const useLeaveApplications = (): UseLeaveApplicationsReturn => {
       setLastUpdated(new Date())
       setError(null)
     } catch (err) {
-      console.error('[useLeaveApplications] Error processing data:', err)
       setError(err instanceof Error ? err.message : 'Failed to process applications data')
     }
   }
 
   const handleApiError = (err: any) => {
-    console.error('[useLeaveApplications] Error fetching data:', err)
+   
     setError(err instanceof Error ? err.message : 'Failed to fetch applications data')
   }
 

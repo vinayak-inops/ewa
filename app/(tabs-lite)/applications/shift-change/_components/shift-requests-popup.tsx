@@ -258,7 +258,7 @@ export default function ShiftRequestsPopup({
     method: "POST",
     data: buildRequestData,
     enabled: Boolean(selectedRequestId),
-    onError: (error: any) => { console.error("Error fetching shift data:", error) },
+    onError: (error: any) => {  },
   })
 
   const { post: postShiftZone } = usePostRequest<any>({
@@ -273,7 +273,6 @@ export default function ShiftRequestsPopup({
       setStatusError("")
     },
     onError: (error: any) => {
-      console.error("POST error:", error)
       setStatusLoading(false)
       setStatusError("Failed to update request. Please try again.")
     },

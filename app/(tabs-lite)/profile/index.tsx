@@ -65,7 +65,6 @@ export default function LiteProfileScreen() {
       const payload = decodeJwtPayload(token);
       if (!payload) return;
       if (__DEV__) {
-        console.log('[profile] token payload user info', payload);
       }
 
       const resolvedEmployeeId =
@@ -105,16 +104,10 @@ export default function LiteProfileScreen() {
     dependencies: [employeeId, tenantCode],
     onSuccess: (data) => {
       if (__DEV__) {
-        console.log('[profile] fetched employee profile data', data);
       }
     },
     onError: (err) => {
       if (__DEV__) {
-        console.error('[profile] failed to fetch profile details', {
-          message: err.message,
-          employeeId,
-          tenantCode,
-        });
       }
       setEmployeeProfile(null);
     },
@@ -122,12 +115,10 @@ export default function LiteProfileScreen() {
 
   useEffect(() => {
     if (__DEV__) {
-      console.log('[profile] employee profile API response', profileRows);
     }
     if (Array.isArray(profileRows) && profileRows.length > 0) {
       setEmployeeProfile(profileRows[0]);
       if (__DEV__) {
-        console.log('[profile] selected employee profile', profileRows[0]);
       }
     } else {
       setEmployeeProfile(null);

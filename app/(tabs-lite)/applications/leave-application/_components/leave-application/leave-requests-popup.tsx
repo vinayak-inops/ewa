@@ -222,7 +222,7 @@ export default function LeaveApplicationRequestsPopup({
     data: buildRequestData,
     enabled: Boolean(selectedRequestId),
     onSuccess: () => {},
-    onError: (error: any) => { console.error("Error fetching leave data:", error) },
+    onError: (error: any) => { },
   })
 
   const { post: postShiftZone } = usePostRequest<any>({
@@ -237,7 +237,6 @@ export default function LeaveApplicationRequestsPopup({
       setStatusError("")
     },
     onError: (error: any) => {
-      console.error("POST error:", error)
       setStatusLoading(false)
       setStatusError("Failed to update request. Please try again.")
     },

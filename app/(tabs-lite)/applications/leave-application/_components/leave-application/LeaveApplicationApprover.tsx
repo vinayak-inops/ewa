@@ -68,7 +68,6 @@ export default function LeaveApplicationApprover({ isApprovalPermission: _isAppr
     url: `${collectionName}/search?offset=${offset}&limit=${itemsPerPage}`,
     method: 'POST', data: buildRequestData,
     onSuccess: (d: any) => {
-      console.log('Leave Applications Data:', d)
       if (!d || !Array.isArray(d)) { setApplications([]); return }
       setApplications(
         d.filter((i: any) => i && typeof i === 'object' && Object.keys(i).length > 0)

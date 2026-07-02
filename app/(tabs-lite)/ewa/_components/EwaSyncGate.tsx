@@ -92,7 +92,6 @@ export function EwaSyncGate({ children }: Props) {
       }
     },
     onError: (err) => {
-      console.error('[EwaSyncGate] login-link error:', err);
       setLoginLinkResult({ loginLink: null, kycCompleted: false, message: '', error: err?.message ?? 'Something went wrong.' });
     },
   });

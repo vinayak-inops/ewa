@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert } from 'react-native'
-import { useLeaveApplications, LeaveApplication } from './useLeaveApplications'
+import { LeaveApplication, useLeaveApplications } from './useLeaveApplications'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -58,7 +58,6 @@ export const useMessage = (): UseMessageReturn => {
     if (type === 'error' || type === 'warning') {
       Alert.alert(type === 'error' ? 'Error' : 'Warning', msg)
     } else {
-      console.log(`[${type.toUpperCase()}] ${msg}`)
     }
   }
 

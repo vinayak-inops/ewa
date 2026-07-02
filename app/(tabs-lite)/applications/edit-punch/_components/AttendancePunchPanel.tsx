@@ -453,7 +453,7 @@ const s = StyleSheet.create({
   backButton: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#e2e8f0" },
   greeting: { fontSize: 18, fontWeight: "700", color: "#0f172a" },
   sheet: { flex: 1, backgroundColor: COLORS.sheet },
-  content: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 96, gap: 12 },
+  content: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 96, gap: 12, flexGrow: 1 },
   calendarCard: { backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 14, borderWidth: 1, borderColor: "#e2e8f0" },
   calHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
   calNavHit: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },

@@ -136,13 +136,7 @@ export function useGetRequest<T>({
 
         const cached = requestCache.get(cacheKey);
         if (shouldUseCache && !forceFetch && cached && Date.now() - cached.timestamp < cached.expiry) {
-          if (__DEV__) {
-            console.log('[useGetRequest] cache hit', {
-              method: normalizedMethod,
-              url: requestUrl,
-              forceFetch,
-            });
-          }
+         
           const cachedData = cached.data as T;
           setData(cachedData);
           onSuccessRef.current?.(cachedData);
@@ -161,31 +155,11 @@ export function useGetRequest<T>({
           headers.Authorization = authHeader;
         }
 
-        if (__DEV__) {
-          console.log('[useGetRequest] request', {
-            method: normalizedMethod,
-            url: requestUrl,
-            requireAuth,
-            params,
-            body: normalizedMethod === 'GET' ? undefined : normalizedRequestData ?? {},
-            forceFetch,
-          });
-        }
-
         const response = await fetch(requestUrl, {
           method: normalizedMethod,
           headers,
           body: normalizedMethod === 'GET' ? undefined : JSON.stringify(normalizedRequestData ?? {}),
         });
-
-        if (__DEV__) {
-          console.log('[useGetRequest] response', {
-            method: normalizedMethod,
-            url: requestUrl,
-            status: response.status,
-            ok: response.ok,
-          });
-        }
 
         if (response.status === 401 && Platform.OS === 'web' && typeof window !== 'undefined') {
           window.location.assign(getLoginRedirectUrl());
