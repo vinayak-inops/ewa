@@ -377,7 +377,7 @@ export default function MainLaunchpadScreen() {
               style={{ width: 32, height: 32, marginRight: 8 }}
               resizeMode="contain"
             />
-            <Text style={{ fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#0f172a', letterSpacing: 0.5 }}>
+            <Text style={{ fontFamily: 'Inter', fontSize: 16, fontWeight: '700', color: '#0f172a', letterSpacing: 0.3 }}>
               Salary Earned Wage Access
             </Text>
           </View>
