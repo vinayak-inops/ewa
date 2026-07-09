@@ -185,6 +185,7 @@ export default function LiteTabLayout() {
       <Tabs.Screen name="all-transactions/index" options={{ title: 'Transactions', tabBarShowLabel: false }} />
       <Tabs.Screen name="information/index" options={{ href: null }} />
       <Tabs.Screen name="attendance/index" options={{ title: 'Attendance', tabBarShowLabel: false }} />
+      <Tabs.Screen name="attendance/muster/index" options={{ href: null }} />
       <Tabs.Screen name="reports/index" options={{ href: null }} />
       <Tabs.Screen name="claim-rules/index" options={{ href: null }} />
       <Tabs.Screen name="bank-details/index" options={{ href: null }} />

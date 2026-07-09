@@ -298,8 +298,10 @@ export default function ApplicationTable({
                         <FileText size={15} color="#334155" />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#0f172a' }} numberOfLines={1}>
-                          {leaveTitle} — {row.employeeID || '—'}{row.employeeName ? ` · ${row.employeeName}` : ''}
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#0f172a' }} numberOfLines={1}>
+                          {row.employeeID && row.employeeName
+                            ? `${row.employeeID} - ${row.employeeName}`
+                            : row.employeeName || row.employeeID || 'Special Leave Request'}
                         </Text>
                         {dateRange !== '-' && (
                           <Text style={{ fontSize: 12, color: '#64748b' }} numberOfLines={1}>{dateRange}</Text>

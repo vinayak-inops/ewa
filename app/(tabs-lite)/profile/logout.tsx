@@ -1,7 +1,7 @@
-import { clearAuthTokens, getIdToken } from '@/hooks/auth/token-store';
 import { setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
-import { clearRole } from '@/store/slices/roleSlice';
+import { clearAuthTokens, getIdToken } from '@/hooks/auth/token-store';
 import { AppDispatch } from '@/store';
+import { clearRole } from '@/store/slices/roleSlice';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -21,11 +21,11 @@ function toQueryString(params: Record<string, string>) {
     .join('&');
 }
 
-const INFO_ITEMS = [
-  { icon: 'shield-outline' as const,       text: 'Your login session will be cleared from this device' },
-  { icon: 'finger-print-outline' as const, text: 'Biometric unlock will be disabled until you sign in again' },
-  { icon: 'lock-closed-outline' as const,  text: 'Your personal data remains safe and is not deleted' },
-];
+// const INFO_ITEMS = [
+//   { icon: 'shield-outline' as const,       text: 'Your login session will be cleared from this device' },
+//   { icon: 'finger-print-outline' as const, text: 'Biometric unlock will be disabled until you sign in again' },
+//   { icon: 'lock-closed-outline' as const,  text: 'Your personal data remains safe and is not deleted' },
+// ];
 
 export default function LogoutScreen() {
   const router = useRouter();
@@ -50,7 +50,6 @@ export default function LogoutScreen() {
         }
       }
     } catch (error) {
-      if (__DEV__)
     } finally {
       await clearAuthTokens();
       setBiometricSessionUnlocked(false);
@@ -93,7 +92,7 @@ export default function LogoutScreen() {
       </Text>
 
       {/* Info list */}
-      <View className="w-full mb-9" style={{ gap: 14 }}>
+      {/* <View className="w-full mb-9" style={{ gap: 14 }}>
         {INFO_ITEMS.map((item, idx) => (
           <View key={idx} className="flex-row items-start" style={{ gap: 12 }}>
             <Ionicons name={item.icon} size={16} color="#64748b" />
@@ -102,24 +101,32 @@ export default function LogoutScreen() {
             </Text>
           </View>
         ))}
-      </View>
+      </View> */}
 
       {/* Actions */}
       <View className="w-full" style={{ gap: 10 }}>
         <Pressable
-          className="w-full rounded-[14px] bg-[#dc2626] items-center justify-center overflow-hidden"
-          style={({ pressed }) => [{ minHeight: 52 }, pressed && { opacity: 0.75 }]}
           onPress={performLogout}
+          style={({ pressed }) => [{
+            width: '100%', backgroundColor: '#dc2626',
+            borderRadius: 16, height: 48,
+            alignItems: 'center', justifyContent: 'center',
+            opacity: pressed ? 0.75 : 1,
+          }]}
         >
-          <Text className="text-base font-bold text-white">Log Out</Text>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: 0.5 }}>Log Out</Text>
         </Pressable>
 
         <Pressable
-          className="w-full rounded-[14px] bg-[#0a1c63] items-center justify-center overflow-hidden"
-          style={({ pressed }) => [{ minHeight: 48 }, pressed && { opacity: 0.75 }]}
           onPress={handleCancel}
+          style={({ pressed }) => [{
+            width: '100%', backgroundColor: '#0a1c63',
+            borderRadius: 16, height: 48,
+            alignItems: 'center', justifyContent: 'center',
+            opacity: pressed ? 0.75 : 1,
+          }]}
         >
-          <Text className="text-[15px] font-semibold text-white">Cancel</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: 0.5 }}>Cancel</Text>
         </Pressable>
       </View>
     </View>

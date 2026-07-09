@@ -55,9 +55,12 @@ export default function PunchApplication({ isSelfPermission = false, isAllPermis
     [isSelfPermission]
   )
 
-  const [activeSearchField, setActiveSearchField] = useState<SearchField>(() =>
-    isSelfPermission ? (SEARCH_FIELDS.find(f => f.field !== 'employeeID' && f.field !== 'employeeName') ?? SEARCH_FIELDS[2]!) : SEARCH_FIELDS[0]!
-  )
+  const [activeSearchField, setActiveSearchField] = useState<SearchField>(() => {
+    if (isSelfPermission) {
+      return SEARCH_FIELDS.find(f => f.field !== 'employeeID' && f.field !== 'employeeName') ?? SEARCH_FIELDS[2]!
+    }
+    return SEARCH_FIELDS.find(f => f.field === 'employeeName') ?? SEARCH_FIELDS.find(f => f.field === 'employeeID') ?? SEARCH_FIELDS[0]!
+  })
 
   const applierPerms = useScreenPermissions('applicationApplier', 'punch')
   const canCancel = !!applierPerms?.cancel

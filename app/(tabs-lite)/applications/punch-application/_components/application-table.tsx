@@ -78,9 +78,14 @@ const fmtDate = (v?: string) => {
 
 const fmtTime = (v?: string) => {
   if (!v) return "-"
-  const d = new Date(v)
+  // Normalize "YYYY-MM-DD HH:MM:SS" (space separator) to ISO format
+  const normalized = v.replace(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/, "$1T$2")
+  const d = new Date(normalized)
   if (!isNaN(d.getTime())) return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
-  return /^\d{1,2}:\d{2}/.test(v) ? v.slice(0, 5) : v
+  if (/^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5)
+  // Extract HH:MM from malformed datetime strings (e.g. "2025-12-23107:30:00")
+  const m = v.match(/(\d{2}:\d{2})/)
+  return m ? m[1]! : "-"
 }
 
 export default function ApplicationTable({
@@ -143,7 +148,7 @@ export default function ApplicationTable({
       </View>
 
       {/* Content */}
-      <View style={{ backgroundColor: "#f8fafc", paddingHorizontal: 12, paddingTop: 12, paddingBottom: 100 }}>
+      <View style={{ flex: 1, backgroundColor: "#f8fafc", paddingHorizontal: 12, paddingTop: 12, paddingBottom: 100 }}>
 
         {/* headerSlot: New card + search */}
         {headerSlot && (
@@ -209,16 +214,13 @@ export default function ApplicationTable({
                         <LogIn size={15} color="#334155" />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#0f172a" }} numberOfLines={1}>
-                            {row.employeeID || "Punch Request"}
-                          </Text>
-                          {row.employeeName ? (
-                            <Text style={{ fontSize: 12, color: "#475569", fontWeight: "500" }} numberOfLines={1}>· {row.employeeName}</Text>
-                          ) : null}
-                        </View>
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#0f172a" }} numberOfLines={1}>
+                          {row.employeeID && row.employeeName
+                            ? `${row.employeeID} - ${row.employeeName}`
+                            : row.employeeName || row.employeeID || "Punch Request"}
+                        </Text>
                         <Text style={{ fontSize: 12, color: "#64748b" }} numberOfLines={1}>
-                          {fmtDate(row.attendanceDate)}{fmtTime(row.punchedTime) !== "-" ? `  ·  ${fmtTime(row.punchedTime)}` : ""}
+                          {fmtDate(row.attendanceDate)}{fmtTime(row.punchedTime) !== "-" ? `  →  ${fmtTime(row.punchedTime)}` : ""}
                         </Text>
                         {subInfo ? <Text style={{ fontSize: 11, color: "#94a3b8" }} numberOfLines={1}>{subInfo}</Text> : null}
                       </View>
@@ -333,7 +335,7 @@ const s = StyleSheet.create({
     overflow: "hidden",
   },
   tab: {
-    paddingHorizontal: 14, paddingVertical: 12,
+    paddingHorizontal: 14, paddingVertical: 8,
     borderBottomWidth: 2, borderBottomColor: "transparent",
   },
   tabActive: { borderBottomColor: "#0a1c63" },

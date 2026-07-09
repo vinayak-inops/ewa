@@ -31,6 +31,24 @@
         "EXPO_PUBLIC_APP_VARIANT": "rich"
       }
     },
+    "lite-ipa": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "lite"
+      }
+    },
+    "rich-ipa": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "rich"
+      }
+    },
     "lite-aab": {
       "android": {
         "buildType": "app-bundle"

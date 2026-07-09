@@ -23,7 +23,7 @@ export default function PunchApplicationPage() {
   const [refreshTrigger] = useState(0)
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: "#ffffff" }}>
 
       {canViewApps && (
         <PunchApplication

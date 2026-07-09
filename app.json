@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "EARNED WAGE",
+    "name": "Salary++",
     "slug": "ewa",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.ewa"
     },
     "android": {
       "adaptiveIcon": {
@@ -45,7 +46,7 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow EARNED WAGE to use Face ID or Touch ID to unlock your saved session."
+          "faceIDPermission": "Allow Salary++ to use Face ID or Touch ID to unlock your saved session."
         }
       ]
     ],

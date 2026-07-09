@@ -11,7 +11,7 @@ import { useSelector } from 'react-redux';
 const CARDS = [
   {
     title: 'EWA',
-    subtitle: 'Earned wage access, withdrawals & balance',
+    subtitle: 'Access your earned wages instantly, track withdrawals, monitor balance & manage salary advances with ease',
     icon: 'wallet-outline' as const,
     centerIcon: 'cash-outline' as const,
     cta: 'Open EWA',
@@ -25,7 +25,7 @@ const CARDS = [
   },
   {
     title: 'Applications',
-    subtitle: 'Leave, shift, OT, punch & more services',
+    subtitle: 'Apply for leave, overtime, shift changes, punch corrections, comp-off & out-duty requests effortlessly',
     icon: 'apps-outline' as const,
     centerIcon: 'document-text-outline' as const,
     cta: 'View All',
@@ -39,7 +39,7 @@ const CARDS = [
   },
   {
     title: 'Attendance',
-    subtitle: 'Check-in, check-out & work hours',
+    subtitle: 'Mark check-in & check-out, view daily work hours, track monthly muster & monitor attendance trends',
     icon: 'people-outline' as const,
     centerIcon: 'calendar-outline' as const,
     cta: 'View All',
@@ -53,7 +53,7 @@ const CARDS = [
   },
   {
     title: 'Reports',
-    subtitle: 'Statements, history & salary reports',
+    subtitle: 'View salary slips, payroll statements, leave history, attendance summaries & detailed financial reports',
     icon: 'bar-chart-outline' as const,
     centerIcon: 'stats-chart-outline' as const,
     cta: 'View All',
@@ -295,7 +295,7 @@ function AppCard({ card, onPress }: { card: Card; onPress: () => void }) {
             </Text>
 
             <Text
-              numberOfLines={2}
+              numberOfLines={4}
               style={{ color: card.subtitleColor, fontSize: 10.5, fontWeight: '500', marginTop: 3, lineHeight: 15 }}
             >
               {card.subtitle}
@@ -378,7 +378,7 @@ export default function MainLaunchpadScreen() {
               resizeMode="contain"
             />
             <Text style={{ fontFamily: 'Inter', fontSize: 16, fontWeight: '700', color: '#0f172a', letterSpacing: 0.3 }}>
-              Salary Earned Wage Access
+              Salary++
             </Text>
           </View>
         </View>
@@ -390,25 +390,44 @@ export default function MainLaunchpadScreen() {
               Loading your apps...
             </Text>
           </View>
-        ) : (
-          <>
-            {(visible.ewa || visible.applications) && (
-              <View style={{ flex: 1, flexDirection: 'row', marginBottom: 10 }}>
-                {visible.ewa && <AppCard card={CARDS[0]} onPress={() => router.push(CARDS[0].route as any)} />}
-                {visible.ewa && visible.applications && <View style={{ width: 10 }} />}
-                {visible.applications && <AppCard card={CARDS[1]} onPress={() => router.push(CARDS[1].route as any)} />}
-              </View>
-            )}
+        ) : (() => {
+          const visibleCards = [
+            visible.ewa         && { card: CARDS[0], route: CARDS[0].route },
+            visible.applications && { card: CARDS[1], route: CARDS[1].route },
+            visible.attendance   && { card: CARDS[2], route: CARDS[2].route },
+            visible.reports      && { card: CARDS[3], route: CARDS[3].route },
+          ].filter(Boolean) as { card: Card; route: string }[];
 
-            {(visible.attendance || visible.reports) && (
-              <View style={{ flex: 1, flexDirection: 'row' }}>
-                {visible.attendance && <AppCard card={CARDS[2]} onPress={() => router.push(CARDS[2].route as any)} />}
-                {visible.attendance && visible.reports && <View style={{ width: 10 }} />}
-                {visible.reports && <AppCard card={CARDS[3]} onPress={() => router.push(CARDS[3].route as any)} />}
-              </View>
-            )}
-          </>
-        )}
+          if (visibleCards.length === 0) return null;
+
+          // Split into rows of 2
+          const rows: (typeof visibleCards)[] = [];
+          for (let i = 0; i < visibleCards.length; i += 2) {
+            rows.push(visibleCards.slice(i, i + 2));
+          }
+
+          return (
+            <>
+              {rows.map((row, ri) => (
+                <View
+                  key={ri}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    marginBottom: ri < rows.length - 1 ? 10 : 0,
+                  }}
+                >
+                  {row.map((item, ci) => (
+                    <View key={item.route} style={{ flex: 1, flexDirection: 'row' }}>
+                      {ci > 0 && <View style={{ width: 10 }} />}
+                      <AppCard card={item.card} onPress={() => router.push(item.route as any)} />
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </>
+          );
+        })()}
 
       </View>
     </View>

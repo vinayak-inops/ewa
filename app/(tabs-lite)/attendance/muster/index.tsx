@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
@@ -345,6 +345,14 @@ export default function MusterDetailScreen() {
     void run();
   }, []);
 
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.navigate('/(tabs-lite)/attendance' as any);
+      return true;
+    });
+    return () => sub.remove();
+  }, [router]);
+
   const searchData = useMemo(() => [
     { field: 'employeeID', value: employeeId, operator: 'eq' },
     { field: 'tenantCode', value: tenantCode, operator: 'eq' },
@@ -430,7 +438,7 @@ export default function MusterDetailScreen() {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
+        <Pressable onPress={() => router.navigate('/(tabs-lite)/attendance' as any)} hitSlop={8} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={20} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>Attendance Detail</Text>
