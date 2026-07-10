@@ -102,30 +102,32 @@ type DropdownProps = {
 function DropdownModal({ visible, title, options, selected, onSelect, onClose }: DropdownProps) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose} />
-      <View style={s.sheet}>
-        <View style={s.handle} />
-        <View style={s.sheetHeader}>
-          <Text style={s.sheetTitle}>{title}</Text>
-          <Pressable hitSlop={10} onPress={onClose} style={s.closeBtn}>
-            <Ionicons name="close" size={20} color={C.ink} />
-          </Pressable>
+      <View style={s.modalContainer}>
+        <Pressable style={s.backdrop} onPress={onClose} />
+        <View style={s.sheet}>
+          <View style={s.handle} />
+          <View style={s.sheetHeader}>
+            <Text style={s.sheetTitle}>{title}</Text>
+            <Pressable hitSlop={10} onPress={onClose} style={s.closeBtn}>
+              <Ionicons name="close" size={20} color={C.ink} />
+            </Pressable>
+          </View>
+          <FlatList
+            data={options}
+            keyExtractor={(i) => i.value}
+            renderItem={({ item }) => {
+              const active = item.value === selected;
+              return (
+                <Pressable
+                  style={[s.optionRow, active && s.optionRowActive]}
+                  onPress={() => { onSelect(item.value); onClose(); }}>
+                  <Text style={[s.optionText, active && s.optionTextActive]}>{item.label}</Text>
+                  {active && <Ionicons name="checkmark" size={16} color={C.primary} />}
+                </Pressable>
+              );
+            }}
+          />
         </View>
-        <FlatList
-          data={options}
-          keyExtractor={(i) => i.value}
-          renderItem={({ item }) => {
-            const active = item.value === selected;
-            return (
-              <Pressable
-                style={[s.optionRow, active && s.optionRowActive]}
-                onPress={() => { onSelect(item.value); onClose(); }}>
-                <Text style={[s.optionText, active && s.optionTextActive]}>{item.label}</Text>
-                {active && <Ionicons name="checkmark" size={16} color={C.primary} />}
-              </Pressable>
-            );
-          }}
-        />
       </View>
     </Modal>
   );
@@ -161,55 +163,57 @@ function DatePickerModal({ visible, title, value, onConfirm, onClose }: DatePick
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose} />
-      <View style={s.sheet}>
-        <View style={s.handle} />
-        <View style={s.sheetHeader}>
-          <Text style={s.sheetTitle}>{title}</Text>
-          <Pressable hitSlop={10} onPress={onClose} style={s.closeBtn}>
-            <Ionicons name="close" size={20} color={C.ink} />
+      <View style={s.modalContainer}>
+        <Pressable style={s.backdrop} onPress={onClose} />
+        <View style={s.sheet}>
+          <View style={s.handle} />
+          <View style={s.sheetHeader}>
+            <Text style={s.sheetTitle}>{title}</Text>
+            <Pressable hitSlop={10} onPress={onClose} style={s.closeBtn}>
+              <Ionicons name="close" size={20} color={C.ink} />
+            </Pressable>
+          </View>
+          <View style={s.pickerRow}>
+            {/* Month */}
+            <View style={s.pickerCol}>
+              <Text style={s.pickerColLabel}>Month</Text>
+              <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
+                {MONTH_SHORT.map((name, idx) => (
+                  <Pressable key={idx} style={[s.pickerItem, idx === mo && s.pickerItemOn]} onPress={() => setMo(idx)}>
+                    <Text style={[s.pickerItemTxt, idx === mo && s.pickerItemTxtOn]}>{name}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+            {/* Day */}
+            <View style={s.pickerCol}>
+              <Text style={s.pickerColLabel}>Day</Text>
+              <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
+                {days.map((day) => (
+                  <Pressable key={day} style={[s.pickerItem, day === safeD && s.pickerItemOn]} onPress={() => setD(day)}>
+                    <Text style={[s.pickerItemTxt, day === safeD && s.pickerItemTxtOn]}>
+                      {String(day).padStart(2, '0')}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+            {/* Year */}
+            <View style={s.pickerCol}>
+              <Text style={s.pickerColLabel}>Year</Text>
+              <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
+                {years.map((year) => (
+                  <Pressable key={year} style={[s.pickerItem, year === y && s.pickerItemOn]} onPress={() => setY(year)}>
+                    <Text style={[s.pickerItemTxt, year === y && s.pickerItemTxtOn]}>{year}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+          <Pressable style={s.confirmBtn} onPress={confirm}>
+            <Text style={s.confirmBtnTxt}>Confirm</Text>
           </Pressable>
         </View>
-        <View style={s.pickerRow}>
-          {/* Month */}
-          <View style={s.pickerCol}>
-            <Text style={s.pickerColLabel}>Month</Text>
-            <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
-              {MONTH_SHORT.map((name, idx) => (
-                <Pressable key={idx} style={[s.pickerItem, idx === mo && s.pickerItemOn]} onPress={() => setMo(idx)}>
-                  <Text style={[s.pickerItemTxt, idx === mo && s.pickerItemTxtOn]}>{name}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-          {/* Day */}
-          <View style={s.pickerCol}>
-            <Text style={s.pickerColLabel}>Day</Text>
-            <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
-              {days.map((day) => (
-                <Pressable key={day} style={[s.pickerItem, day === safeD && s.pickerItemOn]} onPress={() => setD(day)}>
-                  <Text style={[s.pickerItemTxt, day === safeD && s.pickerItemTxtOn]}>
-                    {String(day).padStart(2, '0')}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-          {/* Year */}
-          <View style={s.pickerCol}>
-            <Text style={s.pickerColLabel}>Year</Text>
-            <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
-              {years.map((year) => (
-                <Pressable key={year} style={[s.pickerItem, year === y && s.pickerItemOn]} onPress={() => setY(year)}>
-                  <Text style={[s.pickerItemTxt, year === y && s.pickerItemTxtOn]}>{year}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-        <Pressable style={s.confirmBtn} onPress={confirm}>
-          <Text style={s.confirmBtnTxt}>Confirm</Text>
-        </Pressable>
       </View>
     </Modal>
   );
@@ -242,7 +246,9 @@ export function BasicInformation({
 }: BasicInformationProps) {
 
   const insets = useSafeAreaInsets();
-  const footerBottom = Math.max(insets.bottom, 90) + 12;
+  // Tab bar is position:absolute — floats over content, does not reserve layout space.
+  // Its bottom edge = Math.max(insets.bottom, 14), height ≈ 72. Add 12 breathing room.
+  const footerBottom = Math.max(insets.bottom, 14) + 72 + 12;
 
   const [errors, setErrors] = useState({
     extension: '', fromDate: '', toDate: '', dateRange: '',
@@ -616,10 +622,12 @@ const s = StyleSheet.create({
   submitTxt: { fontFamily: F, fontSize: 14, fontWeight: '800', color: C.white },
 
   /* Modal shared */
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  modalContainer: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: {
     backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     paddingHorizontal: 16, paddingBottom: 36, maxHeight: '70%', elevation: 20,
+    overflow: 'hidden',
   },
   handle: {
     width: 36, height: 4, borderRadius: 2, backgroundColor: '#cbd5e1',

@@ -111,7 +111,9 @@ interface TableContentProps {
 export function TableContent(props: TableContentProps) {
   const { tableMenuItems, visibleTables, getSelectedItems, onSaveAndContinue } = props;
   const insets = useSafeAreaInsets();
-  const footerBottom = Math.max(insets.bottom, 90) + 12;
+  // Tab bar is position:absolute — it floats over content and does not reserve layout space.
+  // Its bottom edge = Math.max(insets.bottom, 14), height ≈ 72. Add 12 breathing room.
+  const footerBottom = Math.max(insets.bottom, 14) + 72 + 12;
 
   const visibleItems = tableMenuItems.filter((item) => visibleTables.has(item.id));
 

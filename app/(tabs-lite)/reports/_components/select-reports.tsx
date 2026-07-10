@@ -117,7 +117,7 @@ export function SelectReports({
   searchPlaceholder = 'Report title, category, or keyword',
 }: SelectReportsProps) {
   const insets = useSafeAreaInsets();
-  const footerBottom = Math.max(insets.bottom, 90) + 12;
+  const footerBottom = Math.max(insets.bottom, 14) + 72 + 12;
 
   const [tenantCode, setTenantCode] = useState('');
   const [query, setQuery] = useState('');

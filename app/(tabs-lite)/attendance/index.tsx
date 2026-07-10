@@ -607,6 +607,24 @@ function getAttendanceTextColor(bgColor: string): string {
   return '#0f172a';
 }
 
+function getStripDayColor(detail: AttendanceDetail | null, hasAttendanceData: boolean): { bg: string; text: string } | null {
+  if (!hasAttendanceData || !detail) return null;
+
+  const leaveCode = (detail.leaveCode || '').trim().toUpperCase();
+  const attendanceId = (detail.attendanceID || '').trim().toUpperCase();
+
+  if (leaveCode && leaveCode !== '00' && leaveCode !== '0' && leaveCode !== '-') {
+    return { bg: '#f59e0b', text: '#fff' }; // amber — leave
+  }
+
+  if (attendanceId === 'PP') return { bg: '#2563eb', text: '#fff' }; // blue — present
+  if (attendanceId === 'AA') return { bg: '#fca5a5', text: '#7f1d1d' }; // light red — absent
+  if (attendanceId === 'HH') return { bg: '#fde68a', text: '#78350f' }; // yellow — half day
+  if (attendanceId === 'WW') return { bg: '#cbd5e1', text: '#334155' }; // slate — week off
+
+  return { bg: '#a78bfa', text: '#fff' }; // violet — other
+}
+
 const DAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -660,7 +678,7 @@ function WeekDayStrip({
     const tod = isSameCalendarDay(date, today);
     const dayRow = getAttendanceRowForDay(date, attendanceRows);
     const dayDetail = dayRow ? buildAttendanceDetail(dayRow) : null;
-    const dayColor = !sel ? getDayCardColor(dayDetail, Boolean(dayRow)) : null;
+    const stripColor = !sel && !tod ? getStripDayColor(dayDetail, Boolean(dayRow)) : null;
     return (
       <Pressable disabled style={wStyles.item}>
         <Text style={[wStyles.dayName, tod && wStyles.dayNameToday]}>
@@ -668,13 +686,13 @@ function WeekDayStrip({
         </Text>
         <View style={[
           wStyles.circle,
-          !sel && dayColor ? { backgroundColor: dayColor } : null,
+          stripColor ? { backgroundColor: stripColor.bg } : null,
           sel && wStyles.circleSel,
           tod && !sel && wStyles.circleTod,
         ]}>
           {sel
             ? <Ionicons name="checkmark" size={13} color="#fff" />
-            : <Text style={[wStyles.numTxt, tod && !sel && wStyles.numTxtTod]}>{date.getDate()}</Text>}
+            : <Text style={[wStyles.numTxt, tod && !sel && wStyles.numTxtTod, stripColor ? { color: stripColor.text } : null]}>{date.getDate()}</Text>}
         </View>
       </Pressable>
     );
@@ -710,14 +728,9 @@ function WeekDayStrip({
             maxToRenderPerBatch={30}
             windowSize={10}
           />
-
-          {/* Full Records button */}
-          {/* <Pressable onPress={onOpenCalendar} style={wStyles.calIconBtn}>
-            <Ionicons name="calendar-outline" size={16} color="#2563eb" />
-            <Text style={wStyles.calIconTxt}>Full{'\n'}Records</Text>
-          </Pressable> */}
         </View>
         )}
+
       </View>
     </View>
   );
@@ -768,6 +781,11 @@ const wStyles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 3, minWidth: 52,
   },
   calIconTxt: { fontSize: 9, fontWeight: '700', color: '#2563eb', textAlign: 'center', lineHeight: 12 },
+  legendScroll: { marginTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 8 },
+  legendRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, paddingRight: 4 },
+  legendItem: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendLabel: { fontSize: 9, fontWeight: '600' as const, color: '#64748b' },
 });
 
 function FaceScanViewfinder({ status, onScan }: { status: 'idle' | 'scanning' | 'success'; onScan: () => void }) {
@@ -1221,6 +1239,27 @@ export default function LiteAttendanceScreen() {
           loading={attendanceLoading}
         />
 
+        {/* ── Attendance Color Legend ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.colorLegendRow}
+        >
+          {[
+            { bg: '#2563eb', label: 'Present' },
+            { bg: '#fca5a5', label: 'Absent' },
+            { bg: '#fde68a', label: 'Half Day' },
+            { bg: '#f59e0b', label: 'Leave' },
+            { bg: '#cbd5e1', label: 'Week Off' },
+            { bg: '#a78bfa', label: 'Other' },
+          ].map((item) => (
+            <View key={item.label} style={styles.colorLegendItem}>
+              <View style={[styles.colorLegendDot, { backgroundColor: item.bg }]} />
+              <Text style={styles.colorLegendLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </ScrollView>
+
         {/* ── Core & Hours Information ── */}
         {/* {attendanceDetail && (() => {
           const briefFields = [...detailColumnOne, ...detailColumnTwo];
@@ -1668,9 +1707,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 14,
-    paddingTop: 16,
+    paddingTop: 10,
     paddingBottom: 96,
-    gap: 12,
+    gap: 6,
   },
 
   /* ── Calendar card ── */
@@ -2585,6 +2624,39 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.muted,
     fontWeight: '500',
+  },
+
+  /* ── Attendance color legend ── */
+  colorLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  colorLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  colorLegendDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+  colorLegendLabel: {
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
   },
 
   /* ── Punch time summary (start / end) ── */

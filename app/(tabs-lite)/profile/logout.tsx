@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StatusBar, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
 
 const RAW_AUTH_OR_ISSUER_URL =
@@ -31,6 +32,9 @@ export default function LogoutScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const insets = useSafeAreaInsets();
+  // Tab bar is position:absolute — floats over content, does not reserve layout space.
+  const tabBarClearance = Math.max(insets.bottom, 14) + 72 + 12;
 
   const performLogout = async () => {
     if (isLoggingOut) return;
@@ -76,7 +80,7 @@ export default function LogoutScreen() {
   }
 
   return (
-    <View className="flex-1 bg-[#f8fafc] items-center justify-center px-7">
+    <View className="flex-1 bg-[#f8fafc] items-center justify-center px-7" style={{ paddingBottom: tabBarClearance }}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       {/* Icon */}
