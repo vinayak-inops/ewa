@@ -7,26 +7,18 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const F = 'Inter';
-
 const C = {
   ink: '#0f172a',
   muted: '#64748b',
   primary: '#0a1c63',
-  primaryStrong: '#0a1c63',
-  heroBg: '#e8eaf6',
-  white: '#ffffff',
-  border: '#e2e8f0',
   error: '#dc2626',
-  errorBg: '#fef2f2',
-  surface: '#f8fafc',
+  white: '#ffffff',
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -102,13 +94,13 @@ type DropdownProps = {
 function DropdownModal({ visible, title, options, selected, onSelect, onClose }: DropdownProps) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.modalContainer}>
-        <Pressable style={s.backdrop} onPress={onClose} />
-        <View style={s.sheet}>
-          <View style={s.handle} />
-          <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{title}</Text>
-            <Pressable hitSlop={10} onPress={onClose} style={s.closeBtn}>
+      <View className="flex-1 justify-end">
+        <Pressable className="absolute inset-0 bg-black/45" onPress={onClose} />
+        <View className="bg-white rounded-tl-3xl rounded-tr-3xl px-4 pb-9 overflow-hidden" style={{ maxHeight: '70%', elevation: 20 }}>
+          <View className="w-9 h-1 rounded-sm bg-slate-300 self-center mt-[10px] mb-1" />
+          <View className="flex-row items-center justify-between py-3 border-b border-slate-100 mb-1">
+            <Text className="text-[15px] font-extrabold text-slate-900">{title}</Text>
+            <Pressable hitSlop={10} onPress={onClose} className="w-[30px] h-[30px] rounded-full bg-slate-100 items-center justify-center">
               <Ionicons name="close" size={20} color={C.ink} />
             </Pressable>
           </View>
@@ -119,9 +111,9 @@ function DropdownModal({ visible, title, options, selected, onSelect, onClose }:
               const active = item.value === selected;
               return (
                 <Pressable
-                  style={[s.optionRow, active && s.optionRowActive]}
+                  className={`flex-row items-center justify-between py-3 border-b border-[#f8fafc] ${active ? 'bg-[#e8eaf6] rounded-lg px-[10px]' : 'px-1'}`}
                   onPress={() => { onSelect(item.value); onClose(); }}>
-                  <Text style={[s.optionText, active && s.optionTextActive]}>{item.label}</Text>
+                  <Text className={`text-[14px] font-medium ${active ? 'text-[#0a1c63] font-bold' : 'text-slate-900'}`}>{item.label}</Text>
                   {active && <Ionicons name="checkmark" size={16} color={C.primary} />}
                 </Pressable>
               );
@@ -163,35 +155,35 @@ function DatePickerModal({ visible, title, value, onConfirm, onClose }: DatePick
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.modalContainer}>
-        <Pressable style={s.backdrop} onPress={onClose} />
-        <View style={s.sheet}>
-          <View style={s.handle} />
-          <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{title}</Text>
-            <Pressable hitSlop={10} onPress={onClose} style={s.closeBtn}>
+      <View className="flex-1 justify-end">
+        <Pressable className="absolute inset-0 bg-black/45" onPress={onClose} />
+        <View className="bg-white rounded-tl-3xl rounded-tr-3xl px-4 pb-9 overflow-hidden" style={{ maxHeight: '70%', elevation: 20 }}>
+          <View className="w-9 h-1 rounded-sm bg-slate-300 self-center mt-[10px] mb-1" />
+          <View className="flex-row items-center justify-between py-3 border-b border-slate-100 mb-1">
+            <Text className="text-[15px] font-extrabold text-slate-900">{title}</Text>
+            <Pressable hitSlop={10} onPress={onClose} className="w-[30px] h-[30px] rounded-full bg-slate-100 items-center justify-center">
               <Ionicons name="close" size={20} color={C.ink} />
             </Pressable>
           </View>
-          <View style={s.pickerRow}>
+          <View className="flex-row h-[190px] gap-[6px] my-[10px]">
             {/* Month */}
-            <View style={s.pickerCol}>
-              <Text style={s.pickerColLabel}>Month</Text>
-              <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
+            <View className="flex-1">
+              <Text className="text-[10px] font-bold text-slate-500 text-center mb-1" style={{ letterSpacing: 0.4 }}>Month</Text>
+              <ScrollView showsVerticalScrollIndicator={false} className="bg-[#f8fafc] rounded-lg">
                 {MONTH_SHORT.map((name, idx) => (
-                  <Pressable key={idx} style={[s.pickerItem, idx === mo && s.pickerItemOn]} onPress={() => setMo(idx)}>
-                    <Text style={[s.pickerItemTxt, idx === mo && s.pickerItemTxtOn]}>{name}</Text>
+                  <Pressable key={idx} className={`py-[9px] items-center rounded-md ${idx === mo ? 'bg-[#e8eaf6]' : ''}`} onPress={() => setMo(idx)}>
+                    <Text className={`text-[14px] font-medium ${idx === mo ? 'text-[#0a1c63] font-extrabold' : 'text-slate-500'}`}>{name}</Text>
                   </Pressable>
                 ))}
               </ScrollView>
             </View>
             {/* Day */}
-            <View style={s.pickerCol}>
-              <Text style={s.pickerColLabel}>Day</Text>
-              <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
+            <View className="flex-1">
+              <Text className="text-[10px] font-bold text-slate-500 text-center mb-1" style={{ letterSpacing: 0.4 }}>Day</Text>
+              <ScrollView showsVerticalScrollIndicator={false} className="bg-[#f8fafc] rounded-lg">
                 {days.map((day) => (
-                  <Pressable key={day} style={[s.pickerItem, day === safeD && s.pickerItemOn]} onPress={() => setD(day)}>
-                    <Text style={[s.pickerItemTxt, day === safeD && s.pickerItemTxtOn]}>
+                  <Pressable key={day} className={`py-[9px] items-center rounded-md ${day === safeD ? 'bg-[#e8eaf6]' : ''}`} onPress={() => setD(day)}>
+                    <Text className={`text-[14px] font-medium ${day === safeD ? 'text-[#0a1c63] font-extrabold' : 'text-slate-500'}`}>
                       {String(day).padStart(2, '0')}
                     </Text>
                   </Pressable>
@@ -199,19 +191,19 @@ function DatePickerModal({ visible, title, value, onConfirm, onClose }: DatePick
               </ScrollView>
             </View>
             {/* Year */}
-            <View style={s.pickerCol}>
-              <Text style={s.pickerColLabel}>Year</Text>
-              <ScrollView showsVerticalScrollIndicator={false} style={s.pickerScroll}>
+            <View className="flex-1">
+              <Text className="text-[10px] font-bold text-slate-500 text-center mb-1" style={{ letterSpacing: 0.4 }}>Year</Text>
+              <ScrollView showsVerticalScrollIndicator={false} className="bg-[#f8fafc] rounded-lg">
                 {years.map((year) => (
-                  <Pressable key={year} style={[s.pickerItem, year === y && s.pickerItemOn]} onPress={() => setY(year)}>
-                    <Text style={[s.pickerItemTxt, year === y && s.pickerItemTxtOn]}>{year}</Text>
+                  <Pressable key={year} className={`py-[9px] items-center rounded-md ${year === y ? 'bg-[#e8eaf6]' : ''}`} onPress={() => setY(year)}>
+                    <Text className={`text-[14px] font-medium ${year === y ? 'text-[#0a1c63] font-extrabold' : 'text-slate-500'}`}>{year}</Text>
                   </Pressable>
                 ))}
               </ScrollView>
             </View>
           </View>
-          <Pressable style={s.confirmBtn} onPress={confirm}>
-            <Text style={s.confirmBtnTxt}>Confirm</Text>
+          <Pressable className="bg-[#0a1c63] rounded-[10px] h-11 items-center justify-center mt-1" onPress={confirm}>
+            <Text className="text-[14px] font-extrabold text-white">Confirm</Text>
           </Pressable>
         </View>
       </View>
@@ -224,15 +216,15 @@ function DatePickerModal({ visible, title, value, onConfirm, onClose }: DatePick
 function Err({ msg }: { msg: string }) {
   if (!msg) return null;
   return (
-    <View style={s.errRow}>
+    <View className="flex-row items-center gap-[3px]">
       <Ionicons name="alert-circle-outline" size={12} color={C.error} />
-      <Text style={s.errTxt}>{msg}</Text>
+      <Text className="text-[10px] text-red-600">{msg}</Text>
     </View>
   );
 }
 
 function Hint({ msg }: { msg: string }) {
-  return <Text style={s.hintTxt}>{msg}</Text>;
+  return <Text className="text-[10px] text-slate-500">{msg}</Text>;
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -349,90 +341,106 @@ export function BasicInformation({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}
+    <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView className="flex-1 bg-[#f8fafc]" contentContainerStyle={{ padding: 16, paddingBottom: 16, gap: 12 }} showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
 
-        {/* ── Section header ── */}
-        <View style={s.sectionCard}>
-          <View style={s.cardHeader}>
-            <View style={s.cardHeaderIcon}>
+        {/* ── Section card ── */}
+        <View
+          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+          style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}
+        >
+          <View className="flex-row items-start gap-[10px] px-4 py-3 border-b border-slate-200 bg-[#f8fafc]">
+            <View className="w-[30px] h-[30px] rounded-lg bg-slate-100 items-center justify-center">
               <Ionicons name="document-text-outline" size={16} color={C.muted} />
             </View>
             <View>
-              <Text style={s.cardHeaderTitle}>Report Information</Text>
-              <Text style={s.cardHeaderSub}>Complete details including date range, format, and description</Text>
+              <Text className="text-[13px] font-bold text-slate-900">Report Information</Text>
+              <Text className="text-[11px] text-slate-500 mt-[2px] leading-4">Complete details including date range, format, and description</Text>
             </View>
           </View>
 
           {/* ── 1. Date Range ── */}
-          <View style={s.subSection}>
-            <Text style={s.subTitle}>Date Range</Text>
-            <Text style={s.subSub}>Select the time period for report generation</Text>
+          <View className="p-4 gap-3 border-b border-slate-100">
+            <Text className="text-[14px] font-bold text-slate-900">Date Range</Text>
+            <Text className="text-xs text-slate-500">Select the time period for report generation</Text>
 
             {/* Period */}
-            <View style={s.field}>
-              <Text style={s.label}>PERIOD <Text style={s.req}>*</Text></Text>
-              <Pressable style={[s.trigger, errors.period ? s.triggerErr : null]} onPress={() => setShowPeriod(true)}>
-                <Text style={period ? s.triggerVal : s.triggerPh}>{period || 'Select period'}</Text>
+            <View className="gap-1">
+              <Text className="text-[10px] font-bold text-slate-500" style={{ letterSpacing: 0.5 }}>
+                PERIOD <Text className="text-red-600">*</Text>
+              </Text>
+              <Pressable
+                className={`h-10 border rounded-lg px-[10px] flex-row items-center bg-white ${errors.period ? 'border-red-600 bg-red-50' : 'border-slate-200'}`}
+                onPress={() => setShowPeriod(true)}
+              >
+                <Text className={`flex-1 text-[13px] ${period ? 'text-slate-900' : 'text-[#94a3b8]'}`}>{period || 'Select period'}</Text>
                 <Ionicons name="chevron-down" size={16} color={C.muted} />
               </Pressable>
               {errors.period ? <Err msg={errors.period} /> : <Hint msg="(Required)" />}
             </View>
 
             {/* From / To row */}
-            <View style={s.row}>
-              <View style={s.half}>
-                <Text style={s.label}>FROM DATE <Text style={s.req}>*</Text></Text>
-                <Pressable style={[s.trigger, errors.fromDate ? s.triggerErr : null]} onPress={() => setShowFrom(true)}>
+            <View className="flex-row gap-[10px]">
+              <View className="flex-1 gap-1">
+                <Text className="text-[10px] font-bold text-slate-500" style={{ letterSpacing: 0.5 }}>
+                  FROM DATE <Text className="text-red-600">*</Text>
+                </Text>
+                <Pressable
+                  className={`h-10 border rounded-lg px-[10px] flex-row items-center bg-white ${errors.fromDate ? 'border-red-600 bg-red-50' : 'border-slate-200'}`}
+                  onPress={() => setShowFrom(true)}
+                >
                   <Ionicons name="calendar-outline" size={15} color={C.muted} style={{ marginRight: 6 }} />
-                  <Text style={[{ flex: 1 }, fromDate ? s.triggerVal : s.triggerPh]}>
+                  <Text className={`flex-1 text-[13px] ${fromDate ? 'text-slate-900' : 'text-[#94a3b8]'}`}>
                     {fromDate ? fmtDisplay(fromDate) : 'Select date'}
                   </Text>
                 </Pressable>
-                {errors.fromDate
-                  ? <Err msg={errors.fromDate} />
-                  : <Hint msg="e.g. Jun 01, 2025" />}
+                {errors.fromDate ? <Err msg={errors.fromDate} /> : <Hint msg="e.g. Jun 01, 2025" />}
               </View>
-              <View style={s.half}>
-                <Text style={s.label}>TO DATE <Text style={s.req}>*</Text></Text>
-                <Pressable style={[s.trigger, errors.toDate ? s.triggerErr : null]} onPress={() => setShowTo(true)}>
+              <View className="flex-1 gap-1">
+                <Text className="text-[10px] font-bold text-slate-500" style={{ letterSpacing: 0.5 }}>
+                  TO DATE <Text className="text-red-600">*</Text>
+                </Text>
+                <Pressable
+                  className={`h-10 border rounded-lg px-[10px] flex-row items-center bg-white ${errors.toDate ? 'border-red-600 bg-red-50' : 'border-slate-200'}`}
+                  onPress={() => setShowTo(true)}
+                >
                   <Ionicons name="calendar-outline" size={15} color={C.muted} style={{ marginRight: 6 }} />
-                  <Text style={[{ flex: 1 }, toDate ? s.triggerVal : s.triggerPh]}>
+                  <Text className={`flex-1 text-[13px] ${toDate ? 'text-slate-900' : 'text-[#94a3b8]'}`}>
                     {toDate ? fmtDisplay(toDate) : 'Select date'}
                   </Text>
                 </Pressable>
-                {errors.toDate
-                  ? <Err msg={errors.toDate} />
-                  : <Hint msg="e.g. Jun 30, 2025" />}
+                {errors.toDate ? <Err msg={errors.toDate} /> : <Hint msg="e.g. Jun 30, 2025" />}
               </View>
             </View>
 
             {/* Date range error or info */}
             {errors.dateRange ? (
-              <View style={s.inlineErr}>
+              <View className="flex-row items-center gap-[6px] bg-red-50 rounded-md p-2">
                 <Ionicons name="information-circle-outline" size={14} color={C.error} />
-                <Text style={s.inlineErrTxt}>{errors.dateRange}</Text>
+                <Text className="text-[11px] text-red-600">{errors.dateRange}</Text>
               </View>
             ) : (
-              <View style={s.infoBox}>
+              <View className="flex-row items-center gap-[6px] bg-[#f8fafc] rounded-md p-2">
                 <Ionicons name="information-circle-outline" size={13} color={C.muted} />
-                <Text style={s.infoTxt}>Future dates are not allowed for these fields.</Text>
+                <Text className="text-[11px] text-slate-500">Future dates are not allowed for these fields.</Text>
               </View>
             )}
           </View>
 
           {/* ── 2. Report Details ── */}
-          <View style={s.subSection}>
-            <Text style={s.subTitle}>Report Details</Text>
-            <Text style={s.subSub}>Report title, format, and description information</Text>
+          <View className="p-4 gap-3 border-b border-slate-100">
+            <Text className="text-[14px] font-bold text-slate-900">Report Details</Text>
+            <Text className="text-xs text-slate-500">Report title, format, and description information</Text>
 
             {/* Title + Extension row */}
-            <View style={s.row}>
-              <View style={s.half}>
-                <Text style={s.label}>REPORT TITLE <Text style={s.req}>*</Text></Text>
+            <View className="flex-row gap-[10px]">
+              <View className="flex-1 gap-1">
+                <Text className="text-[10px] font-bold text-slate-500" style={{ letterSpacing: 0.5 }}>
+                  REPORT TITLE <Text className="text-red-600">*</Text>
+                </Text>
                 <TextInput
-                  style={[s.input, errors.reportTitle ? s.inputErr : null]}
+                  className={`h-10 border rounded-lg px-[10px] text-[13px] text-slate-900 bg-white ${errors.reportTitle ? 'border-red-600 bg-red-50' : 'border-slate-200'}`}
                   placeholder="Enter report title"
                   placeholderTextColor="#94a3b8"
                   value={reportTitle}
@@ -444,15 +452,20 @@ export function BasicInformation({
                 />
                 {errors.reportTitle ? <Err msg={errors.reportTitle} /> : <Hint msg="(Required)" />}
               </View>
-              <View style={s.half}>
-                <Text style={s.label}>EXTENSION <Text style={s.req}>*</Text></Text>
-                <Pressable style={[s.trigger, errors.extension ? s.triggerErr : null]} onPress={() => setShowExt(true)}>
+              <View className="flex-1 gap-1">
+                <Text className="text-[10px] font-bold text-slate-500" style={{ letterSpacing: 0.5 }}>
+                  EXTENSION <Text className="text-red-600">*</Text>
+                </Text>
+                <Pressable
+                  className={`h-10 border rounded-lg px-[10px] flex-row items-center bg-white ${errors.extension ? 'border-red-600 bg-red-50' : 'border-slate-200'}`}
+                  onPress={() => setShowExt(true)}
+                >
                   {extension && (
                     <Ionicons
                       name={extension === 'pdf' ? 'document-outline' : 'grid-outline'}
                       size={15} color={C.primary} style={{ marginRight: 6 }} />
                   )}
-                  <Text style={[{ flex: 1 }, extension ? s.triggerVal : s.triggerPh]}>
+                  <Text className={`flex-1 text-[13px] ${extension ? 'text-slate-900' : 'text-[#94a3b8]'}`}>
                     {extLabel || 'Select format'}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color={C.muted} />
@@ -462,10 +475,10 @@ export function BasicInformation({
             </View>
 
             {/* Description */}
-            <View style={s.field}>
-              <Text style={s.label}>REPORT DESCRIPTION</Text>
+            <View className="gap-1">
+              <Text className="text-[10px] font-bold text-slate-500" style={{ letterSpacing: 0.5 }}>REPORT DESCRIPTION</Text>
               <TextInput
-                style={[s.input, s.textarea]}
+                className="h-[72px] border border-slate-200 rounded-lg px-[10px] pt-[10px] text-[13px] text-slate-900 bg-white"
                 placeholder="Enter report description (optional)"
                 placeholderTextColor="#94a3b8"
                 value={reportDescription}
@@ -482,21 +495,28 @@ export function BasicInformation({
       </ScrollView>
 
       {/* ── Sticky footer ── */}
-      <View style={[s.footer, { paddingBottom: footerBottom }]}>
+      <View className="p-4 border-t border-slate-100 bg-white" style={{ paddingBottom: footerBottom }}>
         <Pressable
+          className="flex-row items-center justify-center gap-2 rounded-xl h-12"
           style={({ pressed }) => [
-            s.submitBtn,
-            (!isValid() || isSubmitting) && s.submitBtnOff,
+            (!isValid() || isSubmitting)
+              ? { backgroundColor: '#cbd5e1' }
+              : {
+                  backgroundColor: '#0a1c63',
+                  shadowColor: '#0a1c63', shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.28, shadowRadius: 6, elevation: 4,
+                },
             pressed && isValid() && !isSubmitting && { opacity: 0.88 },
           ]}
           disabled={!isValid() || isSubmitting}
-          onPress={handleSubmit}>
+          onPress={handleSubmit}
+        >
           {isSubmitting ? (
-            <Text style={s.submitTxt}>Submitting…</Text>
+            <Text className="text-[14px] font-extrabold text-white">Submitting…</Text>
           ) : (
             <>
               <Ionicons name="document-text-outline" size={17} color={C.white} />
-              <Text style={s.submitTxt}>Submit Report</Text>
+              <Text className="text-[14px] font-extrabold text-white">Submit Report</Text>
             </>
           )}
         </Pressable>
@@ -532,144 +552,3 @@ export function BasicInformation({
     </KeyboardAvoidingView>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 16, paddingBottom: 16, gap: 12 },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1, borderTopColor: '#f1f5f9',
-    backgroundColor: '#ffffff',
-  },
-
-  /* Card */
-  sectionCard: {
-    backgroundColor: C.white, borderRadius: 12,
-    borderWidth: 1, borderColor: '#e2e8f0',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-  },
-  cardHeaderIcon: {
-    width: 30, height: 30, borderRadius: 8, backgroundColor: '#f1f5f9',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  cardHeaderTitle: { fontFamily: F, fontSize: 13, fontWeight: '700', color: C.ink },
-  cardHeaderSub: { fontFamily: F, fontSize: 11, color: C.muted, marginTop: 2, lineHeight: 16 },
-
-  /* Sub sections inside card */
-  subSection: { padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  subTitle: { fontFamily: F, fontSize: 14, fontWeight: '700', color: C.ink },
-  subSub: { fontFamily: F, fontSize: 12, color: C.muted },
-
-  /* Fields */
-  field: { gap: 4 },
-  row: { flexDirection: 'row', gap: 10 },
-  half: { flex: 1, gap: 4 },
-  label: { fontFamily: F, fontSize: 10, fontWeight: '700', color: C.muted, letterSpacing: 0.5 },
-  req: { color: C.error },
-
-  /* Inputs */
-  input: {
-    height: 40, borderWidth: 1, borderColor: C.border, borderRadius: 8,
-    paddingHorizontal: 10, fontFamily: F, fontSize: 13, color: C.ink, backgroundColor: C.white,
-  },
-  inputErr: { borderColor: C.error, backgroundColor: C.errorBg },
-  textarea: { height: 72, paddingTop: 10 },
-
-  /* Select trigger */
-  trigger: {
-    height: 40, borderWidth: 1, borderColor: C.border, borderRadius: 8,
-    paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: C.white,
-  },
-  triggerErr: { borderColor: C.error, backgroundColor: C.errorBg },
-  triggerVal: { fontFamily: F, fontSize: 13, color: C.ink, flex: 1 },
-  triggerPh: { fontFamily: F, fontSize: 13, color: '#94a3b8', flex: 1 },
-
-  /* Helpers */
-  hintTxt: { fontFamily: F, fontSize: 10, color: C.muted },
-  errRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  errTxt: { fontFamily: F, fontSize: 10, color: C.error },
-
-  /* Banners */
-  infoBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#f8fafc', borderRadius: 6, padding: 8,
-  },
-  infoTxt: { fontFamily: F, fontSize: 11, color: C.muted },
-  inlineErr: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: C.errorBg, borderRadius: 6, padding: 8,
-  },
-  inlineErrTxt: { fontFamily: F, fontSize: 11, color: C.error },
-
-  /* Submit */
-  submitBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.primary, borderRadius: 12, height: 48,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.28, shadowRadius: 6, elevation: 4,
-  },
-  submitBtnOff: { backgroundColor: '#cbd5e1', shadowOpacity: 0, elevation: 0 },
-  submitTxt: { fontFamily: F, fontSize: 14, fontWeight: '800', color: C.white },
-
-  /* Modal shared */
-  modalContainer: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
-  sheet: {
-    backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 16, paddingBottom: 36, maxHeight: '70%', elevation: 20,
-    overflow: 'hidden',
-  },
-  handle: {
-    width: 36, height: 4, borderRadius: 2, backgroundColor: '#cbd5e1',
-    alignSelf: 'center', marginTop: 10, marginBottom: 4,
-  },
-  sheetHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', marginBottom: 4,
-  },
-  sheetTitle: { fontFamily: F, fontSize: 15, fontWeight: '800', color: C.ink },
-  closeBtn: {
-    width: 30, height: 30, borderRadius: 15, backgroundColor: '#f1f5f9',
-    alignItems: 'center', justifyContent: 'center',
-  },
-
-  /* Dropdown */
-  optionRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 12, paddingHorizontal: 4,
-    borderBottomWidth: 1, borderBottomColor: '#f8fafc',
-  },
-  optionRowActive: {
-    backgroundColor: C.heroBg, borderRadius: 8, paddingHorizontal: 10,
-  },
-  optionText: { fontFamily: F, fontSize: 14, color: C.ink, fontWeight: '500' },
-  optionTextActive: { color: C.primaryStrong, fontWeight: '700' },
-
-  /* Date Picker */
-  pickerRow: { flexDirection: 'row', height: 190, gap: 6, marginVertical: 10 },
-  pickerCol: { flex: 1 },
-  pickerColLabel: {
-    fontFamily: F, fontSize: 10, fontWeight: '700', color: C.muted,
-    textAlign: 'center', letterSpacing: 0.4, marginBottom: 4,
-  },
-  pickerScroll: { backgroundColor: '#f8fafc', borderRadius: 8 },
-  pickerItem: { paddingVertical: 9, alignItems: 'center', borderRadius: 6 },
-  pickerItemOn: { backgroundColor: C.heroBg },
-  pickerItemTxt: { fontFamily: F, fontSize: 14, color: C.muted, fontWeight: '500' },
-  pickerItemTxtOn: { color: C.primaryStrong, fontWeight: '800' },
-  confirmBtn: {
-    backgroundColor: C.primary, borderRadius: 10, height: 44,
-    alignItems: 'center', justifyContent: 'center', marginTop: 4,
-  },
-  confirmBtnTxt: { fontFamily: F, fontSize: 14, fontWeight: '800', color: C.white },
-});

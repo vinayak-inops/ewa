@@ -1,15 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, StatusBar, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getAccessToken } from '@/hooks/auth/token-store';
 import { BasicInformation } from './_components/basic-information';
@@ -18,7 +11,6 @@ import { StepIndicator } from './_components/step-indicator';
 import { TableFilterSection } from './_components/table-filter-section';
 import { TableMenuItem, EMPTY_FILTER_DATA, TableType } from './_components/types';
 
-const F = 'Inter';
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
 const TABLE_MENU_ITEMS: TableMenuItem[] = [
@@ -190,19 +182,19 @@ export default function CreateReportScreen() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.screen}>
+    <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {/* Header */}
-      <View style={s.header}>
-        <Pressable hitSlop={8} onPress={() => router.back()} style={s.backBtn}>
+      <View className="flex-row items-center px-4 py-[14px] pt-12 border-b border-slate-100">
+        <Pressable hitSlop={8} onPress={() => router.back()} className="w-[34px] h-[34px] rounded-full bg-slate-100 items-center justify-center">
           <Ionicons name="arrow-back" size={20} color="#334155" />
         </Pressable>
-        <View style={s.headerCenter}>
-          <Text style={s.headerTitle}>Generate Report</Text>
-          <Text style={s.headerSub}>Step {currentStep} of 3</Text>
+        <View className="flex-1 items-center">
+          <Text className="text-base font-extrabold text-slate-900">Generate Report</Text>
+          <Text className="text-xs text-slate-500 mt-[2px]">Step {currentStep} of 3</Text>
         </View>
-        <View style={s.headerRight} />
+        <View className="w-[34px]" />
       </View>
 
       {/* Step indicator */}
@@ -216,7 +208,7 @@ export default function CreateReportScreen() {
       />
 
       {/* Step content */}
-      <View style={s.content}>
+      <View className="flex-1">
         {currentStep === 1 && (
           <SelectReports
             selectedReport={selectedReport}
@@ -263,49 +255,3 @@ export default function CreateReportScreen() {
     </SafeAreaView>
   );
 }
-
-const s = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    paddingTop: 48,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  backBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: F,
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  headerSub: {
-    fontFamily: F,
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  headerRight: {
-    width: 34,
-  },
-  content: {
-    flex: 1,
-  },
-});

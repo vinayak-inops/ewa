@@ -71,7 +71,7 @@ export default function LogoutScreen() {
     return (
       <View className="flex-1 bg-[#f8fafc] items-center justify-center">
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-        <View className="items-center" style={{ gap: 16 }}>
+        <View className="items-center gap-4">
           <ActivityIndicator size="large" color="#2563eb" />
           <Text className="text-[15px] font-semibold text-[#475569]">Signing you out…</Text>
         </View>
@@ -91,7 +91,7 @@ export default function LogoutScreen() {
       <Text className="text-[22px] font-extrabold text-[#0f172a] text-center mb-2">
         Log out?
       </Text>
-      <Text className="text-sm text-[#64748b] text-center mb-7" style={{ lineHeight: 21 }}>
+      <Text className="text-sm text-[#64748b] text-center mb-7 leading-[21px]">
         You'll need to sign in again to access your account.
       </Text>
 
@@ -108,29 +108,21 @@ export default function LogoutScreen() {
       </View> */}
 
       {/* Actions */}
-      <View className="w-full" style={{ gap: 10 }}>
+      <View className="w-full gap-[10px]">
         <Pressable
           onPress={performLogout}
-          style={({ pressed }) => [{
-            width: '100%', backgroundColor: '#dc2626',
-            borderRadius: 16, height: 48,
-            alignItems: 'center', justifyContent: 'center',
-            opacity: pressed ? 0.75 : 1,
-          }]}
+          className="w-full bg-red-600 rounded-2xl h-12 items-center justify-center"
+          style={({ pressed }) => [{ opacity: pressed ? 0.75 : 1 }]}
         >
-          <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: 0.5 }}>Log Out</Text>
+          <Text className="text-base font-extrabold text-white" style={{ letterSpacing: 0.5 }}>Log Out</Text>
         </Pressable>
 
         <Pressable
           onPress={handleCancel}
-          style={({ pressed }) => [{
-            width: '100%', backgroundColor: '#0a1c63',
-            borderRadius: 16, height: 48,
-            alignItems: 'center', justifyContent: 'center',
-            opacity: pressed ? 0.75 : 1,
-          }]}
+          className="w-full bg-[#0a1c63] rounded-2xl h-12 items-center justify-center"
+          style={({ pressed }) => [{ opacity: pressed ? 0.75 : 1 }]}
         >
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: 0.5 }}>Cancel</Text>
+          <Text className="text-base font-bold text-white" style={{ letterSpacing: 0.5 }}>Cancel</Text>
         </Pressable>
       </View>
     </View>

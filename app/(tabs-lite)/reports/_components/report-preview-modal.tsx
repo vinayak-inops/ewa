@@ -5,15 +5,12 @@ import {
   Modal,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useByteToBase64 } from '@/hooks/api/file-handle/useByteToBase64';
-
-const F = 'Inter';
 
 const MIME: Record<string, string> = {
   pdf:   'application/pdf',
@@ -118,9 +115,9 @@ function InAppViewer({ html, uri }: { html?: string; uri?: string }) {
       domStorageEnabled
       startInLoadingState
       renderLoading={() => (
-        <View style={s.center}>
+        <View className="flex-1 items-center justify-center p-8 gap-[10px]">
           <ActivityIndicator size="large" color="#7c3aed" />
-          <Text style={s.stateTxt}>Loading…</Text>
+          <Text className="text-[14px] text-slate-500 text-center">Loading…</Text>
         </View>
       )}
     />
@@ -170,20 +167,20 @@ export default function ReportPreviewModal({
   const renderContent = () => {
     if (loading) {
       return (
-        <View style={s.center}>
+        <View className="flex-1 items-center justify-center p-8 gap-[10px]">
           <ActivityIndicator size="large" color="#7c3aed" />
-          <Text style={s.stateTxt}>Preparing file…</Text>
+          <Text className="text-[14px] text-slate-500 text-center">Preparing file…</Text>
         </View>
       );
     }
 
     if (fetchError) {
       return (
-        <View style={s.center}>
+        <View className="flex-1 items-center justify-center p-8 gap-[10px]">
           <Ionicons name="alert-circle-outline" size={36} color="#dc2626" />
-          <Text style={[s.stateTxt, { color: '#dc2626', marginTop: 4 }]}>{fetchError}</Text>
-          <Pressable style={s.actionBtn} onPress={onClose}>
-            <Text style={s.actionBtnTxt}>Close</Text>
+          <Text className="text-[14px] text-center text-red-600 mt-1">{fetchError}</Text>
+          <Pressable className="px-5 py-[10px] bg-slate-100 rounded-[10px] mt-1" onPress={onClose}>
+            <Text className="text-[13px] font-bold text-slate-500">Close</Text>
           </Pressable>
         </View>
       );
@@ -196,12 +193,12 @@ export default function ReportPreviewModal({
     } else if (isPdf) {
       if (Platform.OS === 'android') {
         return (
-          <View style={s.center}>
-            <View style={s.fallbackIcon}>
+          <View className="flex-1 items-center justify-center p-8 gap-[10px]">
+            <View className="w-[72px] h-[72px] rounded-[20px] items-center justify-center bg-slate-100 mb-1">
               <Ionicons name="document-outline" size={40} color="#dc2626" />
             </View>
-            <Text style={s.fallbackTitle}>PDF Preview</Text>
-            <Text style={s.fallbackSub}>
+            <Text className="text-[17px] font-extrabold text-slate-900">PDF Preview</Text>
+            <Text className="text-[13px] text-slate-500 text-center leading-5">
               In-app PDF preview is not supported on Android.{'\n'}Use Download to view the file.
             </Text>
           </View>
@@ -210,12 +207,12 @@ export default function ReportPreviewModal({
       return <InAppViewer uri={dataUri} />;
     } else {
       return (
-        <View style={s.center}>
-          <View style={s.fallbackIcon}>
+        <View className="flex-1 items-center justify-center p-8 gap-[10px]">
+          <View className="w-[72px] h-[72px] rounded-[20px] items-center justify-center bg-slate-100 mb-1">
             <Ionicons name="document-text-outline" size={40} color="#2563eb" />
           </View>
-          <Text style={s.fallbackTitle}>Preview Unavailable</Text>
-          <Text style={s.fallbackSub}>
+          <Text className="text-[17px] font-extrabold text-slate-900">Preview Unavailable</Text>
+          <Text className="text-[13px] text-slate-500 text-center leading-5">
             In-app preview for {ext.toUpperCase()} files is not supported yet.
           </Text>
         </View>
@@ -228,120 +225,43 @@ export default function ReportPreviewModal({
       visible={isOpen}
       transparent
       animationType="slide"
-      onRequestClose={onClose}>
-
+      onRequestClose={onClose}
+    >
       {/* Dim backdrop — tap to close */}
-      <Pressable style={s.backdrop} onPress={onClose} />
+      <Pressable className="flex-1 bg-black/45" onPress={onClose} />
 
       {/* Bottom sheet */}
-      <View style={[s.sheet, { paddingBottom: insets.bottom || 16 }]}>
+      <View className="bg-white rounded-tl-3xl rounded-tr-3xl h-[88%]" style={{ paddingBottom: insets.bottom || 16 }}>
 
         {/* Drag handle */}
-        <View style={s.handle} />
+        <View className="w-9 h-1 rounded-sm bg-slate-200 self-center mt-[10px] mb-1" />
 
         {/* Title row */}
-        <View style={s.titleRow}>
-          <Text style={s.titleTxt} numberOfLines={1}>
+        <View className="flex-row items-center px-4 py-3 border-b border-slate-100">
+          <Text className="flex-1 text-[15px] font-extrabold text-slate-900" numberOfLines={1}>
             {reportName ?? 'File Preview'}
           </Text>
-          <Pressable onPress={onClose} hitSlop={8} style={s.closeBtn}>
+          <Pressable onPress={onClose} hitSlop={8} className="w-[30px] h-[30px] rounded-full bg-slate-100 items-center justify-center">
             <Ionicons name="close" size={18} color="#64748b" />
           </Pressable>
         </View>
 
         {/* Preview area */}
-        <View style={s.preview}>
+        <View className="flex-1">
           {renderContent()}
         </View>
 
         {/* Download button */}
-        <View style={s.footer}>
+        <View className="px-4 pt-3 border-t border-slate-100">
           <Pressable
-            style={s.downloadBtn}
-            onPress={() => { onClose(); onDownload(); }}>
+            className="flex-row items-center justify-center gap-2 bg-[#0a1c63] rounded-xl h-[46px]"
+            onPress={() => { onClose(); onDownload(); }}
+          >
             <Ionicons name="download-outline" size={16} color="#fff" />
-            <Text style={s.downloadTxt}>Download</Text>
+            <Text className="text-[14px] font-bold text-white">Download</Text>
           </Pressable>
         </View>
       </View>
     </Modal>
   );
 }
-
-const s = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  sheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: '88%',
-  },
-
-  handle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: '#e2e8f0',
-    alignSelf: 'center',
-    marginTop: 10, marginBottom: 4,
-  },
-
-  titleRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
-  },
-  titleTxt: {
-    flex: 1,
-    fontFamily: F, fontSize: 15, fontWeight: '800', color: '#0f172a',
-  },
-  closeBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center', justifyContent: 'center',
-  },
-
-  preview: { flex: 1 },
-
-  footer: {
-    paddingHorizontal: 16, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: '#f1f5f9',
-  },
-  downloadBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: '#0a1c63',
-    borderRadius: 12, height: 46,
-  },
-  downloadTxt: {
-    fontFamily: F, fontSize: 14, fontWeight: '700', color: '#ffffff',
-  },
-
-  // States
-  center: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    padding: 32, gap: 10,
-  },
-  stateTxt: {
-    fontFamily: F, fontSize: 14, color: '#64748b', textAlign: 'center',
-  },
-  actionBtn: {
-    paddingHorizontal: 20, paddingVertical: 10,
-    backgroundColor: '#f1f5f9', borderRadius: 10, marginTop: 4,
-  },
-  actionBtnTxt: {
-    fontFamily: F, fontSize: 13, fontWeight: '700', color: '#64748b',
-  },
-  fallbackIcon: {
-    width: 72, height: 72, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#f1f5f9', marginBottom: 4,
-  },
-  fallbackTitle: {
-    fontFamily: F, fontSize: 17, fontWeight: '800', color: '#0f172a',
-  },
-  fallbackSub: {
-    fontFamily: F, fontSize: 13, color: '#64748b',
-    textAlign: 'center', lineHeight: 20,
-  },
-});

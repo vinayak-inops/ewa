@@ -6,7 +6,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -17,8 +16,6 @@ import type { RootState } from '@/store';
 
 import { EmployeeSearchField, type Employee } from '../../../../components/employee-search-field';
 import { TableMenuItem, TableType } from './types';
-
-const F = 'Inter';
 
 // ── Props (matches what TableContent passes) ──────────────────────────────────
 
@@ -139,73 +136,82 @@ function InlineAddField({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={am.overlay}>
-      <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
-      <View style={am.sheet}>
-        {/* Header */}
-        <View style={am.header}>
-          <Text style={am.headerTitle}>Add {tableItem.label}</Text>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Ionicons name="close" size={20} color="#374151" />
-          </Pressable>
-        </View>
+      <View className="flex-1 bg-black/40 justify-end">
+        <Pressable className="absolute inset-0" onPress={onClose} />
+        <View className="bg-white rounded-tl-[20px] rounded-tr-[20px] pb-5" style={{ maxHeight: '70%' }}>
 
-        {/* Search */}
-        <View style={am.searchRow}>
-          <Ionicons name="search-outline" size={16} color="#9ca3af" style={am.searchIcon} />
-          <TextInput
-            style={am.searchInput}
-            placeholder={`Search by ${selectedField === 'code' ? 'code' : 'name'}…`}
-            placeholderTextColor="#9ca3af"
-            value={search}
-            onChangeText={setSearch}
-            autoCorrect={false}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Ionicons name="close-circle" size={16} color="#9ca3af" />
+          {/* Header */}
+          <View className="flex-row items-center justify-between px-4 py-[14px] border-b border-[#f1f5f9]">
+            <Text className="text-[15px] font-bold text-[#111827]">Add {tableItem.label}</Text>
+            <Pressable onPress={onClose} hitSlop={8}>
+              <Ionicons name="close" size={20} color="#374151" />
+            </Pressable>
+          </View>
+
+          {/* Search */}
+          <View className="flex-row items-center m-3 px-3 py-2 bg-[#f9fafb] border border-[#e5e7eb] rounded-[10px]">
+            <Ionicons name="search-outline" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
+            <TextInput
+              className="flex-1 text-[14px] text-[#111827]"
+              placeholder={`Search by ${selectedField === 'code' ? 'code' : 'name'}…`}
+              placeholderTextColor="#9ca3af"
+              value={search}
+              onChangeText={setSearch}
+              autoCorrect={false}
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color="#9ca3af" />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Select all */}
+          {filtered.length > 0 && (
+            <Pressable className="flex-row items-center px-4 py-[10px] border-b border-[#e5e7eb] bg-[#f9fafb]" onPress={toggleAll}>
+              <View
+                className={`w-[18px] h-[18px] rounded-[4px] items-center justify-center shrink-0 ${allSelected ? 'bg-[#16a34a] border-[#16a34a]' : 'border-[#d1d5db]'}`}
+                style={{ borderWidth: 1.5 }}
+              >
+                {allSelected && <Ionicons name="checkmark" size={11} color="#fff" />}
+              </View>
+              <Text className="text-[13px] font-semibold text-[#374151] ml-2">Select all ({filtered.length})</Text>
             </Pressable>
           )}
+
+          {/* List */}
+          <FlatList
+            className="flex-1"
+            data={filtered}
+            keyExtractor={(item: any) => item.code}
+            ListEmptyComponent={
+              <View className="py-8 items-center">
+                <Text className="text-[13px] text-[#9ca3af]">No {tableItem.label.toLowerCase()} found.</Text>
+              </View>
+            }
+            renderItem={({ item }: { item: any }) => {
+              const isSelected = selectedCodes.includes(item.code);
+              return (
+                <Pressable
+                  className="flex-row items-center px-4 py-3 border-b border-[#f3f4f6]"
+                  style={({ pressed }) => pressed ? [{ backgroundColor: '#f3f4f6' }] : []}
+                  onPress={() => isSelected ? onRemove(item.code) : onAdd([item.code])}
+                >
+                  <View
+                    className={`w-[18px] h-[18px] rounded-[4px] items-center justify-center shrink-0 ${isSelected ? 'bg-[#16a34a] border-[#16a34a]' : 'border-[#d1d5db]'}`}
+                    style={{ borderWidth: 1.5 }}
+                  >
+                    {isSelected && <Ionicons name="checkmark" size={11} color="#fff" />}
+                  </View>
+                  <View className="flex-1 ml-3">
+                    <Text className="text-[13px] font-semibold text-[#111827]">{item.name || 'N/A'}</Text>
+                    <Text className="text-[11px] text-[#6b7280] mt-[1px]">Code: {item.code}</Text>
+                  </View>
+                </Pressable>
+              );
+            }}
+          />
         </View>
-
-        {/* Select all */}
-        {filtered.length > 0 && (
-          <Pressable style={am.selectAll} onPress={toggleAll}>
-            <View style={[am.chk, allSelected && am.chkActive]}>
-              {allSelected && <Ionicons name="checkmark" size={11} color="#fff" />}
-            </View>
-            <Text style={am.selectAllTxt}>Select all ({filtered.length})</Text>
-          </Pressable>
-        )}
-
-        {/* List */}
-        <FlatList
-          data={filtered}
-          keyExtractor={(item: any) => item.code}
-          style={am.list}
-          ListEmptyComponent={
-            <View style={am.empty}>
-              <Text style={am.emptyTxt}>No {tableItem.label.toLowerCase()} found.</Text>
-            </View>
-          }
-          renderItem={({ item }: { item: any }) => {
-            const isSelected = selectedCodes.includes(item.code);
-            return (
-              <Pressable
-                style={({ pressed }) => [am.row, pressed && { backgroundColor: '#f3f4f6' }]}
-                onPress={() => isSelected ? onRemove(item.code) : onAdd([item.code])}>
-                <View style={[am.chk, isSelected && am.chkActive]}>
-                  {isSelected && <Ionicons name="checkmark" size={11} color="#fff" />}
-                </View>
-                <View style={am.rowText}>
-                  <Text style={am.rowName}>{item.name || 'N/A'}</Text>
-                  <Text style={am.rowCode}>Code: {item.code}</Text>
-                </View>
-              </Pressable>
-            );
-          }}
-        />
-      </View>
       </View>
     </Modal>
   );
@@ -243,17 +249,24 @@ function ContractEmployeeCard({
   };
 
   return (
-    <View style={s.card}>
+    <View
+      className="bg-white border border-[#e5e7eb] rounded-xl overflow-hidden"
+      style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+    >
       {/* Card header */}
-      <View style={s.cardHeader}>
-        <Text style={s.cardTitle}>{tableItem.label.toUpperCase()}</Text>
-        <View style={s.cardHeaderRight}>
-          <Text style={s.cardSub}>{selectedIds.length} selected</Text>
+      <View className="flex-row items-center justify-between px-[14px] py-[10px] bg-[#eef2ff]">
+        <Text className="text-[12px] font-bold text-[#0a1c63]" style={{ letterSpacing: 0.8 }}>
+          {tableItem.label.toUpperCase()}
+        </Text>
+        <View className="flex-row items-center">
+          <Text className="text-[11px] font-semibold text-[#6b7280] bg-[#f1f5f9] px-2 py-[2px] rounded-[10px]">
+            {selectedIds.length} selected
+          </Text>
         </View>
       </View>
 
-      <View style={s.cardBody}>
-        {/* Live employee search — replaces the old modal picker */}
+      <View className="p-3">
+        {/* Live employee search */}
         <EmployeeSearchField
           key={searchFieldKey}
           tenantCode={tenantCode}
@@ -264,22 +277,24 @@ function ContractEmployeeCard({
 
         {/* Selected employees table */}
         {selectedIds.length > 0 ? (
-          <View style={s.table}>
-            <View style={s.tableHead}>
-              <Text style={[s.th, { flex: 1 }]}>Employee ID</Text>
-              <Text style={[s.th, { flex: 2 }]}>Employee Name</Text>
-              <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Del</Text>
+          <View className="min-w-full overflow-hidden">
+            <View className="flex-row items-center bg-[#f8fafc] px-3 py-2 border-b border-[#e2e8f0]">
+              <Text className="text-[10px] font-bold text-[#475569] uppercase" style={{ flex: 1, letterSpacing: 0.4 }}>Employee ID</Text>
+              <Text className="text-[10px] font-bold text-[#475569] uppercase" style={{ flex: 2, letterSpacing: 0.4 }}>Employee Name</Text>
+              <Text className="text-[10px] font-bold text-[#475569] uppercase text-right" style={{ width: 40, letterSpacing: 0.4 }}>Del</Text>
             </View>
             {selectedIds.map((id) => {
               const emp = allEmployees.find((e: any) => e.code === id);
               return (
-                <View key={id} style={s.tableRow}>
-                  <Text style={[s.tdMono, { flex: 1 }]} numberOfLines={1}>{id}</Text>
-                  <Text style={[s.td, { flex: 2 }]} numberOfLines={1}>{emp?.name ?? id}</Text>
+                <View key={id} className="flex-row items-center px-3 py-[9px] border-b border-[#f1f5f9] bg-white">
+                  <Text className="text-[11px] text-[#374151]" style={{ flex: 1 }} numberOfLines={1}>{id}</Text>
+                  <Text className="text-[13px] text-[#111827]" style={{ flex: 2 }} numberOfLines={1}>{emp?.name ?? id}</Text>
                   <Pressable
-                    style={[s.delBtn, { width: 40, alignItems: 'flex-end' }]}
+                    className="justify-center items-end"
+                    style={{ width: 40 }}
                     onPress={() => handleRemoveItem(tableId, id)}
-                    hitSlop={6}>
+                    hitSlop={6}
+                  >
                     <Ionicons name="trash-outline" size={14} color="#94a3b8" />
                   </Pressable>
                 </View>
@@ -287,8 +302,8 @@ function ContractEmployeeCard({
             })}
           </View>
         ) : (
-          <View style={s.emptyRow}>
-            <Text style={s.emptyTxt}>No employees selected. Search above to add.</Text>
+          <View className="py-6 items-center">
+            <Text className="text-[13px] text-[#9ca3af] text-center">No employees selected. Search above to add.</Text>
           </View>
         )}
       </View>
@@ -385,22 +400,29 @@ function TableTypeCard(props: TableContentAreaProps) {
   }, [parentField, parentOk, visibleTables, getSelectedItems, tableMenuItems, PARENT_FIELD_MAP]);
 
   return (
-    <View style={s.card}>
+    <View
+      className="bg-white border border-[#e5e7eb] rounded-xl overflow-hidden"
+      style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+    >
       {/* Header */}
-      <View style={s.cardHeader}>
-        <Text style={s.cardTitle}>{tableItem.label.toUpperCase()}</Text>
-        <View style={s.cardHeaderRight}>
+      <View className="flex-row items-center justify-between px-[14px] py-[10px] bg-[#eef2ff]">
+        <Text className="text-[12px] font-bold text-[#0a1c63]" style={{ letterSpacing: 0.8 }}>
+          {tableItem.label.toUpperCase()}
+        </Text>
+        <View className="flex-row items-center">
           {loading && <ActivityIndicator size="small" color="#7c3aed" style={{ marginRight: 8 }} />}
-          <Text style={s.cardSub}>{selectedCodes.length} selected</Text>
+          <Text className="text-[11px] font-semibold text-[#6b7280] bg-[#f1f5f9] px-2 py-[2px] rounded-[10px]">
+            {selectedCodes.length} selected
+          </Text>
         </View>
       </View>
 
-      <View style={s.cardBody}>
+      <View className="p-3">
         {/* Search bar row */}
-        <View style={s.searchRow}>
+        <View className="flex-row items-center px-3 py-[9px] border border-[#e5e7eb] rounded-[10px] bg-[#f9fafb] mb-[10px]">
           <Ionicons name="search-outline" size={15} color="#9ca3af" />
           <TextInput
-            style={s.searchInput}
+            className="flex-1 text-[13px] text-[#111827] p-0 ml-2"
             placeholder={`Search ${tableItem.label} name…`}
             placeholderTextColor="#9ca3af"
             value={searchTerm}
@@ -413,9 +435,10 @@ function TableTypeCard(props: TableContentAreaProps) {
             </Pressable>
           )}
           <Pressable
-            style={[s.filterBtn, field === 'name' && s.filterBtnActive]}
+            className={`p-1 rounded-md ml-1 ${field === 'name' ? 'bg-[#e8eaf6]' : ''}`}
             onPress={() => { setField(field === 'code' ? 'name' : 'code'); setPage(1); }}
-            hitSlop={4}>
+            hitSlop={4}
+          >
             <Ionicons
               name="reorder-three-outline"
               size={18}
@@ -424,26 +447,22 @@ function TableTypeCard(props: TableContentAreaProps) {
           </Pressable>
         </View>
 
-        {/* Add button row */}
+        {/* Add button */}
         <Pressable
-          style={({ pressed }) => [
-            s.addBtn,
-            (loading || !parentOk) && s.addBtnDisabled,
-            pressed && !loading && parentOk && { opacity: 0.88 },
-          ]}
-          onPress={() => {
-            if (!loading && parentOk) setOpenAddFieldType(tableId);
-          }}
-          disabled={loading || !parentOk}>
+          className={`flex-row items-center justify-center rounded-[10px] h-10 mb-[10px] ${(loading || !parentOk) ? 'bg-[#a3aed0]' : 'bg-[#0a1c63]'}`}
+          style={({ pressed }) => pressed && !loading && parentOk ? [{ opacity: 0.88 }] : []}
+          onPress={() => { if (!loading && parentOk) setOpenAddFieldType(tableId); }}
+          disabled={loading || !parentOk}
+        >
           <Ionicons name="add" size={16} color="#ffffff" />
-          <Text style={s.addBtnTxt}>Add {tableItem.label}</Text>
+          <Text className="text-[13px] font-bold text-white ml-1">Add {tableItem.label}</Text>
         </Pressable>
 
         {/* Parent warning */}
         {missingParent && (
-          <View style={s.warning}>
+          <View className="flex-row items-center bg-[#fffbeb] border border-[#fde68a] rounded-lg p-[10px] mb-[10px]">
             <Ionicons name="warning-outline" size={14} color="#d97706" />
-            <Text style={s.warningTxt}>
+            <Text className="text-[12px] text-[#92400e] flex-1">
               Please select <Text style={{ fontWeight: '700' }}>{missingParent}</Text> first.
             </Text>
           </View>
@@ -451,23 +470,25 @@ function TableTypeCard(props: TableContentAreaProps) {
 
         {/* Table */}
         {paged.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tableScroll}>
-            <View style={s.table}>
-              <View style={s.tableHead}>
-                <Text style={[s.th, { width: 110 }]}>{CODE_LABEL[tableId]}</Text>
-                <Text style={[s.th, { width: 200 }]}>{NAME_LABEL[tableId]}</Text>
-                <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Del</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="border border-[#e2e8f0] rounded-lg">
+            <View className="min-w-full overflow-hidden">
+              <View className="flex-row items-center bg-[#f8fafc] px-3 py-2 border-b border-[#e2e8f0]">
+                <Text className="text-[10px] font-bold text-[#475569] uppercase" style={{ width: 110, letterSpacing: 0.4 }}>{CODE_LABEL[tableId]}</Text>
+                <Text className="text-[10px] font-bold text-[#475569] uppercase" style={{ width: 200, letterSpacing: 0.4 }}>{NAME_LABEL[tableId]}</Text>
+                <Text className="text-[10px] font-bold text-[#475569] uppercase text-right" style={{ width: 40, letterSpacing: 0.4 }}>Del</Text>
               </View>
               {paged.map((code, idx) => {
                 const item = data.find((d: any) => d.code === code);
                 return (
-                  <View key={code} style={[s.tableRow, idx % 2 === 1 && s.tableRowAlt]}>
-                    <Text style={[s.tdMono, { width: 110 }]} numberOfLines={1}>{code}</Text>
-                    <Text style={[s.td, { width: 200 }]} numberOfLines={1}>{item?.name ?? code}</Text>
+                  <View key={code} className={`flex-row items-center px-3 py-[9px] border-b border-[#f1f5f9] ${idx % 2 === 1 ? 'bg-[#f8fafc]' : 'bg-white'}`}>
+                    <Text className="text-[11px] text-[#374151]" style={{ width: 110 }} numberOfLines={1}>{code}</Text>
+                    <Text className="text-[13px] text-[#111827]" style={{ width: 200 }} numberOfLines={1}>{item?.name ?? code}</Text>
                     <Pressable
-                      style={{ width: 40, alignItems: 'flex-end', justifyContent: 'center' }}
+                      className="items-end justify-center"
+                      style={{ width: 40 }}
                       onPress={() => handleRemoveItem(tableId, code)}
-                      hitSlop={6}>
+                      hitSlop={6}
+                    >
                       <Ionicons name="trash-outline" size={14} color="#94a3b8" />
                     </Pressable>
                   </View>
@@ -476,8 +497,8 @@ function TableTypeCard(props: TableContentAreaProps) {
             </View>
           </ScrollView>
         ) : (
-          <View style={[s.tableScroll, s.emptyRow]}>
-            <Text style={s.emptyTxt}>
+          <View className="border border-[#e2e8f0] rounded-lg py-6 items-center">
+            <Text className="text-[13px] text-[#9ca3af] text-center">
               No {tableItem.label.toLowerCase()} selected. Tap "Add" to select.
             </Text>
           </View>
@@ -485,23 +506,25 @@ function TableTypeCard(props: TableContentAreaProps) {
 
         {/* Pagination */}
         {filteredSelected.length > pageSize && (
-          <View style={s.pagination}>
-            <Text style={s.pageInfo}>
+          <View className="flex-row items-center justify-between pt-[6px]">
+            <Text className="text-[11px] text-[#6b7280]">
               {Math.min((page - 1) * pageSize + 1, filteredSelected.length)}–
               {Math.min(page * pageSize, filteredSelected.length)} of {filteredSelected.length}
             </Text>
-            <View style={s.pageButtons}>
+            <View className="flex-row">
               <Pressable
-                style={[s.pageBtn, page === 1 && s.pageBtnDisabled]}
+                className={`px-3 py-[5px] border border-[#e5e7eb] rounded-md bg-white ml-[6px] ${page === 1 ? 'opacity-40' : ''}`}
                 onPress={() => { if (page > 1) setPage(page - 1); }}
-                disabled={page === 1}>
-                <Text style={s.pageBtnTxt}>Prev</Text>
+                disabled={page === 1}
+              >
+                <Text className="text-[12px] font-semibold text-[#374151]">Prev</Text>
               </Pressable>
               <Pressable
-                style={[s.pageBtn, page >= totalPages && s.pageBtnDisabled]}
+                className={`px-3 py-[5px] border border-[#e5e7eb] rounded-md bg-white ml-[6px] ${page >= totalPages ? 'opacity-40' : ''}`}
                 onPress={() => { if (page < totalPages) setPage(page + 1); }}
-                disabled={page >= totalPages}>
-                <Text style={s.pageBtnTxt}>Next</Text>
+                disabled={page >= totalPages}
+              >
+                <Text className="text-[12px] font-semibold text-[#374151]">Next</Text>
               </Pressable>
             </View>
           </View>
@@ -544,206 +567,3 @@ export function TableContentArea(props: TableContentAreaProps) {
   }
   return <TableTypeCard {...props} />;
 }
-
-// ── Modal styles (InlineAddField) ─────────────────────────────────────────────
-
-const am = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
-    maxHeight: '70%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  headerTitle: {
-    fontFamily: F, fontSize: 15, fontWeight: '700', color: '#111827',
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: {
-    flex: 1, fontFamily: F, fontSize: 14, color: '#111827',
-  },
-  selectAll: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
-  },
-  selectAllTxt: {
-    fontFamily: F, fontSize: 13, fontWeight: '600', color: '#374151',
-    marginLeft: 8,
-  },
-  list: { flex: 1 },
-  empty: {
-    paddingVertical: 32, alignItems: 'center',
-  },
-  emptyTxt: {
-    fontFamily: F, fontSize: 13, color: '#9ca3af',
-  },
-  row: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
-  },
-  rowText: { flex: 1, marginLeft: 12 },
-  rowName: { fontFamily: F, fontSize: 13, fontWeight: '600', color: '#111827' },
-  rowCode: { fontFamily: F, fontSize: 11, color: '#6b7280', marginTop: 1 },
-  chk: {
-    width: 18, height: 18, borderRadius: 4, borderWidth: 1.5,
-    borderColor: '#d1d5db', alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  chkActive: { backgroundColor: '#16a34a', borderColor: '#16a34a' },
-});
-
-// ── Card styles ───────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  card: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: '#eef2ff',
-  },
-  cardHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontFamily: F, fontSize: 12, fontWeight: '700',
-    color: '#0a1c63', letterSpacing: 0.8,
-  },
-  cardSub: {
-    fontFamily: F, fontSize: 11, fontWeight: '600',
-    color: '#6b7280',
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 8, paddingVertical: 2,
-    borderRadius: 10,
-  },
-  cardBody: { padding: 12 },
-
-  searchRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    borderRadius: 10, backgroundColor: '#f9fafb',
-    marginBottom: 10,
-  },
-  searchInput: { flex: 1, fontFamily: F, fontSize: 13, color: '#111827', padding: 0, marginLeft: 8 },
-  filterBtn: {
-    padding: 4, borderRadius: 6, marginLeft: 4,
-  },
-  filterBtnActive: {
-    backgroundColor: '#e8eaf6',
-  },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#0a1c63',
-    borderRadius: 10, height: 40,
-    marginBottom: 10,
-  },
-  addBtnDisabled: { backgroundColor: '#a3aed0' },
-  addBtnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: '#ffffff', marginLeft: 4 },
-
-  warning: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a',
-    borderRadius: 8, padding: 10,
-    marginBottom: 10,
-  },
-  warningTxt: { fontFamily: F, fontSize: 12, color: '#92400e', flex: 1 },
-
-  tableScroll: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8,
-  },
-  table: {
-    minWidth: '100%',
-    overflow: 'hidden',
-  },
-  tableHead: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
-  },
-  th: {
-    fontFamily: F, fontSize: 10, fontWeight: '700',
-    color: '#475569', textTransform: 'uppercase', letterSpacing: 0.4,
-  },
-  tableRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
-    backgroundColor: '#ffffff',
-  },
-  tableRowAlt: { backgroundColor: '#f8fafc' },
-  td: { fontFamily: F, fontSize: 13, color: '#111827' },
-  tdMono: { fontFamily: F, fontSize: 11, color: '#374151' },
-  delBtn: { justifyContent: 'center' },
-  emptyRow: {
-    paddingVertical: 24, alignItems: 'center',
-  },
-  emptyTxt: { fontFamily: F, fontSize: 13, color: '#9ca3af', textAlign: 'center' },
-
-  pagination: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 6,
-  },
-  pageInfo: { fontFamily: F, fontSize: 11, color: '#6b7280' },
-  pageButtons: { flexDirection: 'row' },
-  pageBtn: {
-    paddingHorizontal: 12, paddingVertical: 5,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    borderRadius: 6, backgroundColor: '#ffffff',
-    marginLeft: 6,
-  },
-  pageBtnDisabled: { opacity: 0.4 },
-  pageBtnTxt: { fontFamily: F, fontSize: 12, fontWeight: '600', color: '#374151' },
-
-  hint: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: '#e8eaf6', borderWidth: 1, borderColor: '#c7d2fe',
-    borderRadius: 8, padding: 10,
-  },
-  hintIconWrap: { marginRight: 8 },
-  hintIcon: { fontSize: 14 },
-  hintTxt: { fontFamily: F, fontSize: 12, color: '#0a1c63', flex: 1, lineHeight: 17 },
-});

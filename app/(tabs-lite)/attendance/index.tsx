@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Easing, FlatList, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Easing, FlatList, Modal, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
@@ -10,8 +10,8 @@ import { getAccessToken } from '@/hooks/auth/token-store';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const OVAL_W = Math.min(196, Math.round(SCREEN_W * 0.50));
 const OVAL_H = Math.round(OVAL_W * 1.21);
+const CORNER_SIZE = Math.round(OVAL_W * 0.11);
 
-const APP_FONT_FAMILY = 'Inter';
 const ATTENDANCE_SEARCH_URL = process.env.EXPO_PUBLIC_ATTENDANCE_SEARCH_URL ?? 'muster/muster/search';
 const DATA_CHECK_URL = process.env.EXPO_PUBLIC_DATA_CHECK_URL ?? 'muster/data_check/search';
 
@@ -62,23 +62,11 @@ type PunchRow = {
 };
 
 const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-/** Short weekday labels like the reference: Mo Tu We … */
 const DAY_NAMES = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-
 
 type BannerDef = {
   id: string;
@@ -144,110 +132,16 @@ const BANNERS: BannerDef[] = [
   },
 ];
 
-function BannerIllustration({ b }: { b: BannerDef }) {
-  return (
-    <View pointerEvents="none" style={bannerStyles.illustrationWrap}>
-      <View style={[bannerStyles.ringOuter, { backgroundColor: b.ringB }]} />
-      <View style={[bannerStyles.ringInner, { backgroundColor: b.ringA }]} />
-      <View style={bannerStyles.ringCenter}>
-        <Ionicons name={b.primaryIcon} size={36} color={b.accent} />
-      </View>
-      <View style={[bannerStyles.floatIconA, { backgroundColor: b.ringA }]}>
-        <Ionicons name={b.secondaryIcon} size={14} color={b.accent} />
-      </View>
-      <View style={[bannerStyles.floatIconB, { backgroundColor: b.ringA }]}>
-        <Ionicons name={b.tertiaryIcon} size={12} color={b.accent} />
-      </View>
-    </View>
-  );
-}
-
-function BannerCarousel({ totalMonthMinutes }: { totalMonthMinutes: number }) {
-  const totalHH = Math.floor(totalMonthMinutes / 60);
-  const totalMM = totalMonthMinutes % 60;
-  const totalLabel = totalMonthMinutes > 0
-    ? `${totalHH}h ${String(totalMM).padStart(2, '0')}m this month`
-    : 'No hours recorded yet';
-
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      decelerationRate="fast"
-      snapToInterval={272}
-      snapToAlignment="start"
-      contentContainerStyle={bannerStyles.bannerScroll}
-    >
-      {BANNERS.map((b) => (
-        <View key={b.id} style={[bannerStyles.bannerCard, { backgroundColor: b.bg }]}>
-          <View pointerEvents="none" style={[bannerStyles.bannerShine, { backgroundColor: b.ringA }]} />
-          <BannerIllustration b={b} />
-          <View style={bannerStyles.bannerContent}>
-            <Text style={bannerStyles.bannerTitle}>{b.title}</Text>
-            {b.id === 'b1' ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
-                <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.75)" />
-                <Text style={bannerStyles.bannerSub}>{totalLabel}</Text>
-              </View>
-            ) : (
-              <Text style={bannerStyles.bannerSub}>{b.sub}</Text>
-            )}
-          </View>
-        </View>
-      ))}
-    </ScrollView>
-  );
-}
-
-const bannerStyles = StyleSheet.create({
-  bannerScroll: { gap: 12, paddingHorizontal: 16 },
-  bannerCard: { width: 260, height: 160, borderRadius: 18, overflow: 'hidden', flexDirection: 'row' },
-  bannerShine: {
-    position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    top: -80, right: -60, opacity: 0.4,
-  },
-  illustrationWrap: {
-    position: 'absolute', right: 0, top: 0, bottom: 0, width: 110,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ringOuter: { position: 'absolute', width: 96, height: 96, borderRadius: 48 },
-  ringInner: { position: 'absolute', width: 68, height: 68, borderRadius: 34 },
-  ringCenter: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  floatIconA: {
-    position: 'absolute', top: 14, right: 10,
-    width: 26, height: 26, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  floatIconB: {
-    position: 'absolute', bottom: 18, left: 6,
-    width: 22, height: 22, borderRadius: 11,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  bannerContent: { flex: 1, paddingVertical: 16, paddingLeft: 16, paddingRight: 4, justifyContent: 'flex-end' },
-  bannerTitle: { fontSize: 16, fontWeight: '800', color: '#fff', lineHeight: 22, letterSpacing: -0.3, marginBottom: 4 },
-  bannerSub: { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '500', lineHeight: 14, marginBottom: 10 },
-  bannerLearnRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  bannerLearn: { fontSize: 11, fontWeight: '700' },
-});
-
 const COLORS = {
-  bg: '#eef2ff',
-  sheet: '#eef2ff',
-  ink: '#0f172a',
-  muted: '#64748b',
   primary: '#2563eb',
   primaryStrong: '#1d4ed8',
   primaryDark: '#1e3a8a',
-  accent: '#3b82f6',
-  heroBg: '#dbeafe',
-  heroBgLight: '#eff6ff',
+  muted: '#64748b',
   white: '#ffffff',
-  border: '#e2e8f0',
+  heroBg: '#dbeafe',
 };
+
+// ─── Helper functions (unchanged) ────────────────────────────────────────────
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
@@ -302,17 +196,14 @@ function buildMonthGrid(anchor: Date): GridDay[] {
     const dayNum = lastDayPrev - startOffset + i + 1;
     cells.push({ date: new Date(year, month - 1, dayNum), isCurrentMonth: false, label: dayNum });
   }
-
   for (let d = 1; d <= daysThisMonth; d++) {
     cells.push({ date: new Date(year, month, d), isCurrentMonth: true, label: d });
   }
-
   const remainder = cells.length % 7;
   const pad = remainder === 0 ? 0 : 7 - remainder;
   for (let i = 1; i <= pad; i++) {
     cells.push({ date: new Date(year, month + 1, i), isCurrentMonth: false, label: i });
   }
-
   return cells;
 }
 
@@ -349,7 +240,6 @@ function getValueByKnownKeys(record: AttendanceRow, keys: string[]) {
   for (const key of keys) {
     if (key in record) return record[key];
   }
-
   const lowerKeyMap = new Map<string, unknown>();
   for (const [recordKey, value] of Object.entries(record)) {
     lowerKeyMap.set(recordKey.toLowerCase(), value);
@@ -358,7 +248,6 @@ function getValueByKnownKeys(record: AttendanceRow, keys: string[]) {
     const value = lowerKeyMap.get(key.toLowerCase());
     if (value !== undefined) return value;
   }
-
   return undefined;
 }
 
@@ -382,19 +271,16 @@ function toLocalDateKey(date: Date) {
 function getDateKeyFromValue(value: unknown) {
   const text = typeof value === 'string' ? value.trim() : typeof value === 'number' ? String(value) : '';
   if (!text) return '';
-
   const isoLike = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoLike) {
     const [, year, month, day] = isoLike;
     return `${year}-${month}-${day}`;
   }
-
   const dmyLike = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
   if (dmyLike) {
     const [, day, month, year] = dmyLike;
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   }
-
   const parsed = new Date(text);
   if (Number.isNaN(parsed.getTime())) return '';
   return toLocalDateKey(parsed);
@@ -408,7 +294,6 @@ function getAttendanceDateKey(record: AttendanceRow) {
     getDateKeyFromValue(getValueByKnownKeys(record, ['shiftDate', 'shift_date', 'ShiftDate'])) ||
     getDateKeyFromValue(getValueByKnownKeys(record, ['createdAt', 'created_at', 'CreatedAt'])) ||
     getDateKeyFromValue(getValueByKnownKeys(record, ['createdOn', 'created_on', 'CreatedOn']));
-
   if (directDateKey) return directDateKey;
 
   const year = getNumericByKnownKeys(record, ['year', 'Year']);
@@ -420,7 +305,6 @@ function getAttendanceDateKey(record: AttendanceRow) {
     getNumericByKnownKeys(record, ['dayOfMonth', 'day_of_month']) ??
     getNumericByKnownKeys(record, ['attendanceDay', 'attendance_day']) ??
     getNumericByKnownKeys(record, ['date', 'Date']);
-
   if (!year || !month || !day) return '';
   const resolved = new Date(year, month - 1, day);
   if (Number.isNaN(resolved.getTime())) return '';
@@ -429,13 +313,10 @@ function getAttendanceDateKey(record: AttendanceRow) {
 
 function normalizeAttendanceRows(data: unknown): AttendanceRow[] {
   if (!Array.isArray(data)) return [];
-
   return data.flatMap((item) => {
     if (!isRecord(item)) return [];
-
     const monthlyDetails = item.attendanceDetails;
     if (!Array.isArray(monthlyDetails)) return [item];
-
     return monthlyDetails
       .filter((detail) => isRecord(detail))
       .map((detail) => ({
@@ -476,14 +357,7 @@ function buildAttendanceDetail(record: AttendanceRow): AttendanceDetail {
     shiftCode: getFirstNonEmptyString(record, ['shiftCode', 'shift']) || '-',
     extraManShift: getFirstNonEmptyString(record, ['extraManShift']) || '-',
     attendanceID:
-      getFirstNonEmptyString(record, [
-        'attendanceID',
-        'attendanceId',
-        'attendanceid',
-        'attendanceCode',
-        'attendanceStatus',
-        'status',
-      ]) || '-',
+      getFirstNonEmptyString(record, ['attendanceID', 'attendanceId', 'attendanceid', 'attendanceCode', 'attendanceStatus', 'status']) || '-',
     hoursWorked: parseNumericValue(record.hoursWorked),
     lateIn: parseNumericValue(record.lateIn),
     earlyOut: parseNumericValue(record.earlyOut),
@@ -508,7 +382,6 @@ function extractPunchRows(record: AttendanceRow): PunchRow[] {
     ...(Array.isArray(punchDetails?.outPunches) ? punchDetails.outPunches : []),
     ...(Array.isArray(punchDetails?.defaultPunches) ? punchDetails.defaultPunches : []),
   ];
-
   const rows = buckets
     .filter((item) => isRecord(item))
     .map((item, index) => ({
@@ -522,25 +395,10 @@ function extractPunchRows(record: AttendanceRow): PunchRow[] {
       readerSerialNumber: getFirstNonEmptyString(item, ['readerSerialNumber']) || '-',
       processed: typeof item.processed === 'boolean' ? (item.processed ? 'Processed' : 'Pending') : 'Processed',
     }));
-
   return rows.sort((a, b) => {
     const left = a.punchedTime ? new Date(a.punchedTime).getTime() : 0;
     const right = b.punchedTime ? new Date(b.punchedTime).getTime() : 0;
     return left - right;
-  });
-}
-
-function formatPunchDateTime(value: string) {
-  if (!value || value.trim() === '') return '--';
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return value;
-  return dt.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
   });
 }
 
@@ -550,13 +408,6 @@ function formatTransactionTime(value: string): string {
   if (Number.isNaN(dt.getTime())) return '--';
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
-}
-
-function getPunchTypeLabel(inOut: string) {
-  const value = inOut.trim().toUpperCase();
-  if (value === 'I') return 'In';
-  if (value === 'O') return 'Out';
-  return inOut || '-';
 }
 
 function getAttendanceRowForDay(date: Date, rows: AttendanceRow[]) {
@@ -570,66 +421,108 @@ function hasAttendanceForDay(date: Date, rows: AttendanceRow[]) {
 }
 
 function getDayCardColor(detail: AttendanceDetail | null, hasAttendanceData: boolean) {
-  // Default for current-month day with no row from API
-  if (!hasAttendanceData || !detail) return '#e5e7eb'; // gray-200
-
+  if (!hasAttendanceData || !detail) return '#e5e7eb';
   const leaveCode = (detail.leaveCode || '').trim().toUpperCase();
   const attendanceId = (detail.attendanceID || '').trim().toUpperCase();
-
-  // 1) Highest priority: Leave code
   if (leaveCode && leaveCode !== '00' && leaveCode !== '0' && leaveCode !== '-') {
-    if (leaveCode === 'AL' || leaveCode === 'AL001') return '#dbeafe'; // blue-100
-    if (leaveCode === 'SL' || leaveCode === 'SL001') return '#cffafe'; // cyan-100
-    if (leaveCode === 'CL' || leaveCode === 'CL001') return '#faf5ff'; // purple-100
-    if (leaveCode === 'PL' || leaveCode === 'PL001') return '#fce7f3'; // pink-100
-    if (leaveCode === 'EL') return '#fef2f2'; // rose-100
-    if (leaveCode === 'ML' || leaveCode === 'ML001') return '#ede9fe'; // violet-100
-    if (leaveCode === 'LWP') return '#ffedd5'; // orange-100
-    if (leaveCode === 'HL') return '#e0e7ff'; // indigo-100
-    if (leaveCode === 'VL') return '#ccfbf1'; // teal-100
-    if (leaveCode === 'FL') return '#fef3c7'; // amber-100
-    return '#eff6ff'; // blue-50 for unknown leave code
+    if (leaveCode === 'AL' || leaveCode === 'AL001') return '#dbeafe';
+    if (leaveCode === 'SL' || leaveCode === 'SL001') return '#cffafe';
+    if (leaveCode === 'CL' || leaveCode === 'CL001') return '#faf5ff';
+    if (leaveCode === 'PL' || leaveCode === 'PL001') return '#fce7f3';
+    if (leaveCode === 'EL') return '#fef2f2';
+    if (leaveCode === 'ML' || leaveCode === 'ML001') return '#ede9fe';
+    if (leaveCode === 'LWP') return '#ffedd5';
+    if (leaveCode === 'HL') return '#e0e7ff';
+    if (leaveCode === 'VL') return '#ccfbf1';
+    if (leaveCode === 'FL') return '#fef3c7';
+    return '#eff6ff';
   }
-
-  // 2) Secondary: Attendance status
-  if (attendanceId === 'AA') return '#fee2e2'; // red-100
-  if (attendanceId === 'HH') return '#fef3c7'; // yellow-100
-  if (attendanceId === 'PP') return '#dbeafe'; // blue-100
-  if (attendanceId === 'WW') return '#f3f4f6'; // gray-100
-
-  // 3) Unknown/other condition
-  return '#eff6ff'; // blue-50
-}
-
-
-function getAttendanceTextColor(bgColor: string): string {
-  // All current background colors are light, so use dark text for contrast.
-  return '#0f172a';
+  if (attendanceId === 'AA') return '#fee2e2';
+  if (attendanceId === 'HH') return '#fef3c7';
+  if (attendanceId === 'PP') return '#dbeafe';
+  if (attendanceId === 'WW') return '#f3f4f6';
+  return '#eff6ff';
 }
 
 function getStripDayColor(detail: AttendanceDetail | null, hasAttendanceData: boolean): { bg: string; text: string } | null {
   if (!hasAttendanceData || !detail) return null;
-
   const leaveCode = (detail.leaveCode || '').trim().toUpperCase();
   const attendanceId = (detail.attendanceID || '').trim().toUpperCase();
-
   if (leaveCode && leaveCode !== '00' && leaveCode !== '0' && leaveCode !== '-') {
-    return { bg: '#f59e0b', text: '#fff' }; // amber — leave
+    return { bg: '#f59e0b', text: '#fff' };
   }
-
-  if (attendanceId === 'PP') return { bg: '#2563eb', text: '#fff' }; // blue — present
-  if (attendanceId === 'AA') return { bg: '#fca5a5', text: '#7f1d1d' }; // light red — absent
-  if (attendanceId === 'HH') return { bg: '#fde68a', text: '#78350f' }; // yellow — half day
-  if (attendanceId === 'WW') return { bg: '#cbd5e1', text: '#334155' }; // slate — week off
-
-  return { bg: '#a78bfa', text: '#fff' }; // violet — other
+  if (attendanceId === 'PP') return { bg: '#2563eb', text: '#fff' };
+  if (attendanceId === 'AA') return { bg: '#fca5a5', text: '#7f1d1d' };
+  if (attendanceId === 'HH') return { bg: '#fde68a', text: '#78350f' };
+  if (attendanceId === 'WW') return { bg: '#cbd5e1', text: '#334155' };
+  return { bg: '#a78bfa', text: '#fff' };
 }
+
+// ─── Components ──────────────────────────────────────────────────────────────
 
 const DAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const ITEM_STEP = 42;
+const DAYS_TOTAL = 7;
 
-const ITEM_STEP = 42; // item width 40 + marginRight 2
-const DAYS_TOTAL = 7; // last 7 days
+function BannerIllustration({ b }: { b: BannerDef }) {
+  return (
+    <View pointerEvents="none" className="absolute right-0 top-0 bottom-0 w-[110px] items-center justify-center">
+      <View className="absolute w-24 h-24 rounded-full" style={{ backgroundColor: b.ringB }} />
+      <View className="absolute w-[68px] h-[68px] rounded-full" style={{ backgroundColor: b.ringA }} />
+      <View className="w-[52px] h-[52px] rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+        <Ionicons name={b.primaryIcon} size={36} color={b.accent} />
+      </View>
+      <View className="absolute top-[14px] right-[10px] w-[26px] h-[26px] rounded-full items-center justify-center" style={{ backgroundColor: b.ringA }}>
+        <Ionicons name={b.secondaryIcon} size={14} color={b.accent} />
+      </View>
+      <View className="absolute bottom-[18px] left-[6px] w-[22px] h-[22px] rounded-full items-center justify-center" style={{ backgroundColor: b.ringA }}>
+        <Ionicons name={b.tertiaryIcon} size={12} color={b.accent} />
+      </View>
+    </View>
+  );
+}
+
+function BannerCarousel({ totalMonthMinutes }: { totalMonthMinutes: number }) {
+  const totalHH = Math.floor(totalMonthMinutes / 60);
+  const totalMM = totalMonthMinutes % 60;
+  const totalLabel = totalMonthMinutes > 0
+    ? `${totalHH}h ${String(totalMM).padStart(2, '0')}m this month`
+    : 'No hours recorded yet';
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      decelerationRate="fast"
+      snapToInterval={272}
+      snapToAlignment="start"
+      contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}
+    >
+      {BANNERS.map((b) => (
+        <View key={b.id} className="w-[260px] h-[160px] rounded-[18px] overflow-hidden flex-row" style={{ backgroundColor: b.bg }}>
+          <View
+            pointerEvents="none"
+            className="absolute w-[200px] h-[200px] rounded-full opacity-40"
+            style={{ backgroundColor: b.ringA, top: -80, right: -60 }}
+          />
+          <BannerIllustration b={b} />
+          <View className="flex-1 py-4 pl-4 pr-1 justify-end">
+            <Text className="text-base font-extrabold text-white leading-[22px] mb-1" style={{ letterSpacing: -0.3 }}>{b.title}</Text>
+            {b.id === 'b1' ? (
+              <View className="flex-row items-center gap-1 mb-[10px]">
+                <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.75)" />
+                <Text className="text-[10px] text-white/60 font-medium leading-[14px]">{totalLabel}</Text>
+              </View>
+            ) : (
+              <Text className="text-[10px] text-white/60 font-medium leading-[14px] mb-[10px]">{b.sub}</Text>
+            )}
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
 
 function WeekDayStrip({
   today,
@@ -679,20 +572,27 @@ function WeekDayStrip({
     const dayRow = getAttendanceRowForDay(date, attendanceRows);
     const dayDetail = dayRow ? buildAttendanceDetail(dayRow) : null;
     const stripColor = !sel && !tod ? getStripDayColor(dayDetail, Boolean(dayRow)) : null;
+
     return (
-      <Pressable disabled style={wStyles.item}>
-        <Text style={[wStyles.dayName, tod && wStyles.dayNameToday]}>
+      <Pressable disabled className="items-center w-10 mr-[2px] gap-[1px]">
+        <Text className={`text-[10px] font-semibold mb-[2px] ${tod ? 'text-blue-600 font-bold' : 'text-slate-400'}`}>
           {DAY_SHORT[date.getDay()]}
         </Text>
-        <View style={[
-          wStyles.circle,
-          stripColor ? { backgroundColor: stripColor.bg } : null,
-          sel && wStyles.circleSel,
-          tod && !sel && wStyles.circleTod,
-        ]}>
+        <View
+          className={`w-8 h-8 rounded-full items-center justify-center ${sel ? 'bg-blue-600' : tod && !sel ? 'border-2 border-blue-600 bg-blue-50' : ''}`}
+          style={[
+            !sel && !tod ? { backgroundColor: stripColor ? stripColor.bg : '#f1f5f9' } : undefined,
+          ]}
+        >
           {sel
             ? <Ionicons name="checkmark" size={13} color="#fff" />
-            : <Text style={[wStyles.numTxt, tod && !sel && wStyles.numTxtTod, stripColor ? { color: stripColor.text } : null]}>{date.getDate()}</Text>}
+            : <Text
+                className={`text-xs font-semibold ${tod && !sel ? 'text-blue-600 font-bold' : 'text-slate-900'}`}
+                style={stripColor ? { color: stripColor.text } : undefined}
+              >
+                {date.getDate()}
+              </Text>
+          }
         </View>
       </Pressable>
     );
@@ -703,90 +603,39 @@ function WeekDayStrip({
   }), []);
 
   return (
-    <View style={wStyles.wrap}>
-      {/* Scrollable day strip + sticky month button */}
-      <View style={wStyles.card}>
-        <Text style={wStyles.cardMonthLabel}>{visibleMonth}</Text>
+    <View className="gap-2">
+      <View
+        className="bg-white rounded-2xl p-3"
+        style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}
+      >
+        <Text className="text-[11px] font-bold text-slate-500 text-left mb-[6px]">{visibleMonth}</Text>
         {loading ? (
-          <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
+          <View className="h-[60px] items-center justify-center">
             <ActivityIndicator size="small" color="#2563eb" />
           </View>
         ) : (
-        <View style={wStyles.row}>
-          <FlatList
-            ref={listRef}
-            data={days}
-            keyExtractor={(_, i) => String(i)}
-            renderItem={renderDay}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            getItemLayout={getItemLayout}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            style={{ flex: 1 }}
-            initialNumToRender={DAYS_TOTAL}
-            maxToRenderPerBatch={30}
-            windowSize={10}
-          />
-        </View>
+          <View className="flex-row items-center gap-2">
+            <FlatList
+              ref={listRef}
+              data={days}
+              keyExtractor={(_, i) => String(i)}
+              renderItem={renderDay}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              getItemLayout={getItemLayout}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              className="flex-1"
+              initialNumToRender={DAYS_TOTAL}
+              maxToRenderPerBatch={30}
+              windowSize={10}
+            />
+          </View>
         )}
-
       </View>
     </View>
   );
 }
-
-const wStyles = StyleSheet.create({
-  wrap: { gap: 8 },
-  faceTopBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#2563eb', borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 12,
-    shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18, shadowRadius: 6, elevation: 3,
-  },
-  faceTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  faceTopIconBox: {
-    width: 38, height: 38, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  faceTopTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  faceTopSub: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '500', marginTop: 1 },
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 12,
-    shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
-  },
-  cardMonthLabel: {
-    fontSize: 11, fontWeight: '700', color: '#64748b',
-    textAlign: 'left', marginBottom: 6,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  scrollContent: { alignItems: 'flex-end', paddingRight: 4 },
-  item: { alignItems: 'center', width: 40, marginRight: 2, gap: 1 },
-  dayName: { fontSize: 10, fontWeight: '600', color: '#94a3b8', marginBottom: 2 },
-  dayNameToday: { color: '#2563eb', fontWeight: '700' },
-  circle: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center',
-  },
-  circleSel: { backgroundColor: '#2563eb' },
-  circleTod: { borderWidth: 2, borderColor: '#2563eb', backgroundColor: '#eff6ff' },
-  numTxt: { fontSize: 12, fontWeight: '600', color: '#0f172a' },
-  numTxtTod: { color: '#2563eb', fontWeight: '700' },
-  calIconBtn: {
-    borderRadius: 10, paddingHorizontal: 8, paddingVertical: 7,
-    backgroundColor: '#eff6ff', borderWidth: 1.5, borderColor: '#2563eb',
-    alignItems: 'center', justifyContent: 'center', gap: 3, minWidth: 52,
-  },
-  calIconTxt: { fontSize: 9, fontWeight: '700', color: '#2563eb', textAlign: 'center', lineHeight: 12 },
-  legendScroll: { marginTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 8 },
-  legendRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, paddingRight: 4 },
-  legendItem: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendLabel: { fontSize: 9, fontWeight: '600' as const, color: '#64748b' },
-});
 
 function FaceScanViewfinder({ status, onScan }: { status: 'idle' | 'scanning' | 'success'; onScan: () => void }) {
   const pulse = useRef(new Animated.Value(1)).current;
@@ -798,7 +647,6 @@ function FaceScanViewfinder({ status, onScan }: { status: 'idle' | 'scanning' | 
 
   useEffect(() => {
     if (status === 'scanning') {
-      // Pulse the border
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulse, { toValue: 1.04, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
@@ -806,7 +654,6 @@ function FaceScanViewfinder({ status, onScan }: { status: 'idle' | 'scanning' | 
         ])
       ).start();
 
-      // Ripple rings
       const runRipple = (scale: Animated.Value, opacity: Animated.Value, delay: number) => {
         scale.setValue(0.4);
         opacity.setValue(0.6);
@@ -836,39 +683,79 @@ function FaceScanViewfinder({ status, onScan }: { status: 'idle' | 'scanning' | 
   const borderColor = isSuccess ? '#16a34a' : isScanning ? COLORS.primary : '#cbd5e1';
 
   return (
-    <View style={styles.faceViewfinder}>
-      {/* Ripple rings behind the frame */}
-      <Animated.View style={[styles.faceRipple, { transform: [{ scale: ring1 }], opacity: ring1O }]} />
-      <Animated.View style={[styles.faceRipple, { transform: [{ scale: ring2 }], opacity: ring2O }]} />
+    <View className="items-center justify-center py-3">
+      {/* Ripple rings — Animated, must use style prop */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          width: OVAL_W + 4, height: OVAL_H + 4,
+          borderRadius: (OVAL_W + 4) / 2,
+          borderWidth: 1.5, borderColor: 'rgba(37,99,235,0.5)',
+          transform: [{ scale: ring1 }], opacity: ring1O,
+        }}
+      />
+      <Animated.View
+        style={{
+          position: 'absolute',
+          width: OVAL_W + 4, height: OVAL_H + 4,
+          borderRadius: (OVAL_W + 4) / 2,
+          borderWidth: 1.5, borderColor: 'rgba(37,99,235,0.5)',
+          transform: [{ scale: ring2 }], opacity: ring2O,
+        }}
+      />
 
-      {/* Main oval frame */}
-      <Animated.View style={[styles.faceOval, { borderColor, transform: [{ scale: pulse }] }]}>
+      {/* Main oval — dynamic borderColor + animated scale */}
+      <Animated.View
+        style={{
+          width: OVAL_W, height: OVAL_H,
+          borderRadius: OVAL_W / 2,
+          borderWidth: 2.5, borderColor,
+          alignItems: 'center', justifyContent: 'center',
+          backgroundColor: '#f8fafc',
+          transform: [{ scale: pulse }],
+        }}
+      >
+        {/* Corner brackets — computed from OVAL_W */}
+        {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => (
+          <View
+            key={corner}
+            style={{
+              position: 'absolute',
+              width: CORNER_SIZE, height: CORNER_SIZE,
+              borderColor,
+              top: corner.startsWith('t') ? 12 : undefined,
+              bottom: corner.startsWith('b') ? 12 : undefined,
+              left: corner.endsWith('l') ? 12 : undefined,
+              right: corner.endsWith('r') ? 12 : undefined,
+              borderTopWidth: corner.startsWith('t') ? 3 : 0,
+              borderBottomWidth: corner.startsWith('b') ? 3 : 0,
+              borderLeftWidth: corner.endsWith('l') ? 3 : 0,
+              borderRightWidth: corner.endsWith('r') ? 3 : 0,
+              borderTopLeftRadius: corner === 'tl' ? 6 : 0,
+              borderTopRightRadius: corner === 'tr' ? 6 : 0,
+              borderBottomLeftRadius: corner === 'bl' ? 6 : 0,
+              borderBottomRightRadius: corner === 'br' ? 6 : 0,
+            }}
+          />
+        ))}
 
-        {/* Corner brackets */}
-        <View style={[styles.corner, styles.corner_tl, { borderColor }]} />
-        <View style={[styles.corner, styles.corner_tr, { borderColor }]} />
-        <View style={[styles.corner, styles.corner_bl, { borderColor }]} />
-        <View style={[styles.corner, styles.corner_br, { borderColor }]} />
-
-        {/* Center icon / success check */}
         {isSuccess ? (
           <Animated.View style={{ transform: [{ scale: successScale }] }}>
             <Ionicons name="checkmark-circle" size={64} color="#16a34a" />
           </Animated.View>
         ) : (
-          <View style={styles.faceIconCenter}>
+          <View className="items-center justify-center">
             <Ionicons name="person-outline" size={54} color={isScanning ? COLORS.primary : '#cbd5e1'} />
             {isScanning && (
-              <View style={styles.faceScanLine} />
+              <View className="absolute w-[120px] h-[2px] bg-blue-600 opacity-70 rounded-[1px]" />
             )}
           </View>
         )}
       </Animated.View>
 
-      {/* Scan label */}
-      <View style={styles.faceScanBadge}>
-        <View style={[styles.faceScanDot, { backgroundColor: isSuccess ? '#16a34a' : isScanning ? '#3b82f6' : '#cbd5e1' }]} />
-        <Text style={[styles.faceScanBadgeText, { color: isSuccess ? '#16a34a' : isScanning ? COLORS.primary : COLORS.muted }]}>
+      <View className="flex-row items-center gap-[6px] mt-3 bg-slate-100 rounded-full px-[14px] py-[6px]">
+        <View className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: isSuccess ? '#16a34a' : isScanning ? '#3b82f6' : '#cbd5e1' }} />
+        <Text className="text-xs font-bold" style={{ color: isSuccess ? '#16a34a' : isScanning ? COLORS.primary : COLORS.muted }}>
           {isSuccess ? 'Verified' : isScanning ? 'Scanning' : 'Ready'}
         </Text>
       </View>
@@ -876,14 +763,14 @@ function FaceScanViewfinder({ status, onScan }: { status: 'idle' | 'scanning' | 
   );
 }
 
+// ─── Main Screen ─────────────────────────────────────────────────────────────
+
 export default function LiteAttendanceScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { mode, id } = useLocalSearchParams<{ mode?: string; id?: string }>();
 
-  // When mode=all and id are provided, show attendance for that specific employee
   const viewAllMode = mode === 'all' && Boolean(id);
-
   const today = useMemo(() => new Date(), []);
   const [currentDate, setCurrentDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -901,29 +788,18 @@ export default function LiteAttendanceScreen() {
   const [faceScanStatus, setFaceScanStatus] = useState<'idle' | 'scanning' | 'success'>('idle');
 
   useEffect(() => {
-    // In viewAllMode the employee ID comes from the route param, not the JWT
     if (viewAllMode) {
       setEmployeeId(String(id));
       return;
     }
-
     const run = async () => {
       const token = await getAccessToken();
       if (!token) return;
-
       const payload = decodeJwtPayload(token);
       if (!payload) return;
-
-      const resolvedEmployeeId =
-        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') ||
-        '';
-      const resolvedTenantCode =
-        String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '';
-
-      setEmployeeId(resolvedEmployeeId);
-      setTenantCode(resolvedTenantCode);
+      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') || '');
+      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '');
     };
-
     void run();
   }, [viewAllMode, id]);
 
@@ -933,29 +809,14 @@ export default function LiteAttendanceScreen() {
     url: ATTENDANCE_SEARCH_URL,
     method: 'POST',
     data: [
-      {
-        field: 'employeeID',
-        value: employeeId,
-        operator: 'eq',
-      },
-      {
-        field: 'tenantCode',
-        value: tenantCode,
-        operator: 'eq',
-      },
-      {
-        field: 'month',
-        value: selectedMonthNumber,
-        operator: 'eq',
-      },
+      { field: 'employeeID', value: employeeId, operator: 'eq' },
+      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
+      { field: 'month', value: selectedMonthNumber, operator: 'eq' },
     ],
     enabled: Boolean(employeeId && tenantCode),
     dependencies: [employeeId, tenantCode, selectedMonthNumber],
     onSuccess: (data) => {
-      const normalizedRows = normalizeAttendanceRows(data);
-      setAttendanceRows(normalizedRows);
-      if (__DEV__) {
-      }
+      setAttendanceRows(normalizeAttendanceRows(data));
     },
     onError: () => {
       setAttendanceRows([]);
@@ -971,7 +832,6 @@ export default function LiteAttendanceScreen() {
     }, 0);
   }, [attendanceRows]);
 
-  // Reset punch list whenever the selected date changes
   useEffect(() => {
     setPunchOffset(0);
     setTodayPunches([]);
@@ -979,19 +839,14 @@ export default function LiteAttendanceScreen() {
     isFetchingMoreRef.current = false;
   }, [selectedDateKey]);
 
-  const punchParams = useMemo(
-    () => ({ offset: punchOffset, limit: PUNCH_PAGE_SIZE }),
-    [punchOffset]
-  );
+  const punchParams = useMemo(() => ({ offset: punchOffset, limit: PUNCH_PAGE_SIZE }), [punchOffset]);
 
   const punchData = useMemo(() => {
     const filters: Array<{ field: string; value: unknown; operator: string }> = [
       { field: 'employeeID', value: employeeId, operator: 'eq' },
       { field: 'tenantCode', value: tenantCode, operator: 'eq' },
     ];
-    if (selectedDateKey) {
-      filters.push({ field: 'date', value: selectedDateKey, operator: 'eq' });
-    }
+    if (selectedDateKey) filters.push({ field: 'date', value: selectedDateKey, operator: 'eq' });
     return filters;
   }, [employeeId, tenantCode, selectedDateKey]);
 
@@ -1022,70 +877,29 @@ export default function LiteAttendanceScreen() {
 
   const selectedAttendanceRecord = useMemo(() => {
     if (!selectedDate) return null;
-
     const selectedYear = selectedDate.getFullYear();
     const selectedMonth = selectedDate.getMonth() + 1;
     const selectedDay = selectedDate.getDate();
     const selectedKey = toLocalDateKey(selectedDate);
 
-    // 1) Preferred: exact date string match (yyyy-mm-dd)
     const exactDateMatch = attendanceRows.find((row) => getAttendanceDateKey(row) === selectedKey);
     if (exactDateMatch) return exactDateMatch;
 
-    // 2) Fallback: records from selected month/year + same day-of-month
     const monthScopedRows = attendanceRows.filter((row) => {
       const rowMonth = getNumericField(row, 'month');
       const rowYear = getNumericField(row, 'year');
       return rowMonth === selectedMonth && rowYear === selectedYear;
     });
 
-    const dayFallback = monthScopedRows.find((row) => {
+    return monthScopedRows.find((row) => {
       const dateText = typeof row.date === 'string' ? row.date : '';
       if (dateText.length >= 10) {
         const maybeDay = Number(dateText.slice(8, 10));
         return Number.isFinite(maybeDay) && maybeDay === selectedDay;
       }
       return false;
-    });
-
-    if (dayFallback) return dayFallback;
-
-    return null;
+    }) ?? null;
   }, [selectedDate, attendanceRows]);
-
-  const attendanceDetail = useMemo(
-    () => (selectedAttendanceRecord ? buildAttendanceDetail(selectedAttendanceRecord) : null),
-    [selectedAttendanceRecord]
-  );
-  const punchRows = useMemo(
-    () => (selectedAttendanceRecord ? extractPunchRows(selectedAttendanceRecord) : []),
-    [selectedAttendanceRecord]
-  );
-  const detailColumnOne = useMemo(
-    () =>
-      attendanceDetail
-        ? [
-            { label: 'Shifts Allocated', value: attendanceDetail.shiftsAllocated },
-            { label: 'Late In', value: formatMinutesToHHMM(attendanceDetail.lateIn) },
-            { label: 'Extra Hours', value: formatMinutesToHHMM(attendanceDetail.extraHours) },
-            { label: 'Personal Out', value: formatMinutesToHHMM(attendanceDetail.personalOut) },
-          ]
-        : [],
-    [attendanceDetail]
-  );
-
-  const detailColumnTwo = useMemo(
-    () =>
-      attendanceDetail
-        ? [
-            { label: 'Hours Worked', value: formatMinutesToHHMM(attendanceDetail.hoursWorked) },
-            { label: 'Early Out', value: formatMinutesToHHMM(attendanceDetail.earlyOut) },
-            { label: 'OT Hours', value: formatMinutesToHHMM(attendanceDetail.otHours) },
-            { label: 'Official Out', value: formatMinutesToHHMM(attendanceDetail.officialOut) },
-          ]
-        : [],
-    [attendanceDetail]
-  );
 
   const sortedPunches = useMemo(
     () =>
@@ -1096,17 +910,6 @@ export default function LiteAttendanceScreen() {
       }),
     [todayPunches]
   );
-
-  const { startTime, endTime } = useMemo(() => {
-    const withTime = sortedPunches.filter((p) => p.transactionTime || p.punchedTime);
-    if (withTime.length === 0) return { startTime: '', endTime: '' };
-    const first = withTime[0];
-    const last = withTime[withTime.length - 1];
-    return {
-      startTime: first.transactionTime || first.punchedTime || '',
-      endTime: last.transactionTime || last.punchedTime || '',
-    };
-  }, [sortedPunches]);
 
   const handleStripDateSelect = useCallback((date: Date) => {
     setSelectedDate(date);
@@ -1147,1560 +950,304 @@ export default function LiteAttendanceScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <View className="flex-1 bg-[#0a1c63]">
       <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
 
-      {/* Header */}
-      <View style={[styles.top, { paddingTop: insets.top + 14 }]}>
-        <View style={styles.topRow}>
-          <View style={styles.leftGroup}>
-            <Pressable onPress={() => router.push('/(tabs-lite)/main-launchpad' as any)} hitSlop={8} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={COLORS.white} />
+      {/* ── Header ── */}
+      <View className="bg-[#0a1c63] px-4 pb-[18px]" style={{ paddingTop: insets.top + 14 }}>
+        <View className="flex-row justify-between items-center mb-[14px]">
+          <View className="flex-row items-center gap-[10px]">
+            <Pressable
+              onPress={() => router.push('/(tabs-lite)/main-launchpad' as any)}
+              hitSlop={8}
+              className="w-8 h-8 rounded-full items-center justify-center bg-white/15"
+            >
+              <Ionicons name="arrow-back" size={18} color="#fff" />
             </Pressable>
-            <Text style={styles.greeting}>Attendance</Text>
+            <Text className="text-white text-xl font-bold">Attendance</Text>
           </View>
-          <View style={styles.topIcons}>
+          <View className="flex-row gap-[14px]">
             <Ionicons name="notifications-outline" size={18} color="#fff" />
             <Ionicons name="settings-outline" size={18} color="#fff" />
           </View>
         </View>
       </View>
 
-      <View style={styles.bannerSection}>
-        {/* Monthly Working Hours Card */}
-        <View style={styles.monthlyHoursCard}>
-
-          {/* Shine overlay */}
-          <View pointerEvents="none" style={styles.monthlyHoursShine} />
-          {/* Illustration rings on right */}
-          <View pointerEvents="none" style={styles.monthlyHoursIllustration}>
-            <View style={styles.monthlyHoursRingOuter} />
-            <View style={styles.monthlyHoursRingInner} />
-            <View style={styles.monthlyHoursRingCenter}>
+      {/* ── Monthly Hours Card ── */}
+      <View className="bg-[#0a1c63] pb-4 px-4">
+        <View className="bg-[#1d4ed8] rounded-[18px] h-[130px] overflow-hidden flex-row">
+          <View
+            pointerEvents="none"
+            className="absolute w-[200px] h-[200px] rounded-full opacity-40"
+            style={{ backgroundColor: 'rgba(59,130,246,0.35)', top: -80, right: -60 }}
+          />
+          <View pointerEvents="none" className="absolute right-0 top-0 bottom-0 w-[110px] items-center justify-center">
+            <View className="absolute w-24 h-24 rounded-full bg-blue-400/20" />
+            <View className="absolute w-[68px] h-[68px] rounded-full bg-blue-500/35" />
+            <View className="w-[52px] h-[52px] rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
               <Ionicons name="time-outline" size={30} color="rgba(191,219,254,0.9)" />
             </View>
-            <View style={styles.monthlyHoursFloatA}>
+            <View className="absolute top-[14px] right-[10px] w-[26px] h-[26px] rounded-full bg-blue-500/35 items-center justify-center">
               <Ionicons name="analytics-outline" size={12} color="#bfdbfe" />
             </View>
-            <View style={styles.monthlyHoursFloatB}>
+            <View className="absolute bottom-[18px] left-[6px] w-[22px] h-[22px] rounded-full bg-blue-500/35 items-center justify-center">
               <Ionicons name="checkmark-done-outline" size={10} color="#bfdbfe" />
             </View>
           </View>
-          {/* Text content */}
-          <View style={styles.monthlyHoursContent}>
-            <View style={styles.monthlyHoursRow}>
-              <View style={styles.monthlyHoursTitleCol}>
-                <Text style={styles.monthlyHoursLabel}>Monthly{'\n'}Working Hours</Text>
-                <Text style={styles.monthlyHoursSub}>Total this month</Text>
+          <View className="flex-1 py-4 pl-4 pr-1 justify-center">
+            <View className="flex-row items-center justify-between pr-3">
+              <View className="flex-1">
+                <Text className="text-[13px] text-white font-bold leading-[18px] mb-1">Monthly{'\n'}Working Hours</Text>
+                <Text className="text-[10px] text-white/55 font-medium">Total this month</Text>
               </View>
-              <Text style={styles.monthlyHoursValue}>
+              <Text className="text-[26px] font-extrabold text-white" style={{ letterSpacing: -0.5 }}>
                 {`${Math.floor(totalMonthMinutes / 60)}h ${String(totalMonthMinutes % 60).padStart(2, '0')}m`}
               </Text>
             </View>
           </View>
         </View>
-
       </View>
 
-      {/* Wrapper owns the rounded corners + background so Android doesn't ghost content */}
-      <View style={styles.sheetWrapper}>
+      {/* ── Sheet wrapper ── */}
+      <View className="flex-1 bg-[#f8fafc] rounded-tl-3xl rounded-tr-3xl overflow-hidden">
 
-        {/* Face Attendance button — outside ScrollView so Android's scroll background never paints over it */}
+        {/* Face Attendance button */}
         <Pressable
           onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(true); }}
-          style={({ pressed }) => [styles.faceTopBtn, pressed && { opacity: 0.88 }]}
+          style={({ pressed }) => [
+            { opacity: pressed ? 0.88 : 1 },
+            { shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 6, elevation: 3 },
+          ]}
+          className="flex-row items-center justify-between bg-blue-600 rounded-[14px] mx-[14px] mt-[14px] px-[14px] py-3"
         >
-          <View style={styles.faceTopLeft}>
-            <View style={styles.faceTopIconBox}>
+          <View className="flex-row items-center gap-3">
+            <View className="w-[38px] h-[38px] rounded-[10px] bg-white/20 items-center justify-center">
               <Ionicons name="scan-circle-outline" size={22} color="#fff" />
             </View>
             <View>
-              <Text style={styles.faceTopTitle}>Face Attendance</Text>
-              <Text style={styles.faceTopSub}>Mark your attendance via face scan</Text>
+              <Text className="text-[14px] font-bold text-white">Face Attendance</Text>
+              <Text className="text-[11px] text-white/70 font-medium mt-[1px]">Mark your attendance via face scan</Text>
             </View>
           </View>
           <Ionicons name="arrow-forward" size={16} color="rgba(255,255,255,0.8)" />
         </Pressable>
 
-      <ScrollView
-        style={styles.sheet}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}>
-
-        {/* ── Week Day Strip ── */}
-        <WeekDayStrip
-          today={today}
-          selectedDate={selectedDate}
-          attendanceRows={attendanceRows}
-          onSelectDate={handleStripDateSelect}
-          onOpenCalendar={() => setShowCalendar(true)}
-          loading={attendanceLoading}
-        />
-
-        {/* ── Attendance Color Legend ── */}
         <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.colorLegendRow}
+          className="flex-1"
+          contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 96, gap: 6 }}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         >
-          {[
-            { bg: '#2563eb', label: 'Present' },
-            { bg: '#fca5a5', label: 'Absent' },
-            { bg: '#fde68a', label: 'Half Day' },
-            { bg: '#f59e0b', label: 'Leave' },
-            { bg: '#cbd5e1', label: 'Week Off' },
-            { bg: '#a78bfa', label: 'Other' },
-          ].map((item) => (
-            <View key={item.label} style={styles.colorLegendItem}>
-              <View style={[styles.colorLegendDot, { backgroundColor: item.bg }]} />
-              <Text style={styles.colorLegendLabel}>{item.label}</Text>
-            </View>
-          ))}
-        </ScrollView>
+          {/* ── Week Day Strip ── */}
+          <WeekDayStrip
+            today={today}
+            selectedDate={selectedDate}
+            attendanceRows={attendanceRows}
+            onSelectDate={handleStripDateSelect}
+            onOpenCalendar={() => setShowCalendar(true)}
+            loading={attendanceLoading}
+          />
 
-        {/* ── Core & Hours Information ── */}
-        {/* {attendanceDetail && (() => {
-          const briefFields = [...detailColumnOne, ...detailColumnTwo];
-          const briefPairs: typeof briefFields[] = [];
-          for (let i = 0; i < briefFields.length; i += 2) briefPairs.push(briefFields.slice(i, i + 2));
-
-          return (
-            <View style={styles.infoSectionCard}>
-              <View style={styles.actionPanelHead}>
-                <Text style={styles.actionPanelKicker}>ATTENDANCE DETAILS</Text>
-                <Text style={styles.actionPanelLink}>
-                  {selectedDate
-                    ? selectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                    : ''}
-                </Text>
-              </View>
-
-              {briefPairs.map((pair, pi) => (
-                <View key={`b${pi}`} style={styles.detailRow}>
-                  {pair.map((item, ci) => {
-                    const isDash = !item.value || item.value === '-' || item.value === '00:00';
-                    return (
-                      <View key={item.label} style={[styles.detailRowCell, ci === 0 && styles.detailRowCellLeft]}>
-                        <Text style={styles.detailRowLabel}>{item.label}</Text>
-                        <Text style={[styles.detailRowValue, isDash && styles.detailRowValueMuted]}>{item.value || '-'}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              ))}
-
-              <Pressable
-                onPress={() => selectedDate && router.push(`/(tabs-lite)/attendance/muster?date=${toLocalDateKey(selectedDate)}` as any)}
-                style={styles.viewMoreBtn}
+          {/* ── Color Legend ── */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 }}
+          >
+            {[
+              { bg: '#2563eb', label: 'Present' },
+              { bg: '#fca5a5', label: 'Absent' },
+              { bg: '#fde68a', label: 'Half Day' },
+              { bg: '#f59e0b', label: 'Leave' },
+              { bg: '#cbd5e1', label: 'Week Off' },
+              { bg: '#a78bfa', label: 'Other' },
+            ].map((item) => (
+              <View
+                key={item.label}
+                className="flex-row items-center gap-1 bg-white rounded-full px-[7px] py-1"
+                style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}
               >
-                <Text style={styles.viewMoreText}>View Full Details</Text>
-                <Ionicons name="arrow-forward" size={14} color="#2563eb" />
-              </Pressable>
-            </View>
-          );
-        })()} */}
-
-        {/* ── Today's Punches ── */}
-        {/* <View style={styles.todayPunchCard}>
-          <View style={styles.actionPanelHead}>
-            <Text style={styles.actionPanelKicker}>PUNCH RECORDS</Text>
-            <Text style={styles.actionPanelLink}>
-              {selectedDate
-                ? selectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                : ''}{todayPunches.length > 0 ? ` · ${todayPunches.length}` : ''}
-            </Text>
-          </View>
-
-          {sortedPunches.length > 0 && (
-            <View style={styles.punchTimeSummary}>
-              <View style={styles.punchTimeSummaryItem}>
-                <View style={[styles.punchTimeDot, { backgroundColor: '#16a34a' }]} />
-                <View>
-                  <Text style={styles.punchTimeSummaryLabel}>Start Time</Text>
-                  <Text style={styles.punchTimeSummaryValue}>{formatTransactionTime(startTime)}</Text>
-                </View>
+                <View className="w-[9px] h-[9px] rounded-full" style={{ backgroundColor: item.bg }} />
+                <Text className="text-[11px] font-semibold text-slate-600">{item.label}</Text>
               </View>
-              <View style={styles.punchTimeSummaryDivider} />
-              <View style={styles.punchTimeSummaryItem}>
-                <View style={[styles.punchTimeDot, { backgroundColor: '#1d4ed8' }]} />
-                <View>
-                  <Text style={styles.punchTimeSummaryLabel}>End Time</Text>
-                  <Text style={styles.punchTimeSummaryValue}>{formatTransactionTime(endTime)}</Text>
-                </View>
-              </View>
-            </View>
-          )}
+            ))}
+          </ScrollView>
 
-          {sortedPunches.length > 0 ? (
-            <>
-              {sortedPunches.map((punch, index) => {
-                const isIn = punch.inOut?.trim().toUpperCase() === 'I';
-                const time = punch.transactionTime || punch.punchedTime || '';
-                const dt = time ? new Date(time) : null;
-                const timeLabel = dt && !Number.isNaN(dt.getTime())
-                  ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
-                  : '--:--';
-                const dateLabel = dt && !Number.isNaN(dt.getTime())
-                  ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                  : '--';
-                const isProcessed = punch.processed;
-                const isLast = index === sortedPunches.length - 1 && !hasMorePunches;
-
-                return (
-                  <View key={`${punch._id ?? ''}-${index}`} style={[styles.todayPunchRow, isLast && { borderBottomWidth: 0 }]}>
-                    <View style={[styles.todayPunchTypeBox, { backgroundColor: isIn ? '#dcfce7' : '#dbeafe' }]}>
-                      <Ionicons name={isIn ? 'log-in-outline' : 'log-out-outline'} size={18} color={isIn ? '#16a34a' : '#1d4ed8'} />
-                    </View>
-                    <View style={styles.todayPunchInfo}>
-                      <View style={styles.todayPunchTopRow}>
-                        <Text style={[styles.todayPunchType, { color: isIn ? '#16a34a' : '#1d4ed8' }]}>
-                          {isIn ? 'In' : 'Out'}
-                        </Text>
-                        <View style={[styles.todayPunchMoveBadge, { backgroundColor: isIn ? '#dcfce7' : '#dbeafe' }]}>
-                          <Text style={[styles.todayPunchMoveText, { color: isIn ? '#16a34a' : '#1d4ed8' }]}>
-                            {punch.typeOfMovement || '-'}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={styles.todayPunchReader}>{punch.readerSerialNumber || '-'}</Text>
-                      <Text style={styles.todayPunchEmpId}>EMP: {punch.employeeID || '-'}</Text>
-                    </View>
-                    <View style={styles.todayPunchRight}>
-                      <Text style={styles.todayPunchTime}>{timeLabel}</Text>
-                      <Text style={styles.todayPunchDate}>{dateLabel}</Text>
-                    </View>
+          {/* ── Face Modal ── */}
+          <Modal visible={showFaceModal} transparent animationType="slide" onRequestClose={() => setShowFaceModal(false)}>
+            <View className="flex-1 bg-black/50 justify-end">
+              <View className="bg-white rounded-tl-[28px] rounded-tr-[28px] px-5 pb-9" style={{ maxHeight: SCREEN_H * 0.88 }}>
+                <View className="w-9 h-1 rounded-sm bg-slate-300 self-center mt-[10px] mb-1" />
+                <View className="flex-row items-start justify-between py-4 mb-1 border-b border-slate-100">
+                  <View>
+                    <Text className="text-[18px] font-extrabold text-slate-900">Face Attendance</Text>
+                    <Text className="text-xs text-slate-500 mt-[2px]">Position your face in the frame</Text>
                   </View>
-                );
-              })}
-              {isFetchingMore && (
-                <View style={styles.punchLoadMore}>
-                  <Text style={styles.punchLoadMoreText}>Loading more…</Text>
+                  <Pressable onPress={() => setShowFaceModal(false)} className="w-8 h-8 rounded-full items-center justify-center bg-slate-100">
+                    <Ionicons name="close" size={20} color="#0f172a" />
+                  </Pressable>
                 </View>
-              )}
-              {!isFetchingMore && !hasMorePunches && sortedPunches.length > 0 && (
-                <View style={styles.punchLoadMore}>
-                  <Text style={styles.punchLoadMoreText}>All {sortedPunches.length} records loaded</Text>
-                </View>
-              )}
-              {!isFetchingMore && hasMorePunches && (
-                <View style={styles.punchLoadMore}>
-                  <Text style={styles.punchLoadMoreText}>Scroll down to load more</Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <View style={styles.emptyPunchWrap}>
-              <Ionicons name="finger-print-outline" size={28} color="#cbd5e1" />
-              <Text style={styles.dayDetailsEmpty}>No punch records found.</Text>
-            </View>
-          )}
-        </View> */}
 
-        {/* ── Face Attendance Modal ── */}
-        <Modal visible={showFaceModal} transparent animationType="slide" onRequestClose={() => setShowFaceModal(false)}>
-          <View style={styles.faceModalOverlay}>
-            <View style={styles.faceModalSheet}>
-              <View style={styles.modalHandle} />
-
-              {/* Header */}
-              <View style={styles.faceModalHeader}>
-                <View>
-                  <Text style={styles.faceModalTitle}>Face Attendance</Text>
-                  <Text style={styles.faceModalSub}>Position your face in the frame</Text>
-                </View>
-                <Pressable onPress={() => setShowFaceModal(false)} style={styles.modalCloseBtn}>
-                  <Ionicons name="close" size={20} color={COLORS.ink} />
-                </Pressable>
-              </View>
-
-              {/* Face scan viewfinder */}
-              <FaceScanViewfinder
-                status={faceScanStatus}
-                onScan={() => {
-                  setFaceScanStatus('scanning');
-                  setTimeout(() => setFaceScanStatus('success'), 2500);
-                }}
-              />
-
-              {/* Status message */}
-              {faceScanStatus === 'idle' && (
-                <Text style={styles.faceScanHint}>Tap "Scan Face" to begin attendance</Text>
-              )}
-              {faceScanStatus === 'scanning' && (
-                <Text style={[styles.faceScanHint, { color: COLORS.primary }]}>Scanning… please hold still</Text>
-              )}
-              {faceScanStatus === 'success' && (
-                <Text style={[styles.faceScanHint, { color: '#16a34a', fontWeight: '700' }]}>
-                  ✓ Attendance marked successfully!
-                </Text>
-              )}
-
-              {/* Action button */}
-              {faceScanStatus !== 'success' ? (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.faceScanBtn,
-                    faceScanStatus === 'scanning' && styles.faceScanBtnDisabled,
-                    pressed && { opacity: 0.85 },
-                  ]}
-                  disabled={faceScanStatus === 'scanning'}
-                  onPress={() => {
+                <FaceScanViewfinder
+                  status={faceScanStatus}
+                  onScan={() => {
                     setFaceScanStatus('scanning');
                     setTimeout(() => setFaceScanStatus('success'), 2500);
                   }}
-                >
-                  <Ionicons name="scan-circle-outline" size={20} color="#fff" />
-                  <Text style={styles.faceScanBtnText}>
-                    {faceScanStatus === 'scanning' ? 'Scanning...' : 'Scan Face'}
-                  </Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  style={[styles.faceScanBtn, { backgroundColor: '#16a34a' }]}
-                  onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(false); }}
-                >
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                  <Text style={styles.faceScanBtnText}>Done</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        </Modal>
+                />
 
-        {/* ── Calendar bottom-sheet Modal ── */}
-        <Modal
-          visible={showCalendar}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowCalendar(false)}>
-          <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setShowCalendar(false)} />
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
+                {faceScanStatus === 'idle' && (
+                  <Text className="text-[13px] text-slate-500 text-center mb-4">Tap "Scan Face" to begin attendance</Text>
+                )}
+                {faceScanStatus === 'scanning' && (
+                  <Text className="text-[13px] text-blue-600 text-center mb-4">Scanning… please hold still</Text>
+                )}
+                {faceScanStatus === 'success' && (
+                  <Text className="text-[13px] text-green-600 font-bold text-center mb-4">✓ Attendance marked successfully!</Text>
+                )}
 
-            {/* Dark header with title + nav */}
-            <View style={styles.calTopBar}>
-              <View style={styles.calTopBarLeft}>
-                <Text style={styles.calTopTitle}>Select Date</Text>
-                <Pressable onPress={jumpToTodayMonth}>
-                  <Text style={styles.calTopSub}>{monthTitle} · Tap to jump today</Text>
-                </Pressable>
-              </View>
-              <View style={styles.calTopRight}>
-                <Pressable style={styles.calNavBtnDark} onPress={() => navigateMonth('prev')}>
-                  <Ionicons name="chevron-back" size={16} color="#fff" />
-                </Pressable>
-                <Pressable style={styles.calNavBtnDark} onPress={() => navigateMonth('next')}>
-                  <Ionicons name="chevron-forward" size={16} color="#fff" />
-                </Pressable>
-                <Pressable hitSlop={10} onPress={() => setShowCalendar(false)} style={styles.calCloseBtn}>
-                  <Ionicons name="close" size={16} color="#fff" />
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.weekdayRow}>
-              {DAY_NAMES.map((name) => (
-                <Text key={name} style={styles.weekdayCell}>{name}</Text>
-              ))}
-            </View>
-
-            <View style={styles.grid}>
-              {gridDays.map((cell, index) => {
-                const isToday = isSameCalendarDay(cell.date, today);
-                const isFuture = isFutureCalendarDay(cell.date, today);
-                const isSelected = selectedDate ? isSameCalendarDay(cell.date, selectedDate) : false;
-                const hasActivity = cell.isCurrentMonth && hasAttendanceForDay(cell.date, attendanceRows);
-                const dayRow = cell.isCurrentMonth ? getAttendanceRowForDay(cell.date, attendanceRows) : null;
-                const dayDetail = dayRow ? buildAttendanceDetail(dayRow) : null;
-                const attendanceDayColor = cell.isCurrentMonth ? getDayCardColor(dayDetail, Boolean(dayRow)) : null;
-                const attendanceTextColor = !isSelected && cell.isCurrentMonth && attendanceDayColor ? getAttendanceTextColor(attendanceDayColor) : undefined;
-                const cellKey = `${cell.date.getFullYear()}-${cell.date.getMonth()}-${cell.date.getDate()}-${index}`;
-
-                return (
-                  <Pressable key={cellKey} style={styles.gridCell} disabled={isFuture} onPress={() => handleCellPress(cell)}>
-                    <View style={[
-                      styles.dayInner,
-                      !isSelected && cell.isCurrentMonth && attendanceDayColor ? { backgroundColor: attendanceDayColor } : null,
-                      isFuture && styles.futureDayBlock,
-                      isToday && !isSelected && styles.todayRing,
-                      isSelected && styles.selectedBlock,
-                    ]}>
-                      <Text style={[
-                        styles.dayText,
-                        isFuture && styles.dayFuture,
-                        !cell.isCurrentMonth && styles.dayMuted,
-                        isSelected && styles.dayTextOnSelected,
-                        !isSelected && cell.isCurrentMonth && hasActivity && styles.dayActivity,
-                        !isSelected && cell.isCurrentMonth && !hasActivity && styles.dayPlain,
-                        attendanceTextColor ? { color: attendanceTextColor } : null,
-                      ]}>
-                        {cell.label}
-                      </Text>
-                      {isToday && !isSelected && <View style={styles.todayDot} />}
-                    </View>
+                {faceScanStatus !== 'success' ? (
+                  <Pressable
+                    className={`flex-row items-center justify-center gap-2 rounded-2xl py-[15px] ${faceScanStatus === 'scanning' ? 'bg-blue-300' : 'bg-blue-600'}`}
+                    style={{ shadowColor: '#2563eb', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}
+                    disabled={faceScanStatus === 'scanning'}
+                    onPress={() => {
+                      setFaceScanStatus('scanning');
+                      setTimeout(() => setFaceScanStatus('success'), 2500);
+                    }}
+                  >
+                    <Ionicons name="scan-circle-outline" size={20} color="#fff" />
+                    <Text className="text-[15px] font-bold text-white">
+                      {faceScanStatus === 'scanning' ? 'Scanning...' : 'Scan Face'}
+                    </Text>
                   </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={styles.legend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#e2e8f0' }]} />
-                <Text style={styles.legendLabel}>No data</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.heroBg, borderWidth: 2, borderColor: COLORS.primary }]} />
-                <Text style={styles.legendLabel}>Today</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
-                <Text style={styles.legendLabel}>Selected</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#dbeafe' }]} />
-                <Text style={styles.legendLabel}>Present</Text>
+                ) : (
+                  <Pressable
+                    className="flex-row items-center justify-center gap-2 bg-green-600 rounded-2xl py-[15px]"
+                    onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(false); }}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                    <Text className="text-[15px] font-bold text-white">Done</Text>
+                  </Pressable>
+                )}
               </View>
             </View>
-          </View>
-          </View>
-        </Modal>
+          </Modal>
 
-      </ScrollView>
+          {/* ── Calendar Modal ── */}
+          <Modal
+            visible={showCalendar}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowCalendar(false)}
+          >
+            <View className="flex-1 bg-black/45 justify-end">
+              <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={() => setShowCalendar(false)} />
+              <View className="bg-white rounded-tl-[28px] rounded-tr-[28px] px-[14px] pb-8" style={{ maxHeight: SCREEN_H * 0.88, elevation: 20 }}>
+                <View className="w-9 h-1 rounded-sm bg-slate-300 self-center mt-[10px] mb-1" />
+
+                {/* Calendar header */}
+                <View className="flex-row items-center justify-between bg-[#1e3a8a] rounded-2xl px-[14px] py-3 mb-3 mt-1">
+                  <View className="gap-[3px]">
+                    <Text className="text-[15px] font-extrabold text-white" style={{ letterSpacing: 0.2 }}>Select Date</Text>
+                    <Pressable onPress={jumpToTodayMonth}>
+                      <Text className="text-[10px] text-white/55 font-medium">{monthTitle} · Tap to jump today</Text>
+                    </Pressable>
+                  </View>
+                  <View className="flex-row items-center gap-[6px]">
+                    <Pressable className="w-[30px] h-[30px] rounded-full bg-white/15 items-center justify-center" onPress={() => navigateMonth('prev')}>
+                      <Ionicons name="chevron-back" size={16} color="#fff" />
+                    </Pressable>
+                    <Pressable className="w-[30px] h-[30px] rounded-full bg-white/15 items-center justify-center" onPress={() => navigateMonth('next')}>
+                      <Ionicons name="chevron-forward" size={16} color="#fff" />
+                    </Pressable>
+                    <Pressable hitSlop={10} onPress={() => setShowCalendar(false)} className="w-[30px] h-[30px] rounded-full bg-white/10 items-center justify-center ml-[2px]">
+                      <Ionicons name="close" size={16} color="#fff" />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Weekday headers */}
+                <View className="flex-row mb-1 py-[6px]">
+                  {DAY_NAMES.map((name) => (
+                    <Text key={name} className="text-center text-[11px] font-bold text-slate-500" style={{ width: '14.285%', letterSpacing: 0.2 }}>
+                      {name}
+                    </Text>
+                  ))}
+                </View>
+
+                {/* Day grid */}
+                <View className="flex-row flex-wrap mt-[2px]">
+                  {gridDays.map((cell, index) => {
+                    const isToday = isSameCalendarDay(cell.date, today);
+                    const isFuture = isFutureCalendarDay(cell.date, today);
+                    const isSelected = selectedDate ? isSameCalendarDay(cell.date, selectedDate) : false;
+                    const hasActivity = cell.isCurrentMonth && hasAttendanceForDay(cell.date, attendanceRows);
+                    const dayRow = cell.isCurrentMonth ? getAttendanceRowForDay(cell.date, attendanceRows) : null;
+                    const dayDetail = dayRow ? buildAttendanceDetail(dayRow) : null;
+                    const attendanceDayColor = cell.isCurrentMonth ? getDayCardColor(dayDetail, Boolean(dayRow)) : null;
+                    const cellKey = `${cell.date.getFullYear()}-${cell.date.getMonth()}-${cell.date.getDate()}-${index}`;
+
+                    return (
+                      <Pressable
+                        key={cellKey}
+                        className="items-center justify-center py-[2px]"
+                        style={{ width: '14.285%', aspectRatio: 1, maxHeight: 46 }}
+                        disabled={isFuture}
+                        onPress={() => handleCellPress(cell)}
+                      >
+                        <View
+                          className={`w-9 h-9 items-center justify-center rounded-full ${isFuture ? 'opacity-30' : ''} ${isToday && !isSelected ? 'border-2 border-blue-600 bg-blue-50' : ''} ${isSelected ? 'bg-blue-600' : ''}`}
+                          style={[
+                            !isSelected && cell.isCurrentMonth && attendanceDayColor ? { backgroundColor: attendanceDayColor } : undefined,
+                            isSelected ? { shadowColor: '#2563eb', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 5 } : undefined,
+                          ]}
+                        >
+                          <Text
+                            className={`text-[13px] font-semibold
+                              ${isFuture ? 'text-slate-300' : ''}
+                              ${!cell.isCurrentMonth ? 'text-slate-200 font-normal' : ''}
+                              ${isSelected ? 'text-white font-extrabold' : ''}
+                              ${!isSelected && cell.isCurrentMonth && hasActivity ? 'text-blue-800 font-bold' : ''}
+                              ${!isSelected && cell.isCurrentMonth && !hasActivity ? 'text-slate-900' : ''}
+                            `}
+                            style={!isSelected && cell.isCurrentMonth && attendanceDayColor ? { color: '#0f172a' } : undefined}
+                          >
+                            {cell.label}
+                          </Text>
+                          {isToday && !isSelected && (
+                            <View className="absolute bottom-1 w-1 h-1 rounded-full bg-blue-600" />
+                          )}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Legend */}
+                <View className="flex-row flex-wrap items-center justify-center gap-3 mt-3 py-[10px] bg-[#f8fafc] rounded-xl">
+                  {[
+                    { bg: '#e2e8f0', label: 'No data' },
+                    { bg: '#dbeafe', label: 'Today', border: true },
+                    { bg: '#2563eb', label: 'Selected' },
+                    { bg: '#dbeafe', label: 'Present' },
+                  ].map((item) => (
+                    <View key={item.label} className="flex-row items-center gap-[5px]">
+                      <View
+                        className="w-2 h-2 rounded-full"
+                        style={[{ backgroundColor: item.bg }, item.border ? { borderWidth: 2, borderColor: '#2563eb' } : undefined]}
+                      />
+                      <Text className="text-[10px] text-slate-500 font-semibold">{item.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+        </ScrollView>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#0a1c63',
-  },
-
-  /* ── Header ── */
-  top: {
-    backgroundColor: '#0a1c63',
-    paddingHorizontal: 16,
-    paddingBottom: 18,
-  },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  leftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  greeting: {
-    fontFamily: APP_FONT_FAMILY,
-    color: COLORS.white,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  topIcons: {
-    flexDirection: 'row',
-    gap: 14,
-  },
-
-  bannerSection: { backgroundColor: '#0a1c63', paddingTop: 0, paddingBottom: 16, paddingHorizontal: 16 },
-
-  monthlyHoursCard: {
-    backgroundColor: '#1d4ed8',
-    borderRadius: 18,
-    height: 130,
-    overflow: 'hidden',
-    flexDirection: 'row',
-  },
-  monthlyHoursShine: {
-    position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(59,130,246,0.35)',
-    top: -80, right: -60, opacity: 0.4,
-  },
-  monthlyHoursIllustration: {
-    position: 'absolute', right: 0, top: 0, bottom: 0, width: 110,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  monthlyHoursRingOuter: {
-    position: 'absolute', width: 96, height: 96, borderRadius: 48,
-    backgroundColor: 'rgba(96,165,250,0.2)',
-  },
-  monthlyHoursRingInner: {
-    position: 'absolute', width: 68, height: 68, borderRadius: 34,
-    backgroundColor: 'rgba(59,130,246,0.35)',
-  },
-  monthlyHoursRingCenter: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  monthlyHoursFloatA: {
-    position: 'absolute', top: 14, right: 10,
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: 'rgba(59,130,246,0.35)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  monthlyHoursFloatB: {
-    position: 'absolute', bottom: 18, left: 6,
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: 'rgba(59,130,246,0.35)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  monthlyHoursContent: {
-    flex: 1, paddingVertical: 16, paddingLeft: 16, paddingRight: 4, justifyContent: 'center',
-  },
-  monthlyHoursRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 12,
-  },
-  monthlyHoursTitleCol: { flex: 1 },
-  monthlyHoursLabel: {
-    fontSize: 13, color: '#fff', fontWeight: '700', lineHeight: 18, marginBottom: 4,
-  },
-  monthlyHoursValue: {
-    fontSize: 26, fontWeight: '800', color: '#fff', letterSpacing: -0.5,
-  },
-  monthlyHoursSub: {
-    fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: '500',
-  },
-
-  /* ── Face Attendance button (direct child of sheetWrapper, not inside ScrollView) ── */
-  faceTopBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#2563eb', borderRadius: 14,
-    marginHorizontal: 14, marginTop: 14,
-    paddingHorizontal: 14, paddingVertical: 12,
-    shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18, shadowRadius: 6, elevation: 3,
-  },
-  faceTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  faceTopIconBox: {
-    width: 38, height: 38, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  faceTopTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  faceTopSub: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '500', marginTop: 1 },
-
-  /* ── ScrollView ── */
-  sheetWrapper: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
-  },
-  sheet: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 96,
-    gap: 6,
-  },
-
-  /* ── Calendar card ── */
-  calendarCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingTop: 16,
-    paddingBottom: 14,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  /* ── Calendar top bar ── */
-  calTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.primaryDark,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  calTopBarLeft: {
-    gap: 3,
-  },
-  calTopTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.2,
-  },
-  calTopSub: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.55)',
-    fontWeight: '500',
-  },
-  calTopRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  calNavBtnDark: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calCloseBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 2,
-  },
-  calNavBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLORS.heroBgLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthTitleHit: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  monthTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 17,
-    fontWeight: '800',
-    color: COLORS.primaryDark,
-    letterSpacing: 0.2,
-  },
-  monthSubtitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-
-  /* Weekday row */
-  weekdayRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-    marginTop: 0,
-    paddingVertical: 6,
-  },
-  weekdayCell: {
-    width: '14.285%',
-    textAlign: 'center',
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.muted,
-    letterSpacing: 0.2,
-  },
-
-  /* Day grid */
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 2,
-  },
-  gridCell: {
-    width: '14.285%',
-    aspectRatio: 1,
-    maxHeight: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 2,
-  },
-  dayInner: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-  },
-  todayRing: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    backgroundColor: '#eff6ff',
-  },
-  todayDot: {
-    position: 'absolute',
-    bottom: 4,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.primary,
-  },
-  selectedBlock: {
-    backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  futureDayBlock: {
-    opacity: 0.3,
-  },
-  dayText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.ink,
-  },
-  dayMuted: {
-    color: '#e2e8f0',
-    fontWeight: '400',
-  },
-  dayFuture: {
-    color: '#cbd5e1',
-  },
-  dayPlain: {
-    color: COLORS.ink,
-  },
-  dayActivity: {
-    color: COLORS.primaryStrong,
-    fontWeight: '700',
-  },
-  dayTextOnSelected: {
-    color: COLORS.white,
-    fontWeight: '800',
-  },
-
-  /* Legend */
-  legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 12,
-    paddingVertical: 10,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: '600',
-  },
-
-  /* ── Calendar Modal ── */
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 14,
-    paddingBottom: 32,
-    maxHeight: SCREEN_H * 0.88,
-    elevation: 20,
-  },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#cbd5e1',
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  modalSheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    marginBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  modalSheetTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.ink,
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f1f5f9',
-  },
-
-  /* Date selector bar */
-  dateSelectorBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 12,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#e8edf8',
-  },
-  dateSelectorIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  dateSelectorCenter: {
-    flex: 1,
-    gap: 2,
-  },
-  dateSelectorWeekday: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  dateSelectorTodayInline: {
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
-  dateSelectorDateMain: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.ink,
-    letterSpacing: 0.1,
-  },
-  dateSelectorLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.muted,
-  },
-  dateSelectorToday: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-  dateSelectorChevron: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: COLORS.heroBgLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  changeDateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: COLORS.primary,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  changeDateBtnText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-
-  /* Detail section cards */
-  infoSectionsWrap: {
-    gap: 12,
-  },
-  infoSectionCard: {
-    borderRadius: 16,
-    backgroundColor: COLORS.white,
-    padding: 14,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  infoSectionHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  infoSectionHeadLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  infoSectionAccent: {
-    width: 4,
-    height: 16,
-    borderRadius: 2,
-    backgroundColor: COLORS.primary,
-  },
-  infoSectionTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.ink,
-  },
-  readOnlyBadge: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  readOnlyText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.muted,
-  },
-  countBadge: {
-    backgroundColor: COLORS.heroBg,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  countBadgeText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.primaryStrong,
-  },
-  infoRows: {
-    width: '100%',
-  },
-  infoFieldRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingVertical: 9,
-  },
-  infoFieldRowLast: {
-    borderBottomWidth: 0,
-    paddingBottom: 2,
-  },
-  infoLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: COLORS.muted,
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    color: COLORS.ink,
-    fontWeight: '700',
-    flexShrink: 1,
-    textAlign: 'right',
-  },
-
-  /* Punch table */
-  punchTable: {
-    minWidth: 760,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  punchHeaderRow: {
-    backgroundColor: COLORS.heroBg,
-  },
-  punchRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  punchCell: {
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    justifyContent: 'center',
-  },
-  punchHeadText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    color: COLORS.primaryStrong,
-    fontWeight: '700',
-  },
-  punchCellText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#334155',
-    fontWeight: '500',
-  },
-  punchColEmployee: { width: 92 },
-  punchColType: { width: 64 },
-  punchColMove: { width: 90 },
-  punchColTime: { width: 180 },
-  punchColReader: { width: 200 },
-  punchColStatus: { width: 90 },
-  punchInText: {
-    color: '#0f766e',
-    fontWeight: '700',
-  },
-  punchOutText: {
-    color: COLORS.primaryStrong,
-    fontWeight: '700',
-  },
-
-  /* Empty / placeholder states */
-  emptyPunchWrap: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 6,
-  },
-  emptyStateWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 28,
-    gap: 8,
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  emptyStateIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.heroBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyStateTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.ink,
-  },
-  placeholderWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 20,
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  dayDetailsPlaceholder: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    color: COLORS.muted,
-    fontWeight: '500',
-  },
-  dayDetailsEmpty: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    color: COLORS.muted,
-    textAlign: 'center',
-  },
-
-  /* ── Quick Actions panel ── */
-  actionPanel: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 14,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-    gap: 12,
-  },
-  actionPanelHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  actionPanelKicker: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    color: '#94a3b8',
-    fontWeight: '700',
-  },
-  actionPanelLink: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#64748b',
-  },
-
-  /* ── Action cards ── */
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    padding: 12,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    gap: 3,
-  },
-  actionCardBlue: {
-    backgroundColor: '#1d4ed8',
-    shadowColor: '#1d4ed8',
-  },
-  actionCardGreen: {
-    backgroundColor: '#0369a1',
-    shadowColor: '#0369a1',
-  },
-  actionCardIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  actionCardTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#ffffff',
-    lineHeight: 20,
-  },
-  actionCardSub: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10.5,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.65)',
-  },
-  actionCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 5,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
-  },
-  actionCardFooterText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.85)',
-  },
-
-  /* ── Face Attendance Modal ── */
-  faceModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  faceModalSheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingBottom: 36,
-    maxHeight: SCREEN_H * 0.88,
-  },
-  faceModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    marginBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  faceModalTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.ink,
-  },
-  faceModalSub: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 2,
-  },
-
-  /* Face viewfinder */
-  faceViewfinder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-  },
-  faceRipple: {
-    position: 'absolute',
-    width: OVAL_W + 4,
-    height: OVAL_H + 4,
-    borderRadius: (OVAL_W + 4) / 2,
-    borderWidth: 1.5,
-    borderColor: 'rgba(37,99,235,0.5)',
-  },
-  faceOval: {
-    width: OVAL_W,
-    height: OVAL_H,
-    borderRadius: OVAL_W / 2,
-    borderWidth: 2.5,
-    borderColor: '#cbd5e1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  corner: {
-    position: 'absolute',
-    width: Math.round(OVAL_W * 0.11),
-    height: Math.round(OVAL_W * 0.11),
-    borderColor: COLORS.primary,
-  },
-  corner_tl: { top: 12, left: 12, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 6 },
-  corner_tr: { top: 12, right: 12, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 6 },
-  corner_bl: { bottom: 12, left: 12, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 6 },
-  corner_br: { bottom: 12, right: 12, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 6 },
-  faceIconCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  faceScanLine: {
-    position: 'absolute',
-    width: 120,
-    height: 2,
-    backgroundColor: COLORS.primary,
-    opacity: 0.7,
-    borderRadius: 1,
-  },
-  faceScanBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  faceScanDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  faceScanBadgeText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  faceScanHint: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    color: COLORS.muted,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  faceScanBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primary,
-    borderRadius: 16,
-    paddingVertical: 15,
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  faceScanBtnDisabled: {
-    backgroundColor: '#93c5fd',
-  },
-  faceScanBtnText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-
-  /* ── Today's Punches ── */
-  todayPunchCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 14,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  todayPunchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    gap: 12,
-  },
-  todayPunchTypeBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  todayPunchInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  todayPunchType: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  todayPunchReader: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    color: COLORS.muted,
-    fontWeight: '500',
-  },
-  todayPunchTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  todayPunchMoveBadge: {
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  todayPunchMoveText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  todayPunchEmpId: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: '500',
-  },
-  todayPunchRight: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  todayPunchTime: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.ink,
-  },
-  todayPunchDate: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: '500',
-  },
-  todayPunchStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  todayPunchStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  todayPunchStatusText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  detailRowCell: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 2,
-  },
-  detailRowCellLeft: {
-    borderRightWidth: 1,
-    borderRightColor: '#f1f5f9',
-    marginRight: 12,
-    paddingRight: 12,
-  },
-  detailRowLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    color: COLORS.muted,
-    fontWeight: '500',
-    marginBottom: 3,
-  },
-  detailRowValue: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.ink,
-  },
-  detailRowValueMuted: {
-    color: '#cbd5e1',
-  },
-  viewMoreBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, paddingTop: 10, marginTop: 6,
-    borderTopWidth: 1, borderTopColor: '#f1f5f9',
-  },
-  viewMoreText: {
-    fontSize: 13, fontWeight: '700', color: '#2563eb',
-  },
-  punchLoadMore: {
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    marginTop: 4,
-  },
-  punchLoadMoreText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    color: COLORS.muted,
-    fontWeight: '500',
-  },
-
-  /* ── Attendance color legend ── */
-  colorLegendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 2,
-  },
-  colorLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  colorLegendDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-  },
-  colorLegendLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-  },
-
-  /* ── Punch time summary (start / end) ── */
-  punchTimeSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  punchTimeSummaryItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  punchTimeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    flexShrink: 0,
-  },
-  punchTimeSummaryLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-    marginBottom: 2,
-  },
-  punchTimeSummaryValue: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.ink,
-    letterSpacing: 0.2,
-  },
-  punchTimeSummaryDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: '#e2e8f0',
-    marginHorizontal: 12,
-  },
-});

@@ -9,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -23,26 +22,22 @@ import { useGraphQLQuery } from '@/hooks/api/useGraphQLQuery';
 import { getAccessToken } from '@/hooks/auth/token-store';
 import ReportPreviewModal from './report-preview-modal';
 
-const F = 'Inter';
-
 const C = {
-  navy:        '#0a1c63',
-  navyLight:   'rgba(255,255,255,0.12)',
-  navyBorder:  'rgba(255,255,255,0.18)',
-  primary:     '#2563eb',
-  ink:         '#0f172a',
-  muted:       '#64748b',
-  faint:       '#94a3b8',
-  border:      '#e2e8f0',
-  divider:     '#f1f5f9',
-  bg:          '#f8fafc',
-  white:       '#ffffff',
-  green:       '#16a34a',
-  greenBg:     '#f0fdf4',
-  red:         '#dc2626',
-  redBg:       '#fff1f2',
-  amber:       '#a16207',
-  amberBg:     '#fef9c3',
+  navy:    '#0a1c63',
+  primary: '#2563eb',
+  ink:     '#0f172a',
+  muted:   '#64748b',
+  faint:   '#94a3b8',
+  border:  '#e2e8f0',
+  divider: '#f1f5f9',
+  bg:      '#f8fafc',
+  white:   '#ffffff',
+  green:   '#16a34a',
+  greenBg: '#f0fdf4',
+  red:     '#dc2626',
+  redBg:   '#fff1f2',
+  amber:   '#a16207',
+  amberBg: '#fef9c3',
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -213,152 +208,100 @@ function FilterTable({
   if (items.length === 0) return null;
 
   return (
-    <View style={ft.wrap}>
+    <View className="mb-3">
       {/* Section kicker */}
-      <View style={ft.kicker}>
+      <View className="flex-row items-center gap-[6px] mb-[6px]">
         <Ionicons name={icon as any} size={13} color={C.primary} />
-        <Text style={ft.kickerTxt}>{title}</Text>
-        <View style={ft.countBadge}>
-          <Text style={ft.countBadgeTxt}>{items.length}</Text>
+        <Text className="flex-1 text-[11px] font-extrabold text-slate-500 uppercase" style={{ letterSpacing: 0.7 }}>{title}</Text>
+        <View className="bg-[#eff6ff] rounded-lg px-2 py-[3px]">
+          <Text className="text-[11px] font-extrabold text-[#2563eb]">{items.length}</Text>
         </View>
       </View>
-      <View style={ft.card}>
 
-      {/* Search */}
-      <View style={ft.searchWrap}>
-        <Ionicons name="search-outline" size={14} color={C.faint} />
-        <TextInput
-          style={ft.searchInput}
-          placeholder={`Search ${title.toLowerCase()}…`}
-          placeholderTextColor={C.faint}
-          value={search}
-          onChangeText={setSearch}
-          autoCorrect={false}
-        />
-        {search.length > 0 && (
-          <Pressable onPress={() => setSearch('')} hitSlop={8}>
-            <Ionicons name="close-circle" size={14} color={C.faint} />
-          </Pressable>
-        )}
-      </View>
+      <View
+        className="bg-white rounded-2xl overflow-hidden border border-[#f1f5f9]"
+        style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}
+      >
+        {/* Search */}
+        <View className="flex-row items-center gap-2 mx-[14px] my-[10px] bg-[#f8fafc] rounded-[10px] px-[10px] h-9 border border-[#e2e8f0]">
+          <Ionicons name="search-outline" size={14} color={C.faint} />
+          <TextInput
+            className="flex-1 text-[13px] text-[#0f172a]"
+            placeholder={`Search ${title.toLowerCase()}…`}
+            placeholderTextColor={C.faint}
+            value={search}
+            onChangeText={setSearch}
+            autoCorrect={false}
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={14} color={C.faint} />
+            </Pressable>
+          )}
+        </View>
 
-      {/* Column headers */}
-      <View style={ft.colHead}>
-        {singleColumn ? (
-          <Text style={[ft.colHeadTxt, { flex: 1 }]}>Employee ID</Text>
-        ) : (
-          <>
-            <Text style={[ft.colHeadTxt, { flex: 1 }]}>Code</Text>
-            <Text style={[ft.colHeadTxt, { flex: 2 }]}>Name</Text>
-          </>
-        )}
-      </View>
-
-      {/* Rows */}
-      {paged.map((item, i) => (
-        <View key={`${item.code}-${i}`} style={[ft.row, i % 2 === 1 && ft.rowAlt]}>
+        {/* Column headers */}
+        <View className="flex-row bg-[#f1f5f9] px-[14px] py-[7px]">
           {singleColumn ? (
-            <Text style={[ft.cell, ft.cellBold, { flex: 1 }]} numberOfLines={1}>{item.code}</Text>
+            <Text className="text-[10px] font-bold text-slate-500 uppercase flex-1" style={{ letterSpacing: 0.5 }}>Employee ID</Text>
           ) : (
             <>
-              <Text style={[ft.cell, { flex: 1 }]} numberOfLines={1}>{item.code}</Text>
-              <Text style={[ft.cell, ft.cellBold, { flex: 2 }]} numberOfLines={1}>
-                {item.name !== item.code ? item.name : '—'}
-              </Text>
+              <Text className="text-[10px] font-bold text-slate-500 uppercase flex-1" style={{ letterSpacing: 0.5 }}>Code</Text>
+              <Text className="text-[10px] font-bold text-slate-500 uppercase" style={{ flex: 2, letterSpacing: 0.5 }}>Name</Text>
             </>
           )}
         </View>
-      ))}
 
-      {filtered.length === 0 && (
-        <View style={ft.empty}>
-          <Ionicons name="search-outline" size={18} color={C.faint} />
-          <Text style={ft.emptyTxt}>No results</Text>
-        </View>
-      )}
+        {/* Rows */}
+        {paged.map((item, i) => (
+          <View key={`${item.code}-${i}`} className={`flex-row px-[14px] py-[10px] ${i % 2 === 1 ? 'bg-[#fafbff]' : ''}`}>
+            {singleColumn ? (
+              <Text className="text-[12px] text-[#0f172a] font-semibold flex-1" numberOfLines={1}>{item.code}</Text>
+            ) : (
+              <>
+                <Text className="text-[12px] text-slate-500 flex-1" numberOfLines={1}>{item.code}</Text>
+                <Text className="text-[12px] text-[#0f172a] font-semibold" style={{ flex: 2 }} numberOfLines={1}>
+                  {item.name !== item.code ? item.name : '—'}
+                </Text>
+              </>
+            )}
+          </View>
+        ))}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <View style={ft.pageRow}>
-          <Pressable
-            onPress={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            style={[ft.pageBtn, page === 1 && ft.pageBtnDis]}>
-            <Ionicons name="chevron-back" size={13} color={page === 1 ? C.border : C.primary} />
-          </Pressable>
-          <Text style={ft.pageInfo}>
-            <Text style={{ color: C.primary, fontWeight: '700' }}>{page}</Text>
-            {' / '}{totalPages}
-          </Text>
-          <Pressable
-            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-            style={[ft.pageBtn, page >= totalPages && ft.pageBtnDis]}>
-            <Ionicons name="chevron-forward" size={13} color={page >= totalPages ? C.border : C.primary} />
-          </Pressable>
-        </View>
-      )}
+        {filtered.length === 0 && (
+          <View className="py-[18px] items-center gap-[6px]">
+            <Ionicons name="search-outline" size={18} color={C.faint} />
+            <Text className="text-[12px] text-[#94a3b8]">No results</Text>
+          </View>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <View className="flex-row items-center justify-center gap-[14px] py-[10px] border-t border-[#f1f5f9]">
+            <Pressable
+              onPress={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className={`w-7 h-7 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] items-center justify-center ${page === 1 ? 'opacity-[0.35]' : ''}`}
+            >
+              <Ionicons name="chevron-back" size={13} color={page === 1 ? C.border : C.primary} />
+            </Pressable>
+            <Text className="text-[12px] text-slate-500">
+              <Text style={{ color: C.primary, fontWeight: '700' }}>{page}</Text>
+              {' / '}{totalPages}
+            </Text>
+            <Pressable
+              onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className={`w-7 h-7 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] items-center justify-center ${page >= totalPages ? 'opacity-[0.35]' : ''}`}
+            >
+              <Ionicons name="chevron-forward" size={13} color={page >= totalPages ? C.border : C.primary} />
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );
 }
-
-const ft = StyleSheet.create({
-  wrap: { marginBottom: 12 },
-  kicker: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginBottom: 6,
-  },
-  kickerTxt: {
-    flex: 1,
-    fontFamily: F, fontSize: 11, fontWeight: '800',
-    color: C.muted, textTransform: 'uppercase', letterSpacing: 0.7,
-  },
-  card: {
-    backgroundColor: C.white, borderRadius: 16, overflow: 'hidden',
-    borderWidth: 1, borderColor: C.divider,
-    shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
-  },
-  countBadge: {
-    backgroundColor: '#eff6ff', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 3,
-  },
-  countBadgeTxt: { fontFamily: F, fontSize: 11, fontWeight: '800', color: C.primary },
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: 14, marginVertical: 10,
-    backgroundColor: C.bg, borderRadius: 10,
-    paddingHorizontal: 10, height: 36,
-    borderWidth: 1, borderColor: C.border,
-  },
-  searchInput: { flex: 1, fontFamily: F, fontSize: 13, color: C.ink },
-  colHead: {
-    flexDirection: 'row', backgroundColor: C.divider,
-    paddingHorizontal: 14, paddingVertical: 7,
-  },
-  colHeadTxt: {
-    fontFamily: F, fontSize: 10, fontWeight: '700',
-    color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5,
-  },
-  row: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 10 },
-  rowAlt: { backgroundColor: '#fafbff' },
-  cell: { fontFamily: F, fontSize: 12, color: C.muted },
-  cellBold: { color: C.ink, fontWeight: '600' },
-  empty: { paddingVertical: 18, alignItems: 'center', gap: 6 },
-  emptyTxt: { fontFamily: F, fontSize: 12, color: C.faint },
-  pageRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 14, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: C.divider,
-  },
-  pageBtn: {
-    width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: C.border,
-    backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center',
-  },
-  pageBtnDis: { opacity: 0.35 },
-  pageInfo: { fontFamily: F, fontSize: 12, color: C.muted },
-});
 
 // ── Section config ────────────────────────────────────────────────────────────
 
@@ -383,9 +326,9 @@ const SECTIONS: { key: keyof ReportData; label: string; icon: string }[] = [
 
 function MetaRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <View style={[s.metaRow, last && { borderBottomWidth: 0 }]}>
-      <Text style={s.metaLabel}>{label}</Text>
-      <Text style={s.metaValue} numberOfLines={2}>{value}</Text>
+    <View className={`flex-row justify-between items-center px-[14px] py-[11px] ${last ? '' : 'border-b border-[#f1f5f9]'}`}>
+      <Text className="text-[12px] font-medium text-slate-500">{label}</Text>
+      <Text className="text-[13px] font-bold text-[#0f172a] text-right flex-1 ml-4" numberOfLines={2}>{value}</Text>
     </View>
   );
 }
@@ -585,19 +528,19 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
 
   if (loading) {
     return (
-      <View style={s.screen}>
+      <View className="flex-1 bg-[#f8fafc]">
         <StatusBar barStyle="light-content" backgroundColor={C.navy} />
-        <View style={[s.header, { paddingTop: insets.top + 14 }]}>
-          <Pressable onPress={() => router.back()} hitSlop={8} style={s.backBtn}>
+        <View className="flex-row items-center gap-[10px] mb-3" style={{ paddingTop: insets.top + 14 }}>
+          <Pressable onPress={() => router.back()} hitSlop={8} className="w-8 h-8 rounded-full bg-white/15 items-center justify-center">
             <Ionicons name="chevron-back" size={20} color={C.white} />
           </Pressable>
-          <Text style={s.headerTitle}>Report Details</Text>
+          <Text className="text-base font-bold text-white flex-1">Report Details</Text>
         </View>
-        <View style={s.center}>
-          <View style={s.spinnerWrap}>
+        <View className="flex-1 items-center justify-center gap-3 px-8">
+          <View className="w-16 h-16 rounded-[18px] bg-[#eff6ff] items-center justify-center">
             <ActivityIndicator size="large" color={C.primary} />
           </View>
-          <Text style={s.loadTxt}>Loading report…</Text>
+          <Text className="text-[13px] text-slate-500">Loading report…</Text>
         </View>
       </View>
     );
@@ -607,23 +550,23 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
 
   if (!report) {
     return (
-      <View style={s.screen}>
+      <View className="flex-1 bg-[#f8fafc]">
         <StatusBar barStyle="light-content" backgroundColor={C.navy} />
-        <View style={[s.header, { paddingTop: insets.top + 14 }]}>
-          <Pressable onPress={() => router.back()} hitSlop={8} style={s.backBtn}>
+        <View className="flex-row items-center gap-[10px] mb-3" style={{ paddingTop: insets.top + 14 }}>
+          <Pressable onPress={() => router.back()} hitSlop={8} className="w-8 h-8 rounded-full bg-white/15 items-center justify-center">
             <Ionicons name="chevron-back" size={20} color={C.white} />
           </Pressable>
-          <Text style={s.headerTitle}>Report Details</Text>
+          <Text className="text-base font-bold text-white flex-1">Report Details</Text>
         </View>
-        <View style={s.center}>
-          <View style={[s.emptyIconWrap, { backgroundColor: '#eff6ff' }]}>
+        <View className="flex-1 items-center justify-center gap-3 px-8">
+          <View className="w-[68px] h-[68px] rounded-[20px] items-center justify-center" style={{ backgroundColor: '#eff6ff' }}>
             <Ionicons name="document-text-outline" size={32} color={C.primary} />
           </View>
-          <Text style={s.emptyTitle}>Report not found</Text>
-          <Text style={s.emptySub}>The requested report could not be loaded.</Text>
-          <Pressable style={s.goBackBtn} onPress={() => router.back()}>
+          <Text className="text-[17px] font-extrabold text-[#0f172a]">Report not found</Text>
+          <Text className="text-[13px] text-slate-500 text-center">The requested report could not be loaded.</Text>
+          <Pressable className="flex-row items-center gap-[6px] bg-[#0a1c63] rounded-xl px-5 py-[11px] mt-1" onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={14} color={C.white} />
-            <Text style={s.goBackBtnTxt}>Go Back</Text>
+            <Text className="text-[13px] font-bold text-white">Go Back</Text>
           </Pressable>
         </View>
       </View>
@@ -633,16 +576,6 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const hasDateRange = report.fromDate && report.toDate;
-  const metaRows = [
-    { label: 'Extension',   value: extLabel },
-    { label: 'Period',      value: report.period ? capitalize(report.period) : '—' },
-    ...(hasDateRange
-      ? [
-          { label: 'From', value: fmtDate(report.fromDate) },
-          { label: 'To',   value: fmtDate(report.toDate) },
-        ]
-      : []),
-  ];
 
   const hasAnyFilters = SECTIONS.some((sec) => {
     const d = (enrichedData as any)[sec.key];
@@ -654,100 +587,110 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
   const fileBg = isPdf ? C.redBg : C.greenBg;
 
   return (
-    <View style={s.screen}>
+    <View className="flex-1 bg-[#f8fafc]">
       <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View style={[s.headerWrap, { paddingTop: insets.top + 14 }]}>
-        {/* Top row — matches muster reference exactly */}
-        <View style={s.header}>
-          <Pressable onPress={() => router.back()} hitSlop={8} style={s.backBtn}>
+      <View className="bg-[#0a1c63] px-4 pb-2" style={{ paddingTop: insets.top + 14 }}>
+        <View className="flex-row items-center gap-[10px] mb-3">
+          <Pressable onPress={() => router.back()} hitSlop={8} className="w-8 h-8 rounded-full bg-white/15 items-center justify-center">
             <Ionicons name="chevron-back" size={20} color={C.white} />
           </Pressable>
-          <Text style={s.headerTitle}>Report Details</Text>
+          <Text className="text-base font-bold text-white flex-1">Report Details</Text>
           <View style={{ width: 32 }} />
         </View>
-
       </View>
 
       {/* ── Scrollable content ─────────────────────────────────────────── */}
       <ScrollView
-        style={s.scroll}
-        contentContainerStyle={s.content}
-        showsVerticalScrollIndicator={false}>
-
+        className="flex-1"
+        contentContainerStyle={{ padding: 14 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ── Report identity card ── */}
-        <View style={s.identityCard}>
+        <View
+          className="bg-white rounded-[20px] overflow-hidden border border-[#f1f5f9] mb-4"
+          style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 12, elevation: 4 }}
+        >
           {/* Navy header: icon + title + status badge */}
-          <View style={s.identityTop}>
-            <View style={[s.fileIconBox, { backgroundColor: fileBg }]}>
+          <View className="flex-row items-start bg-[#0a1c63] p-4">
+            <View className="w-[52px] h-[52px] rounded-2xl items-center justify-center mr-3" style={{ backgroundColor: fileBg }}>
               <Ionicons name={fileIconName} size={26} color={fileColor} />
             </View>
-            <View style={s.identityText}>
-              <Text style={s.identityTitle} numberOfLines={2}>{title}</Text>
+            <View className="flex-1 pt-[2px]">
+              <Text className="text-[15px] font-extrabold text-white leading-5" numberOfLines={2}>{title}</Text>
               {createdAt ? (
-                <View style={s.identityDateRow}>
+                <View className="flex-row items-center mt-[5px]">
                   <Ionicons name="calendar-outline" size={11} color="rgba(255,255,255,0.5)" />
-                  <Text style={s.identityDate}>{fmtDate(createdAt)}</Text>
+                  <Text className="text-[11px] text-white/55 ml-1">{fmtDate(createdAt)}</Text>
                 </View>
               ) : null}
             </View>
-            <Pressable onPress={() => setStatusOpen(true)} hitSlop={10} style={[s.statusBadge, { backgroundColor: sm.bg }]}>
+            <Pressable
+              onPress={() => setStatusOpen(true)}
+              hitSlop={10}
+              className="flex-row items-center rounded-[20px] px-[10px] py-[5px] ml-2 mt-[2px]"
+              style={{ backgroundColor: sm.bg }}
+            >
               <Ionicons
                 name={sm.label === 'Completed' ? 'checkmark-circle' : sm.label === 'Failed' ? 'close-circle' : 'time'}
                 size={13} color={sm.txt}
               />
-              <Text style={[s.statusBadgeTxt, { color: sm.txt }]}>{sm.label}</Text>
+              <Text className="text-[11px] font-bold ml-1" style={{ color: sm.txt }}>{sm.label}</Text>
             </Pressable>
           </View>
 
           {/* Info grid */}
-          <View style={s.infoGrid}>
+          <View className="flex-row flex-wrap border-t border-[#f1f5f9]">
             {/* Extension pill */}
-            <View style={s.infoCell}>
-              <Text style={s.infoCellLabel}>Extension</Text>
-              <View style={[s.extPill, { backgroundColor: isPdf ? C.redBg : C.greenBg }]}>
+            <View className="w-1/2 p-[14px] justify-center">
+              <Text className="text-[10px] font-bold text-[#94a3b8] uppercase mb-[5px]" style={{ letterSpacing: 0.5 }}>Extension</Text>
+              <View className="flex-row items-center self-start rounded-lg px-2 py-1" style={{ backgroundColor: isPdf ? C.redBg : C.greenBg }}>
                 <Ionicons name={fileIconName} size={12} color={fileColor} />
-                <Text style={[s.extPillTxt, { color: fileColor }]}>{extLabel}</Text>
+                <Text className="text-[12px] font-extrabold ml-1" style={{ color: fileColor }}>{extLabel}</Text>
               </View>
             </View>
 
             {/* Period */}
-            <View style={[s.infoCell, s.infoCellBorderLeft]}>
-              <Text style={s.infoCellLabel}>Period</Text>
-              <Text style={s.infoCellValue}>{report.period ? capitalize(report.period) : '—'}</Text>
+            <View className="w-1/2 p-[14px] justify-center border-l border-[#f1f5f9]">
+              <Text className="text-[10px] font-bold text-[#94a3b8] uppercase mb-[5px]" style={{ letterSpacing: 0.5 }}>Period</Text>
+              <Text className="text-[13px] font-bold text-[#0f172a]">{report.period ? capitalize(report.period) : '—'}</Text>
             </View>
 
             {hasDateRange && (
               <>
-                <View style={[s.infoCell, s.infoCellBorderTop]}>
-                  <Text style={s.infoCellLabel}>From</Text>
-                  <Text style={s.infoCellValue}>{fmtDate(report.fromDate)}</Text>
+                <View className="w-1/2 p-[14px] justify-center border-t border-[#f1f5f9]">
+                  <Text className="text-[10px] font-bold text-[#94a3b8] uppercase mb-[5px]" style={{ letterSpacing: 0.5 }}>From</Text>
+                  <Text className="text-[13px] font-bold text-[#0f172a]">{fmtDate(report.fromDate)}</Text>
                 </View>
-                <View style={[s.infoCell, s.infoCellBorderLeft, s.infoCellBorderTop]}>
-                  <Text style={s.infoCellLabel}>To</Text>
-                  <Text style={s.infoCellValue}>{fmtDate(report.toDate)}</Text>
+                <View className="w-1/2 p-[14px] justify-center border-l border-t border-[#f1f5f9]">
+                  <Text className="text-[10px] font-bold text-[#94a3b8] uppercase mb-[5px]" style={{ letterSpacing: 0.5 }}>To</Text>
+                  <Text className="text-[13px] font-bold text-[#0f172a]">{fmtDate(report.toDate)}</Text>
                 </View>
               </>
             )}
           </View>
 
-          {/* Action buttons inside card */}
-          <View style={s.actionRow}>
+          {/* Action buttons */}
+          <View className="flex-row mx-[14px] mb-4 border-t border-[#f1f5f9] pt-[14px]">
             <Pressable
-              style={({ pressed }) => [s.btn, s.btnPrimary, !report.report && s.btnDisabled, pressed && !!report.report && !downloadLoading && { opacity: 0.88 }]}
+              className={`flex-1 flex-row items-center justify-center rounded-xl h-11 mr-2 ${!report.report ? 'bg-[#94a3b8]' : 'bg-[#0a1c63]'}`}
+              style={({ pressed }) => [pressed && !!report.report && !downloadLoading && { opacity: 0.88 }]}
               onPress={handleDownload}
-              disabled={downloadLoading}>
+              disabled={downloadLoading}
+            >
               {downloadLoading
                 ? <ActivityIndicator size="small" color={C.white} />
                 : <Ionicons name="download-outline" size={16} color={C.white} />}
-              <Text style={s.btnTxt}>Download</Text>
+              <Text className="text-[13px] font-bold text-white ml-[6px]">Download</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [s.btn, s.btnOutline, !report.report && s.btnOutlineDisabled, pressed && !!report.report && { opacity: 0.88 }]}
-              onPress={handlePreview}>
+              className={`flex-1 flex-row items-center justify-center rounded-xl h-11 bg-white ${!report.report ? 'border-[#e2e8f0]' : 'border-[#2563eb]'}`}
+              style={({ pressed }) => [{ borderWidth: 1.5 }, pressed && !!report.report && { opacity: 0.88 }]}
+              onPress={handlePreview}
+            >
               <Ionicons name="eye-outline" size={16} color={report.report ? C.primary : C.faint} />
-              <Text style={[s.btnTxt, { color: report.report ? C.primary : C.faint }]}>Preview</Text>
+              <Text className="text-[13px] font-bold ml-[6px]" style={{ color: report.report ? C.primary : C.faint }}>Preview</Text>
             </Pressable>
           </View>
         </View>
@@ -770,12 +713,12 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
         })}
 
         {!hasAnyFilters && (
-          <View style={s.noFilters}>
-            <View style={s.noFiltersIcon}>
+          <View className="items-center py-7 gap-2 bg-white rounded-2xl border border-[#f1f5f9]">
+            <View className="w-12 h-12 rounded-[14px] bg-[#eff6ff] items-center justify-center">
               <Ionicons name="filter-outline" size={22} color={C.primary} />
             </View>
-            <Text style={s.noFiltersTitle}>No filters applied</Text>
-            <Text style={s.noFiltersSub}>This report was generated without any filter criteria.</Text>
+            <Text className="text-[14px] font-bold text-[#0f172a]">No filters applied</Text>
+            <Text className="text-[12px] text-slate-500 text-center px-6">This report was generated without any filter criteria.</Text>
           </View>
         )}
 
@@ -797,13 +740,14 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
         visible={statusOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setStatusOpen(false)}>
-        <Pressable style={s.modalBackdrop} onPress={() => setStatusOpen(false)} />
-        <View style={s.modalSheet}>
-          <View style={s.modalHandle} />
-          <View style={s.modalTitleRow}>
-            <Text style={s.modalTitle}>Status Updates</Text>
-            <Pressable onPress={() => setStatusOpen(false)} hitSlop={8} style={s.modalCloseBtn}>
+        onRequestClose={() => setStatusOpen(false)}
+      >
+        <Pressable className="flex-1 bg-black/40" onPress={() => setStatusOpen(false)} />
+        <View className="bg-white rounded-tl-3xl rounded-tr-3xl pb-4" style={{ maxHeight: '75%' }}>
+          <View className="w-9 h-1 rounded-sm bg-[#e2e8f0] self-center mt-[10px] mb-1" />
+          <View className="flex-row items-center justify-between px-4 py-3 border-b border-[#f1f5f9]">
+            <Text className="text-[15px] font-extrabold text-[#0f172a]">Status Updates</Text>
+            <Pressable onPress={() => setStatusOpen(false)} hitSlop={8} className="w-[30px] h-[30px] rounded-full bg-[#f1f5f9] items-center justify-center">
               <Ionicons name="close" size={18} color={C.muted} />
             </Pressable>
           </View>
@@ -820,205 +764,3 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
     </View>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-
-  // Header — outer column container (navy bg)
-  headerWrap: {
-    backgroundColor: C.navy,
-    paddingHorizontal: 16, paddingBottom: 8,
-  },
-  // Top row — matches muster reference exactly
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 10, marginBottom: 12,
-  },
-  backBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: F, fontSize: 16, fontWeight: '700',
-    color: C.white, flex: 1,
-  },
-  statusIconBtn: {
-    width: 38, height: 38, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-  },
-
-  // Identity card
-  identityCard: {
-    backgroundColor: C.white,
-    borderRadius: 20, overflow: 'hidden',
-    borderWidth: 1, borderColor: C.divider,
-    shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10, shadowRadius: 12, elevation: 4,
-    marginBottom: 16,
-  },
-  identityTop: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: C.navy,
-    padding: 16,
-  },
-  fileIconBox: {
-    width: 52, height: 52, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 12,
-  },
-  identityText: { flex: 1, paddingTop: 2 },
-  identityTitle: {
-    fontFamily: F, fontSize: 15, fontWeight: '800', color: C.white,
-    lineHeight: 20,
-  },
-  identityDateRow: {
-    flexDirection: 'row', alignItems: 'center', marginTop: 5,
-  },
-  identityDate: {
-    fontFamily: F, fontSize: 11, color: 'rgba(255,255,255,0.55)',
-    marginLeft: 4,
-  },
-  statusBadge: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
-    marginLeft: 8, marginTop: 2,
-  },
-  statusBadgeTxt: {
-    fontFamily: F, fontSize: 11, fontWeight: '700', marginLeft: 4,
-  },
-
-  // Info grid
-  infoGrid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    borderTopWidth: 1, borderTopColor: C.divider,
-  },
-  infoCell: {
-    width: '50%', padding: 14,
-    justifyContent: 'center',
-  },
-  infoCellBorderLeft: {
-    borderLeftWidth: 1, borderLeftColor: C.divider,
-  },
-  infoCellBorderTop: {
-    borderTopWidth: 1, borderTopColor: C.divider,
-  },
-  infoCellLabel: {
-    fontFamily: F, fontSize: 10, fontWeight: '700',
-    color: C.faint, textTransform: 'uppercase', letterSpacing: 0.5,
-    marginBottom: 5,
-  },
-  infoCellValue: {
-    fontFamily: F, fontSize: 13, fontWeight: '700', color: C.ink,
-  },
-  extPill: {
-    flexDirection: 'row', alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
-  },
-  extPillTxt: {
-    fontFamily: F, fontSize: 12, fontWeight: '800', marginLeft: 4,
-  },
-
-  // Scroll
-  scroll: { flex: 1 },
-  content: { padding: 14 },
-
-  // Meta rows (kept for loading/error states)
-  metaRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 11,
-    borderBottomWidth: 1, borderBottomColor: C.divider,
-  },
-  metaLabel: { fontFamily: F, fontSize: 12, fontWeight: '500', color: C.muted },
-  metaValue: {
-    fontFamily: F, fontSize: 13, fontWeight: '700', color: C.ink,
-    textAlign: 'right', flex: 1, marginLeft: 16,
-  },
-
-  // Action buttons
-  actionRow: {
-    flexDirection: 'row',
-    marginHorizontal: 14, marginBottom: 16,
-    borderTopWidth: 1, borderTopColor: C.divider,
-    paddingTop: 14,
-  },
-  btn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', borderRadius: 12, height: 44,
-  },
-  btnPrimary: { backgroundColor: C.navy, marginRight: 8 },
-  btnDisabled: { backgroundColor: C.faint, marginRight: 8 },
-  btnOutline: { backgroundColor: C.white, borderWidth: 1.5, borderColor: C.primary },
-  btnOutlineDisabled: { backgroundColor: C.white, borderWidth: 1.5, borderColor: C.border },
-  btnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: C.white, marginLeft: 6 },
-
-  // No filters
-  noFilters: {
-    alignItems: 'center', paddingVertical: 28, gap: 8,
-    backgroundColor: C.white, borderRadius: 16,
-    borderWidth: 1, borderColor: C.divider,
-  },
-  noFiltersIcon: {
-    width: 48, height: 48, borderRadius: 14,
-    backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center',
-  },
-  noFiltersTitle: { fontFamily: F, fontSize: 14, fontWeight: '700', color: C.ink },
-  noFiltersSub: {
-    fontFamily: F, fontSize: 12, color: C.muted,
-    textAlign: 'center', paddingHorizontal: 24,
-  },
-
-  // Loading / empty states
-  center: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    gap: 12, paddingHorizontal: 32,
-  },
-  spinnerWrap: {
-    width: 64, height: 64, borderRadius: 18,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  loadTxt: { fontFamily: F, fontSize: 13, color: C.muted },
-  emptyIconWrap: {
-    width: 68, height: 68, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  emptyTitle: { fontFamily: F, fontSize: 17, fontWeight: '800', color: C.ink },
-  emptySub: { fontFamily: F, fontSize: 13, color: C.muted, textAlign: 'center' },
-  goBackBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: C.navy, borderRadius: 12,
-    paddingHorizontal: 20, paddingVertical: 11, marginTop: 4,
-  },
-  goBackBtnTxt: { fontFamily: F, fontSize: 13, fontWeight: '700', color: C.white },
-
-  // Status modal
-  modalBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalSheet: {
-    backgroundColor: C.white,
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    maxHeight: '75%', paddingBottom: 16,
-  },
-  modalHandle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: C.border,
-    alignSelf: 'center', marginTop: 10, marginBottom: 4,
-  },
-  modalTitleRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: C.divider,
-  },
-  modalTitle: { fontFamily: F, fontSize: 15, fontWeight: '800', color: C.ink },
-  modalCloseBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: C.divider,
-    alignItems: 'center', justifyContent: 'center',
-  },
-});

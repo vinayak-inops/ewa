@@ -1,23 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable, StatusBar } from 'react-native';
+import { ScrollView, Text, View, Pressable, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const APP_FONT_FAMILY = 'Inter';
-
-const COLORS = {
-  bg: '#f5f3ff',
-  ink: '#0f172a',
-  muted: '#64748b',
-  primary: '#7c3aed',
-  primaryStrong: '#6d28d9',
-  primaryDark: '#4c1d95',
-  heroBg: '#ede9fe',
-  heroBgLight: '#f5f3ff',
-  white: '#ffffff',
-  border: '#e2e8f0',
-};
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -52,76 +37,127 @@ export default function ReportsPage({ id }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
+    <View className="flex-1 bg-[#f5f3ff]">
       <StatusBar barStyle="light-content" backgroundColor="#4c1d95" />
 
       {/* Header */}
-      <View style={[styles.top, { paddingTop: insets.top + 14 }]}>
-        <View style={styles.blobA} />
-        <View style={styles.blobB} />
+      <View
+        className="bg-[#4c1d95] px-5 pb-5 overflow-hidden"
+        style={{ paddingTop: insets.top + 14 }}
+      >
+        {/* Decorative blobs */}
+        <View
+          className="absolute w-[180px] h-[180px] rounded-full bg-[#6d28d9] opacity-50"
+          style={{ right: -40, top: -60 }}
+        />
+        <View
+          className="absolute w-[120px] h-[120px] rounded-full bg-[#7c3aed] opacity-25"
+          style={{ right: 60, top: 10 }}
+        />
 
-        <View style={styles.topRow}>
-          <View style={styles.leftGroup}>
-            <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={COLORS.white} />
+        {/* Top row */}
+        <View className="flex-row justify-between items-center mb-4">
+          <View className="flex-row items-center gap-[10px]">
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={8}
+              className="w-[34px] h-[34px] rounded-full items-center justify-center bg-white/15"
+            >
+              <Ionicons name="arrow-back" size={18} color="#ffffff" />
             </Pressable>
-            <Text style={styles.title}>Reports</Text>
+            <Text className="text-[20px] font-bold text-white">Reports</Text>
           </View>
-          <View style={styles.topIcons}>
-            <Pressable style={styles.iconButton} hitSlop={8}>
-              <Ionicons name="download-outline" size={19} color={COLORS.white} />
+          <View className="flex-row gap-2">
+            <Pressable className="w-[34px] h-[34px] rounded-full items-center justify-center bg-white/[0.12]" hitSlop={8}>
+              <Ionicons name="download-outline" size={19} color="#ffffff" />
             </Pressable>
           </View>
         </View>
 
-        <View style={styles.headerCard}>
-          <View style={styles.headerCardIcon}>
-            <Ionicons name="person-outline" size={22} color={COLORS.white} />
+        {/* Identity card */}
+        <View
+          className="flex-row items-center gap-[14px] rounded-2xl p-[14px] border"
+          style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.18)' }}
+        >
+          <View
+            className="w-11 h-11 rounded-full items-center justify-center"
+            style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+          >
+            <Ionicons name="person-outline" size={22} color="#ffffff" />
           </View>
-          <View style={styles.headerCardText}>
-            <Text style={styles.headerCardKicker}>Employee Report</Text>
-            <Text style={styles.headerCardTitle}>ID: {id}</Text>
-            <Text style={styles.headerCardSub}>{monthTitle}</Text>
+          <View className="flex-1">
+            <Text className="text-[11px] font-bold text-[#c4b5fd] uppercase" style={{ letterSpacing: 0.4 }}>
+              Employee Report
+            </Text>
+            <Text className="text-[14px] font-extrabold text-white mt-[2px]">ID: {id}</Text>
+            <Text className="text-[11px] text-[#c4b5fd] mt-[2px]">{monthTitle}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#c4b5fd" />
         </View>
       </View>
 
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
+      <ScrollView
+        className="flex-1 bg-[#f5f3ff]"
+        contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 16, paddingBottom: 96, gap: 12 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Month navigator */}
-        <View style={styles.monthNav}>
-          <Pressable hitSlop={12} style={styles.navBtn} onPress={() => navigateMonth('prev')}>
-            <Ionicons name="chevron-back" size={20} color={COLORS.primary} />
+        <View
+          className="flex-row items-center justify-between bg-white rounded-[14px] p-3"
+          style={{ shadowColor: '#4c1d95', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 }}
+        >
+          <Pressable
+            hitSlop={12}
+            className="w-9 h-9 rounded-[10px] bg-[#ede9fe] items-center justify-center"
+            onPress={() => navigateMonth('prev')}
+          >
+            <Ionicons name="chevron-back" size={20} color="#7c3aed" />
           </Pressable>
-          <Text style={styles.monthNavTitle}>{monthTitle}</Text>
-          <Pressable hitSlop={12} style={styles.navBtn} onPress={() => navigateMonth('next')}>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+          <Text className="text-[16px] font-extrabold text-[#4c1d95]">{monthTitle}</Text>
+          <Pressable
+            hitSlop={12}
+            className="w-9 h-9 rounded-[10px] bg-[#ede9fe] items-center justify-center"
+            onPress={() => navigateMonth('next')}
+          >
+            <Ionicons name="chevron-forward" size={20} color="#7c3aed" />
           </Pressable>
         </View>
 
         {/* Summary grid */}
-        <View style={styles.summaryGrid}>
+        <View className="flex-row flex-wrap gap-[10px]">
           {SUMMARY_ITEMS.map((item) => (
-            <View key={item.label} style={[styles.summaryCard, { backgroundColor: item.bg }]}>
-              <View style={[styles.summaryIconWrap, { backgroundColor: item.color }]}>
-                <Ionicons name={item.icon} size={18} color={COLORS.white} />
+            <View
+              key={item.label}
+              className="w-[47.5%] rounded-[14px] p-[14px] gap-[6px]"
+              style={{
+                backgroundColor: item.bg,
+                shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+              }}
+            >
+              <View
+                className="w-8 h-8 rounded-[10px] items-center justify-center"
+                style={{ backgroundColor: item.color }}
+              >
+                <Ionicons name={item.icon} size={18} color="#ffffff" />
               </View>
-              <Text style={[styles.summaryValue, { color: item.color }]}>--</Text>
-              <Text style={styles.summaryLabel}>{item.label}</Text>
+              <Text className="text-[22px] font-extrabold" style={{ color: item.color }}>--</Text>
+              <Text className="text-[11px] font-semibold text-[#64748b]">{item.label}</Text>
             </View>
           ))}
         </View>
 
         {/* Details card */}
-        <View style={styles.detailCard}>
-          <View style={styles.detailCardHead}>
-            <View style={styles.detailAccentRow}>
-              <View style={styles.detailAccent} />
-              <Text style={styles.detailCardTitle}>Monthly Summary</Text>
+        <View
+          className="bg-white rounded-2xl p-[14px]"
+          style={{ shadowColor: '#4c1d95', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}
+        >
+          <View className="flex-row justify-between items-center mb-3">
+            <View className="flex-row items-center gap-2">
+              <View className="w-1 h-4 rounded-sm bg-[#7c3aed]" />
+              <Text className="text-[13px] font-bold text-[#0f172a]">Monthly Summary</Text>
             </View>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{monthTitle}</Text>
+            <View className="bg-[#ede9fe] rounded-md px-2 py-[3px]">
+              <Text className="text-[10px] font-bold text-[#6d28d9]">{monthTitle}</Text>
             </View>
           </View>
 
@@ -136,150 +172,26 @@ export default function ReportsPage({ id }: Props) {
           ].map((row, i, arr) => (
             <View
               key={row.label}
-              style={[styles.detailRow, i === arr.length - 1 && styles.detailRowLast]}>
-              <Text style={styles.detailLabel}>{row.label}</Text>
-              <Text style={styles.detailValue}>{row.value}</Text>
+              className={`flex-row justify-between items-center py-[9px] ${i === arr.length - 1 ? 'pb-[2px]' : 'border-b border-[#f1f5f9]'}`}
+            >
+              <Text className="text-[12px] text-[#64748b] font-medium">{row.label}</Text>
+              <Text className="text-[13px] text-[#0f172a] font-bold text-right">{row.value}</Text>
             </View>
           ))}
         </View>
 
-        {/* Empty state prompt */}
-        <View style={styles.emptyCard}>
+        {/* Empty state */}
+        <View
+          className="bg-white rounded-2xl p-7 items-center gap-2"
+          style={{ shadowColor: '#4c1d95', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 1 }}
+        >
           <Ionicons name="bar-chart-outline" size={32} color="#c4b5fd" />
-          <Text style={styles.emptyTitle}>No Report Data</Text>
-          <Text style={styles.emptyBody}>Report data for employee {id} will appear here once available.</Text>
+          <Text className="text-[15px] font-bold text-[#0f172a]">No Report Data</Text>
+          <Text className="text-[12px] text-[#64748b] text-center leading-[18px]">
+            Report data for employee {id} will appear here once available.
+          </Text>
         </View>
-
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
-  top: {
-    backgroundColor: '#4c1d95',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    overflow: 'hidden',
-  },
-  blobA: {
-    position: 'absolute', width: 180, height: 180, borderRadius: 90,
-    right: -40, top: -60, backgroundColor: '#6d28d9', opacity: 0.5,
-  },
-  blobB: {
-    position: 'absolute', width: 120, height: 120, borderRadius: 60,
-    right: 60, top: 10, backgroundColor: '#7c3aed', opacity: 0.25,
-  },
-  topRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 16,
-  },
-  leftGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  backButton: {
-    width: 34, height: 34, borderRadius: 17, alignItems: 'center',
-    justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  title: { fontFamily: APP_FONT_FAMILY, color: COLORS.white, fontSize: 20, fontWeight: '700' },
-  topIcons: { flexDirection: 'row', gap: 8 },
-  iconButton: {
-    width: 34, height: 34, borderRadius: 17, alignItems: 'center',
-    justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  headerCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    borderRadius: 16, padding: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
-  },
-  headerCardIcon: {
-    width: 44, height: 44, borderRadius: 22, alignItems: 'center',
-    justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.18)',
-  },
-  headerCardText: { flex: 1 },
-  headerCardKicker: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 11, fontWeight: '700',
-    color: '#c4b5fd', letterSpacing: 0.4, textTransform: 'uppercase',
-  },
-  headerCardTitle: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 14, fontWeight: '800',
-    color: COLORS.white, marginTop: 2,
-  },
-  headerCardSub: { fontFamily: APP_FONT_FAMILY, fontSize: 11, color: '#c4b5fd', marginTop: 2 },
-  sheet: { flex: 1, backgroundColor: COLORS.bg },
-  content: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 96, gap: 12 },
-  monthNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: COLORS.white, borderRadius: 14, padding: 12,
-    shadowColor: '#4c1d95', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
-  },
-  navBtn: {
-    width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.heroBg,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  monthNavTitle: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 16, fontWeight: '800',
-    color: COLORS.primaryDark,
-  },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  summaryCard: {
-    width: '47.5%', borderRadius: 14, padding: 14, gap: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
-  },
-  summaryIconWrap: {
-    width: 32, height: 32, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  summaryValue: { fontFamily: APP_FONT_FAMILY, fontSize: 22, fontWeight: '800' },
-  summaryLabel: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 11, fontWeight: '600',
-    color: COLORS.muted,
-  },
-  detailCard: {
-    backgroundColor: COLORS.white, borderRadius: 16, padding: 14,
-    shadowColor: '#4c1d95', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
-  },
-  detailCardHead: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 12,
-  },
-  detailAccentRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  detailAccent: { width: 4, height: 16, borderRadius: 2, backgroundColor: COLORS.primary },
-  detailCardTitle: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 13, fontWeight: '700', color: COLORS.ink,
-  },
-  badge: {
-    backgroundColor: COLORS.heroBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
-  },
-  badgeText: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 10, fontWeight: '700', color: COLORS.primaryStrong,
-  },
-  detailRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
-  },
-  detailRowLast: { borderBottomWidth: 0, paddingBottom: 2 },
-  detailLabel: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 12, color: COLORS.muted, fontWeight: '500',
-  },
-  detailValue: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 13, color: COLORS.ink,
-    fontWeight: '700', textAlign: 'right',
-  },
-  emptyCard: {
-    backgroundColor: COLORS.white, borderRadius: 16, padding: 28,
-    alignItems: 'center', gap: 8,
-    shadowColor: '#4c1d95', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 6, elevation: 1,
-  },
-  emptyTitle: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 15, fontWeight: '700', color: COLORS.ink,
-  },
-  emptyBody: {
-    fontFamily: APP_FONT_FAMILY, fontSize: 12, color: COLORS.muted,
-    textAlign: 'center', lineHeight: 18,
-  },
-});

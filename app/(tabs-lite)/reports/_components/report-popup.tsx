@@ -6,7 +6,6 @@ import {
   Modal,
   Pressable,
   StatusBar,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -19,7 +18,6 @@ import { StepIndicator } from './step-indicator';
 import { TableFilterSection } from './table-filter-section';
 import { EMPTY_FILTER_DATA, TableMenuItem, TableType } from './types';
 
-const F = 'Inter';
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
 // ── JWT helpers (same pattern as attendance screen) ───────────────────────────
@@ -250,25 +248,28 @@ export function ReportPopup({
       onRequestClose={handleClose}>
 
       {/* Backdrop */}
-      <Pressable style={s.backdrop} onPress={handleClose} />
+      <Pressable className="absolute inset-0 bg-black/50" onPress={handleClose} />
 
       {/* Panel */}
-      <View style={[s.panel, { paddingTop: insets.top }]}>
+      <View
+        className="absolute bottom-0 left-0 right-0 h-[92%] bg-white rounded-tl-3xl rounded-tr-3xl overflow-hidden"
+        style={[{ paddingTop: insets.top }, { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 24 }]}
+      >
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
         {/* Top bar */}
-        <View style={s.topBar}>
+        <View className="flex-row items-center justify-between px-4 py-[14px] border-b border-slate-100">
           <View>
-            <Text style={s.panelTitle}>Generate Report</Text>
-            <Text style={s.panelSub}>Step {currentStep} of 3</Text>
+            <Text className="text-base font-extrabold text-slate-900">Generate Report</Text>
+            <Text className="text-xs text-slate-500 mt-[2px]">Step {currentStep} of 3</Text>
           </View>
-          <Pressable hitSlop={8} onPress={handleClose} style={s.closeBtn}>
+          <Pressable hitSlop={8} onPress={handleClose} className="w-[34px] h-[34px] rounded-full bg-slate-100 items-center justify-center">
             <Ionicons name="close" size={20} color="#334155" />
           </Pressable>
         </View>
 
         {/* Main split layout: sidebar + content (mirrors web's flex row) */}
-        <View style={s.body}>
+        <View className="flex-1 flex-col overflow-hidden">
           <StepIndicator
             currentStep={currentStep}
             completedSteps={completedSteps}
@@ -281,7 +282,7 @@ export function ReportPopup({
           />
 
           {/* Dismiss floating label when tapping content area */}
-          <Pressable style={s.content} onPress={() => setVisibleStepLabel(null)}>
+          <Pressable className="flex-1" onPress={() => setVisibleStepLabel(null)}>
             {currentStep === 1 && (
               <SelectReports
                 selectedReport={selectedReport}
@@ -331,63 +332,3 @@ export function ReportPopup({
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  backdrop: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  panel: {
-    position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    height: '92%',
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
-    elevation: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  panelTitle: {
-    fontFamily: F,
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  panelSub: {
-    fontFamily: F,
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  body: {
-    flex: 1,
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  content: {
-    flex: 1,
-  },
-});

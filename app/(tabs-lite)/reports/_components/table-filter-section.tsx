@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { useSelector } from 'react-redux';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
@@ -921,7 +921,7 @@ export function TableFilterSection({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <View style={s.container}>
+    <View className="flex-1 flex-col bg-white">
       {/* Sidebar */}
       <TableSidebar
         tableMenuItems={filteredTableMenuItems}
@@ -931,7 +931,7 @@ export function TableFilterSection({
       />
 
       {/* Content + footer */}
-      <View style={s.main}>
+      <View className="flex-1 flex-col">
         <TableContent
           tableMenuItems={filteredTableMenuItems}
           visibleTables={visibleTables}
@@ -1034,16 +1034,3 @@ export function TableFilterSection({
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-    backgroundColor: '#ffffff',
-  },
-  main: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-});

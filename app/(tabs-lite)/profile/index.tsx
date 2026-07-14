@@ -1,12 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';
 import { useEffect, useMemo, useState } from 'react';
-
-const APP_FONT_FAMILY = 'Inter';
 
 function formatDate(dateString?: string) {
   if (!dateString) return 'Not provided';
@@ -45,9 +43,9 @@ function decodeJwtPayload(token: string) {
 
 function Field({ label, value }: { label: string; value: unknown }) {
   return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={styles.fieldValue}>{formatValue(value)}</Text>
+    <View className="w-full py-2 border-b border-[#eef2f7] flex-row items-center justify-between gap-[10px]">
+      <Text className="text-xs text-slate-500">{label}</Text>
+      <Text className="text-[13px] text-slate-900 font-semibold shrink text-right">{formatValue(value)}</Text>
     </View>
   );
 }
@@ -64,24 +62,15 @@ export default function LiteProfileScreen() {
       if (!token) return;
       const payload = decodeJwtPayload(token);
       if (!payload) return;
-      if (__DEV__) {
-      }
+      if (__DEV__) {}
 
-      const resolvedEmployeeId =
-        String(
-          payload.employeeID ??
-          payload.employeeId ??
-          payload.empId ??
-          process.env.EXPO_PUBLIC_EMPLOYEE_ID ??
-          ''
-        ) || '';
-      const resolvedTenantCode =
-        String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '';
-
-      setEmployeeId(resolvedEmployeeId);
-      setTenantCode(resolvedTenantCode);
+      setEmployeeId(
+        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') || ''
+      );
+      setTenantCode(
+        String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || ''
+      );
     };
-
     void run();
   }, []);
 
@@ -89,37 +78,18 @@ export default function LiteProfileScreen() {
     url: 'contract_employee/search',
     method: 'POST',
     data: [
-      {
-        field: 'employeeID',
-        value: employeeId,
-        operator: 'eq',
-      },
-      {
-        field: 'tenantCode',
-        value: tenantCode,
-        operator: 'eq',
-      },
+      { field: 'employeeID', value: employeeId, operator: 'eq' },
+      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
     ],
     enabled: Boolean(employeeId && tenantCode),
     dependencies: [employeeId, tenantCode],
-    onSuccess: (data) => {
-      if (__DEV__) {
-      }
-    },
-    onError: (err) => {
-      if (__DEV__) {
-      }
-      setEmployeeProfile(null);
-    },
+    onSuccess: () => {},
+    onError: () => { setEmployeeProfile(null); },
   });
 
   useEffect(() => {
-    if (__DEV__) {
-    }
     if (Array.isArray(profileRows) && profileRows.length > 0) {
       setEmployeeProfile(profileRows[0]);
-      if (__DEV__) {
-      }
     } else {
       setEmployeeProfile(null);
     }
@@ -132,69 +102,119 @@ export default function LiteProfileScreen() {
     const joined = `${first} ${middle} ${last}`.replace(/\s+/g, ' ').trim();
     return joined || 'Not provided';
   }, [employeeProfile]);
+
   const displayedEmployeeId = employeeProfile?.employeeID ?? employeeId;
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.top}>
-        <View style={styles.topRow}>
-          <View style={styles.leftGroup}>
-            <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backButton}>
+    <View className="flex-1 bg-[#f8fafc]">
+
+      {/* ── Header ── */}
+      <View className="pt-[58px] px-4 pb-2 bg-[#f8fafc]">
+        <View className="flex-row justify-between items-center">
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={8}
+              className="w-[30px] h-[30px] rounded-full items-center justify-center bg-slate-200"
+            >
               <Ionicons name="arrow-back" size={18} color="#0f172a" />
             </Pressable>
-            <Text style={styles.greeting}>Profile</Text>
+            <Text className="text-slate-900 text-xl font-bold">Profile</Text>
           </View>
-          <View style={styles.topIcons}>
+          <View className="flex-row gap-[14px]">
             <Ionicons name="notifications-outline" size={18} color="#0f172a" />
             <Ionicons name="settings-outline" size={18} color="#0f172a" />
           </View>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} style={styles.sheet}>
-        <View style={styles.heroCard}>
-          <View style={styles.heroTop}>
-            <View style={styles.heroOrbA} />
-            <View style={styles.heroOrbB} />
-            <View style={styles.heroOrbC} />
+      <ScrollView
+        className="flex-1 bg-[#f8fafc]"
+        contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 14, paddingBottom: 86, gap: 12 }}
+        showsVerticalScrollIndicator={false}
+      >
+
+        {/* ── Hero Card ── */}
+        <View className="rounded-2xl bg-white overflow-hidden border border-slate-200">
+
+          {/* Banner with orbs */}
+          <View className="h-[120px] bg-[#0a1c63] overflow-hidden">
+            {/* Orbs use inline style: rgba bg + individual corner radii + % positioning */}
+            <View style={{
+              position: 'absolute', height: 110, width: 84,
+              backgroundColor: 'rgba(255,255,255,0.26)',
+              borderTopLeftRadius: 56, borderTopRightRadius: 56,
+              left: '58%', bottom: -10,
+            }} />
+            <View style={{
+              position: 'absolute', height: 78, width: 78,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              borderTopLeftRadius: 50, borderTopRightRadius: 50,
+              left: '49%', top: 10,
+            }} />
+            <View style={{
+              position: 'absolute', height: 62, width: 62,
+              backgroundColor: 'rgba(255,255,255,0.18)',
+              borderTopLeftRadius: 42, borderTopRightRadius: 42,
+              left: '74%', top: 24,
+            }} />
           </View>
 
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{fullName.slice(0, 2).toUpperCase()}</Text>
+          {/* Avatar — negative marginTop must stay inline */}
+          <View
+            className="self-center w-[88px] h-[88px] rounded-full border-4 border-white bg-[#d4d4d8] items-center justify-center"
+            style={{ marginTop: -44 }}
+          >
+            <Text className="text-[28px] font-bold text-purple-200">{fullName.slice(0, 2).toUpperCase()}</Text>
           </View>
 
-          <View style={styles.heroBody}>
-            <Text style={styles.name}>{fullName}</Text>
-            <Text style={styles.code}>Employee ID: {formatValue(displayedEmployeeId)}</Text>
-            <Text style={styles.location}>Department: {formatValue(employeeProfile?.deployment?.department?.departmentName)}</Text>
+          {/* Info */}
+          <View className="px-[14px] pt-[10px] pb-[14px] items-center">
+            <Text className="text-[18px] font-bold text-slate-900 text-center">{fullName}</Text>
+            <Text className="mt-[2px] text-xs text-[#475569]">Employee ID: {formatValue(displayedEmployeeId)}</Text>
+            <Text className="mt-[2px] text-[11px] text-slate-400">
+              Department: {formatValue(employeeProfile?.deployment?.department?.departmentName)}
+            </Text>
 
-            <View style={styles.contactRow}>
-              <View style={styles.contactItem}>
-                <Text style={styles.contactLabel}>EMAIL</Text>
-                <View style={styles.contactLine}>
+            {/* Contact rows */}
+            <View className="mt-[10px] w-full gap-2">
+              <View className="flex-1 rounded-[10px] px-2 py-[7px] bg-slate-100 border border-slate-200">
+                <Text className="text-[9px] text-slate-500 font-bold" style={{ letterSpacing: 0.4 }}>EMAIL</Text>
+                <View className="mt-1 flex-row items-start gap-1">
                   <Ionicons name="mail-outline" size={13} color="#64748b" />
-                  <Text style={styles.contactText}>{formatValue(employeeProfile?.emailID?.primaryEmailID ?? employeeProfile?.emailID)}</Text>
+                  <Text className="flex-1 text-[10px] text-[#334155] leading-[13px]">
+                    {formatValue(employeeProfile?.emailID?.primaryEmailID ?? employeeProfile?.emailID)}
+                  </Text>
                 </View>
               </View>
-              <View style={styles.contactItem}>
-                <Text style={styles.contactLabel}>PHONE</Text>
-                <View style={styles.contactLine}>
+              <View className="flex-1 rounded-[10px] px-2 py-[7px] bg-slate-100 border border-slate-200">
+                <Text className="text-[9px] text-slate-500 font-bold" style={{ letterSpacing: 0.4 }}>PHONE</Text>
+                <View className="mt-1 flex-row items-start gap-1">
                   <Ionicons name="call-outline" size={13} color="#64748b" />
-                  <Text style={styles.contactText}>{formatValue(employeeProfile?.contactNumber?.primaryContactNo ?? employeeProfile?.contactNumber ?? employeeProfile?.mobileNumber)}</Text>
+                  <Text className="flex-1 text-[10px] text-[#334155] leading-[13px]">
+                    {formatValue(
+                      employeeProfile?.contactNumber?.primaryContactNo ??
+                      employeeProfile?.contactNumber ??
+                      employeeProfile?.mobileNumber
+                    )}
+                  </Text>
                 </View>
               </View>
             </View>
           </View>
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.panelHead}>
-            <Text style={styles.panelKicker}>Personal Information</Text>
-            <Text style={styles.panelLink}>See All</Text>
+        {/* ── Personal Information ── */}
+        <View className="rounded-2xl border border-slate-200 bg-white p-3">
+          <View className="flex-row justify-between items-center mb-[10px]">
+            <Text className="text-[10px] text-slate-400 font-bold" style={{ letterSpacing: 0.8 }}>
+              Personal Information
+            </Text>
+            <Text className="text-xs text-slate-500">See All</Text>
           </View>
-          {profileLoading ? <Text style={styles.metaInfo}>Loading profile...</Text> : null}
-          {profileError ? <Text style={styles.metaError}>Failed to load profile details: {profileError.message}</Text> : null}
-          <View style={styles.fieldGrid}>
+          {profileLoading ? <Text className="text-xs text-slate-500 mb-2">Loading profile...</Text> : null}
+          {profileError ? <Text className="text-xs text-red-700 mb-2">Failed to load profile details: {profileError.message}</Text> : null}
+          <View className="gap-[2px]">
             <Field label="Employee ID" value={displayedEmployeeId} />
             <Field label="First Name" value={employeeProfile?.firstName} />
             <Field label="Middle Name" value={employeeProfile?.middleName} />
@@ -210,12 +230,15 @@ export default function LiteProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.panelHead}>
-            <Text style={styles.panelKicker}>Employment Details</Text>
-            <Text style={styles.panelLink}>See All</Text>
+        {/* ── Employment Details ── */}
+        <View className="rounded-2xl border border-slate-200 bg-white p-3">
+          <View className="flex-row justify-between items-center mb-[10px]">
+            <Text className="text-[10px] text-slate-400 font-bold" style={{ letterSpacing: 0.8 }}>
+              Employment Details
+            </Text>
+            <Text className="text-xs text-slate-500">See All</Text>
           </View>
-          <View style={styles.fieldGrid}>
+          <View className="gap-[2px]">
             <Field label="Date Of Joining" value={formatDate(employeeProfile?.dateOfJoining)} />
             <Field label="Contract From" value={formatDate(employeeProfile?.contractFrom)} />
             <Field label="Contract To" value={formatDate(employeeProfile?.contractTo)} />
@@ -230,301 +253,29 @@ export default function LiteProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.logoutCard}>
-          <View style={styles.logoutCopy}>
-            <Text style={styles.logoutTitle}>Ready to sign out?</Text>
-            <Text style={styles.logoutDescription}>
+        {/* ── Logout Card ── */}
+        <View
+          className="rounded-2xl bg-[#0a1c63] p-4 gap-[14px]"
+          style={{ shadowColor: '#0a1c63', shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}
+        >
+          <View className="gap-[6px]">
+            <Text className="text-[17px] font-bold text-white">Ready to sign out?</Text>
+            <Text className="text-[13px] leading-5 text-slate-300">
               Log out from Earned Wage Access and return to the secure sign-in screen.
             </Text>
           </View>
 
           <Pressable
-            style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
-            onPress={() => router.push('/(tabs-lite)/profile/logout')}>
+            className="min-h-[46px] w-full rounded-xl bg-blue-600 flex-row items-center justify-center gap-2"
+            style={({ pressed }) => [{ opacity: pressed ? 0.82 : 1 }]}
+            onPress={() => router.push('/(tabs-lite)/profile/logout')}
+          >
             <Ionicons name="log-out-outline" size={18} color="#ffffff" />
-            <Text style={styles.logoutButtonText}>Log Out</Text>
+            <Text className="text-[15px] font-bold text-white">Log Out</Text>
           </Pressable>
         </View>
+
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  top: {
-    paddingTop: 58,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    backgroundColor: '#f8fafc',
-  },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  leftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  backButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e2e8f0',
-  },
-  greeting: {
-    fontFamily: APP_FONT_FAMILY,
-    color: '#0f172a',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  topIcons: {
-    flexDirection: 'row',
-    gap: 14,
-  },
-  sheet: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  content: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 86,
-    gap: 12,
-  },
-  heroCard: {
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  heroTop: {
-    height: 120,
-    backgroundColor: '#0a1c63',
-    overflow: 'hidden',
-  },
-  heroOrbA: {
-    position: 'absolute',
-    height: 110,
-    width: 84,
-    backgroundColor: 'rgba(255,255,255,0.26)',
-    borderTopLeftRadius: 56,
-    borderTopRightRadius: 56,
-    left: '58%',
-    bottom: -10,
-  },
-  heroOrbB: {
-    position: 'absolute',
-    height: 78,
-    width: 78,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderTopLeftRadius: 50,
-    borderTopRightRadius: 50,
-    left: '49%',
-    top: 10,
-  },
-  heroOrbC: {
-    position: 'absolute',
-    height: 62,
-    width: 62,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderTopLeftRadius: 42,
-    borderTopRightRadius: 42,
-    left: '74%',
-    top: 24,
-  },
-  avatar: {
-    alignSelf: 'center',
-    marginTop: -44,
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 4,
-    borderColor: '#fff',
-    backgroundColor: '#d4d4d8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#e9d5ff',
-  },
-  heroBody: {
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 14,
-    alignItems: 'center',
-  },
-  name: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-    textAlign: 'center',
-  },
-  code: {
-    fontFamily: APP_FONT_FAMILY,
-    marginTop: 2,
-    fontSize: 12,
-    color: '#475569',
-  },
-  location: {
-    fontFamily: APP_FONT_FAMILY,
-    marginTop: 2,
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  contactRow: {
-    marginTop: 10,
-    width: '100%',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  contactItem: {
-    flex: 1,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  contactLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 9,
-    color: '#64748b',
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
-  contactLine: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 4,
-  },
-  contactText: {
-    fontFamily: APP_FONT_FAMILY,
-    flex: 1,
-    fontSize: 10,
-    color: '#334155',
-    lineHeight: 13,
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
-    padding: 12,
-  },
-  logoutCard: {
-    borderRadius: 16,
-    backgroundColor: '#0a1c63',
-    padding: 16,
-    gap: 14,
-    shadowColor: '#0a1c63',
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  logoutCopy: {
-    gap: 6,
-  },
-  logoutTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  logoutDescription: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#cbd5e1',
-  },
-  logoutButton: {
-    minHeight: 46,
-    width: '100%',
-    borderRadius: 12,
-    backgroundColor: '#2563eb',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  logoutButtonPressed: {
-    opacity: 0.82,
-  },
-  logoutButtonText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  panelHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  panelKicker: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    color: '#94a3b8',
-    fontWeight: '700',
-  },
-  panelLink: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#64748b',
-  },
-  metaInfo: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  metaError: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#b91c1c',
-    marginBottom: 8,
-  },
-  fieldGrid: {
-    gap: 2,
-  },
-  fieldWrap: {
-    width: '100%',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eef2f7',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  fieldLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 12,
-    color: '#64748b',
-  },
-  fieldValue: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    color: '#0f172a',
-    fontWeight: '600',
-    flexShrink: 1,
-    textAlign: 'right',
-  },
-});

@@ -1,6 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-
-const F = 'Inter';
+import { Pressable, Text, View } from 'react-native';
 
 const STEPS = [
   { number: 1, label: 'Select Reports' },
@@ -25,54 +23,53 @@ export function StepIndicator({
   const isAccessible = (n: number) => n === 1 || completedSteps.includes(n - 1);
 
   return (
-    <View style={s.container}>
+    <View className="flex-row items-start px-4 py-3 bg-[#f9fafb] border-b border-[#e5e7eb]">
       {STEPS.map((step, idx) => {
         const isDone = completedSteps.includes(step.number) || step.number < currentStep;
         const isCurrent = step.number === currentStep;
         const accessible = isAccessible(step.number);
 
-        const circleStyle = isDone
-          ? s.circleDone
-          : isCurrent
-          ? s.circleCurrent
+        const circleClass = isDone || isCurrent
+          ? 'bg-[#0a1c63]'
           : accessible
-          ? s.circleReady
-          : s.circleLocked;
+          ? 'bg-white border-2 border-[#0a1c63]'
+          : 'bg-white border-2 border-[#c7d2fe]';
 
-        const textStyle = isDone || isCurrent
-          ? s.circleNumLight
+        const circleNumClass = isDone || isCurrent
+          ? 'text-white'
           : accessible
-          ? s.circleNumDark
-          : s.circleNumLocked;
+          ? 'text-[#0a1c63]'
+          : 'text-[#c7d2fe]';
 
-        const labelColor = isDone || isCurrent ? s.labelActive : s.labelLocked;
+        const labelClass = isDone || isCurrent ? 'text-[#0a1c63]' : 'text-[#a5b4fc]';
 
         return (
-          <View key={step.number} style={s.stepCol}>
+          <View key={step.number} className="flex-1 flex-row items-start">
             {/* Connector line on the left */}
             {idx > 0 && (
-              <View style={s.lineLeft}>
-                <View style={[s.line, isDone ? s.lineDone : s.linePending]} />
+              <View className="absolute left-0 right-1/2 h-[2px] z-0" style={{ top: 13 }}>
+                <View className={`flex-1 h-[2px] ${isDone ? 'bg-[#0a1c63]' : 'bg-[#c7d2fe]'}`} />
               </View>
             )}
 
             {/* Circle + label stacked */}
             <Pressable
               disabled={!accessible}
-              style={[s.stepInner, !accessible && s.disabledHit]}
-              onPress={() => { if (accessible) onStepChange(step.number); }}>
-              <View style={[s.circle, circleStyle]}>
-                <Text style={[s.circleNum, textStyle]}>{step.number}</Text>
+              className={`flex-1 items-center gap-[5px] z-[1] ${!accessible ? 'opacity-50' : ''}`}
+              onPress={() => { if (accessible) onStepChange(step.number); }}
+            >
+              <View className={`w-7 h-7 rounded-[14px] items-center justify-center ${circleClass}`}>
+                <Text className={`text-[12px] font-bold ${circleNumClass}`}>{step.number}</Text>
               </View>
-              <Text style={[s.label, labelColor]} numberOfLines={2}>
+              <Text className={`text-[10px] font-semibold text-center ${labelClass}`} numberOfLines={2}>
                 {step.label}
               </Text>
             </Pressable>
 
             {/* Connector line on the right */}
             {idx < STEPS.length - 1 && (
-              <View style={s.lineRight}>
-                <View style={[s.line, isDone ? s.lineDone : s.linePending]} />
+              <View className="absolute left-1/2 right-0 h-[2px] z-0" style={{ top: 13 }}>
+                <View className={`flex-1 h-[2px] ${isDone ? 'bg-[#0a1c63]' : 'bg-[#c7d2fe]'}`} />
               </View>
             )}
           </View>
@@ -81,82 +78,3 @@ export function StepIndicator({
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#f9fafb',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-
-  /* Each step occupies equal width */
-  stepCol: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-
-  /* Circle + label stacked vertically, centered in the step column */
-  stepInner: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 5,
-    zIndex: 1,
-  },
-
-  circle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleDone:    { backgroundColor: '#0a1c63' },
-  circleCurrent: { backgroundColor: '#0a1c63' },
-  circleReady:   { backgroundColor: '#ffffff', borderWidth: 2, borderColor: '#0a1c63' },
-  circleLocked:  { backgroundColor: '#ffffff', borderWidth: 2, borderColor: '#c7d2fe' },
-
-  circleNum: { fontFamily: F, fontSize: 12, fontWeight: '700' },
-  circleNumLight:  { color: '#ffffff' },
-  circleNumDark:   { color: '#0a1c63' },
-  circleNumLocked: { color: '#c7d2fe' },
-
-  disabledHit: { opacity: 0.5 },
-
-  /* Connector lines sit at circle mid-height (14px from top) */
-  lineLeft: {
-    position: 'absolute',
-    left: 0,
-    right: '50%',
-    top: 13,
-    height: 2,
-    zIndex: 0,
-  },
-  lineRight: {
-    position: 'absolute',
-    left: '50%',
-    right: 0,
-    top: 13,
-    height: 2,
-    zIndex: 0,
-  },
-  line: {
-    flex: 1,
-    height: 2,
-  },
-  lineDone:    { backgroundColor: '#0a1c63' },
-  linePending: { backgroundColor: '#c7d2fe' },
-
-  label: {
-    fontFamily: F,
-    fontSize: 10,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  labelActive: { color: '#0a1c63' },
-  labelLocked: { color: '#a5b4fc' },
-});

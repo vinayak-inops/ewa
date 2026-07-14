@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { TableMenuItem, TableParent, TableType } from './types';
-
-const F = 'Inter';
 
 const SECTIONS: { key: TableParent; label: string }[] = [
   { key: 'organization', label: 'Organization' },
@@ -26,21 +24,29 @@ export function TableSidebar({
   onToggleTable,
 }: TableSidebarProps) {
   return (
-    <View style={s.topbar}>
+    <View className="border-b border-[#e5e7eb] bg-white">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.scroll}>
-
+        contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 8, flexDirection: 'row' }}
+      >
         {SECTIONS.map((section, sIdx) => {
           const items = tableMenuItems.filter((item) => item.parent === section.key);
           if (items.length === 0) return null;
 
           return (
-            <View key={section.key} style={[s.section, sIdx > 0 && s.sectionBorder]}>
-              <Text style={s.sectionLabel}>{section.label}</Text>
+            <View
+              key={section.key}
+              className={`gap-1 px-2 ${sIdx > 0 ? 'border-l border-[#e5e7eb]' : ''}`}
+            >
+              <Text
+                className="text-[9px] font-bold text-[#9ca3af] uppercase px-[2px]"
+                style={{ letterSpacing: 0.6 }}
+              >
+                {section.label}
+              </Text>
 
-              <View style={s.chips}>
+              <View className="flex-row gap-1">
                 {items.map((item) => {
                   const selectedCount = getSelectedItems(item.id).length;
                   const hasItems = selectedCount > 0;
@@ -48,18 +54,27 @@ export function TableSidebar({
                   const isVisibleButEmpty = isVisible && !hasItems;
                   const isVisibleWithItems = isVisible && hasItems;
 
+                  const chipBgBorder = isVisibleButEmpty
+                    ? 'bg-[#fef2f2] border-[#fecaca]'
+                    : isVisibleWithItems
+                    ? 'bg-[#e8eaf6] border-[#0a1c63]'
+                    : hasItems && !isVisible
+                    ? 'bg-[#f0fdf4] border-[#bbf7d0]'
+                    : 'bg-[#f9fafb] border-[#e5e7eb]';
+
+                  const chipLabelClass = isVisibleButEmpty
+                    ? 'text-[#7f1d1d] font-semibold'
+                    : isVisibleWithItems
+                    ? 'text-[#0a1c63] font-semibold'
+                    : 'text-[#374151] font-medium';
+
                   return (
                     <Pressable
                       key={item.id}
-                      style={({ pressed }) => [
-                        s.chip,
-                        isVisibleButEmpty && s.chipWarning,
-                        isVisibleWithItems && s.chipActive,
-                        hasItems && !isVisible && s.chipDone,
-                        pressed && s.chipPressed,
-                      ]}
-                      onPress={() => onToggleTable(item.id)}>
-
+                      className={`flex-row items-center gap-1 px-2 py-[5px] rounded-md border ${chipBgBorder}`}
+                      style={({ pressed }) => pressed ? [{ opacity: 0.72 }] : []}
+                      onPress={() => onToggleTable(item.id)}
+                    >
                       <Ionicons
                         name={(item.icon ?? 'business-outline') as any}
                         size={13}
@@ -70,19 +85,13 @@ export function TableSidebar({
                         }
                       />
 
-                      <Text
-                        style={[
-                          s.chipLabel,
-                          isVisibleButEmpty && s.chipLabelWarning,
-                          isVisibleWithItems && s.chipLabelActive,
-                        ]}
-                        numberOfLines={1}>
+                      <Text className={`text-[11px] ${chipLabelClass}`} numberOfLines={1}>
                         {item.label}
                       </Text>
 
                       {hasItems && (
-                        <View style={[s.badge, isVisibleWithItems && s.badgeActive]}>
-                          <Text style={[s.badgeText, isVisibleWithItems && s.badgeTextActive]}>
+                        <View className={`rounded-lg min-w-[16px] h-4 items-center justify-center px-[3px] ${isVisibleWithItems ? 'bg-[#c7d2fe]' : 'bg-[#e5e7eb]'}`}>
+                          <Text className={`text-[9px] font-bold ${isVisibleWithItems ? 'text-[#1e40af]' : 'text-[#374151]'}`}>
                             {selectedCount}
                           </Text>
                         </View>
@@ -105,99 +114,3 @@ export function TableSidebar({
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  topbar: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
-  },
-  scroll: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    gap: 0,
-  },
-  section: {
-    gap: 4,
-    paddingHorizontal: 8,
-  },
-  sectionBorder: {
-    borderLeftWidth: 1,
-    borderLeftColor: '#e5e7eb',
-  },
-  sectionLabel: {
-    fontFamily: F,
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#9ca3af',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    paddingHorizontal: 2,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
-  },
-  chipActive: {
-    backgroundColor: '#e8eaf6',
-    borderColor: '#0a1c63',
-  },
-  chipWarning: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
-  },
-  chipDone: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
-  },
-  chipPressed: {
-    opacity: 0.72,
-  },
-  chipLabel: {
-    fontFamily: F,
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  chipLabelActive: {
-    color: '#0a1c63',
-    fontWeight: '600',
-  },
-  chipLabelWarning: {
-    color: '#7f1d1d',
-    fontWeight: '600',
-  },
-  badge: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  badgeActive: {
-    backgroundColor: '#c7d2fe',
-  },
-  badgeText: {
-    fontFamily: F,
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  badgeTextActive: {
-    color: '#1e40af',
-  },
-});

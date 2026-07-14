@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TableContentArea } from './table-content-area';
@@ -132,19 +132,19 @@ export function TableContent(props: TableContentProps) {
 
   if (visibleTables.size === 0) {
     return (
-      <View style={s.emptyWrap}>
+      <View className="flex-1 items-center justify-center min-h-[400px] p-6">
         <Ionicons name="business-outline" size={48} color="#9ca3af" />
-        <Text style={s.emptyTitle}>No tables selected</Text>
-        <Text style={s.emptySub}>Select tables from the sidebar to view them</Text>
+        <Text className="text-[16px] font-semibold text-[#6b7280]">No tables selected</Text>
+        <Text className="text-[13px] text-[#9ca3af] text-center">Select tables from the sidebar to view them</Text>
       </View>
     );
   }
 
   return (
-    <View style={s.container}>
+    <View className="flex-1">
       <ScrollView
-        style={s.scroll}
-        contentContainerStyle={s.scrollContent}
+        className="flex-1"
+        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}>
         {visibleItems.map((tableItem) => (
           <TableContentArea
@@ -249,95 +249,24 @@ export function TableContent(props: TableContentProps) {
       </ScrollView>
 
       {/* Footer: validation error + Continue */}
-      <View style={[s.footer, { paddingBottom: footerBottom }]}>
+      <View className="px-3 pt-3 border-t border-[#f1f5f9] bg-white" style={{ paddingBottom: footerBottom }}>
         {!isValid && missingTables.length > 0 && (
-          <View style={s.validationRow}>
+          <View className="flex-row items-start bg-[#fef2f2] border border-[#fecaca] rounded-lg px-[10px] py-2 mb-2">
             <Ionicons name="warning-outline" size={14} color="#dc2626" style={{ marginRight: 6 }} />
-            <Text style={s.validationTxt} numberOfLines={2}>
+            <Text className="text-[12px] text-[#dc2626] flex-1 leading-4" numberOfLines={2}>
               Select at least one item for: {missingTables.join(', ')}
             </Text>
           </View>
         )}
         <Pressable
-          style={({ pressed }) => [s.continueBtn, !isValid && s.continueBtnDisabled, pressed && isValid && { opacity: 0.88 }]}
+          className={`rounded-[10px] h-[42px] items-center justify-center ${isValid ? 'bg-[#0a1c63]' : 'bg-[#a3aed0]'}`}
+          style={({ pressed }) => pressed && isValid ? [{ opacity: 0.88 }] : []}
           onPress={() => { if (isValid) onSaveAndContinue?.(); }}
-          disabled={!isValid}>
-          <Text style={s.continueBtnTxt}>Save & Continue</Text>
+          disabled={!isValid}
+        >
+          <Text className="text-[13px] font-extrabold text-white">Save & Continue</Text>
         </Pressable>
       </View>
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 24,
-  },
-  emptyWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 400,
-    padding: 24,
-  },
-  emptyTitle: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  emptySub: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    color: '#9ca3af',
-    textAlign: 'center',
-  },
-  footer: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    backgroundColor: '#ffffff',
-  },
-  validationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  validationTxt: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    color: '#dc2626',
-    flex: 1,
-    lineHeight: 16,
-  },
-  continueBtn: {
-    backgroundColor: '#0a1c63',
-    borderRadius: 10,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueBtnDisabled: {
-    backgroundColor: '#a3aed0',
-  },
-  continueBtnTxt: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-});
