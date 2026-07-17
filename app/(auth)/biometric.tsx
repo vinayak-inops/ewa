@@ -1,5 +1,5 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
-import { setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
+import { clearBiometricSession, setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
 import { clearAuthTokens, getAccessToken } from '@/hooks/auth/token-store';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -25,7 +25,7 @@ export default function BiometricScreen() {
   const [biometricLabel, setBiometricLabel] = useState('fingerprint');
 
   const fallbackToKeycloak = useCallback(async () => {
-    setBiometricSessionUnlocked(false);
+    await clearBiometricSession();
     await clearAuthTokens();
     router.replace('/(auth)/login');
   }, [router]);

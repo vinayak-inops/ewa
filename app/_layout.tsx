@@ -53,6 +53,7 @@ export default function RootLayout() {
     <StoreProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack screenOptions={{ contentStyle: { backgroundColor: '#f1f5f9' } }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs-lite)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs-rich)" options={{ headerShown: false }} />

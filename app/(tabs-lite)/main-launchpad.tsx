@@ -14,6 +14,7 @@ const CARDS = [
     subtitle: 'Access your earned wages instantly, track withdrawals, monitor balance & manage salary advances with ease',
     icon: 'wallet-outline' as const,
     centerIcon: 'cash-outline' as const,
+    centerText: '₹',
     cta: 'Open EWA',
     route: '/(tabs-lite)/ewa',
     bg: '#0d1f6e',
@@ -67,7 +68,7 @@ const CARDS = [
   },
 ];
 
-type Card = (typeof CARDS)[0];
+type Card = (typeof CARDS)[0] & { centerText?: string };
 
 function useRipple(delay: number) {
   const scale = useRef(new Animated.Value(0.3)).current;
@@ -283,7 +284,13 @@ function AppCard({ card, onPress }: { card: Card; onPress: () => void }) {
             <Animated.View
               style={{ position: 'absolute', transform: [{ translateY: floatY }, { scale: iconBreath }] }}
             >
-              <Ionicons name={card.centerIcon} size={50} color="rgba(255,255,255,0.32)" />
+              {card.centerText ? (
+                <Text style={{ fontSize: 50, fontWeight: '800', color: 'rgba(255,255,255,0.32)', lineHeight: 58 }}>
+                  {card.centerText}
+                </Text>
+              ) : (
+                <Ionicons name={card.centerIcon} size={50} color="rgba(255,255,255,0.32)" />
+              )}
             </Animated.View>
 
           </View>

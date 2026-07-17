@@ -1,5 +1,5 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
-import { isBiometricSessionUnlocked, setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
+import { isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
 import { getAccessToken, saveAuthTokens } from '@/hooks/auth/token-store';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -134,8 +134,8 @@ export default function LoginScreen() {
 
   useEffect(() => {
     const redirectSavedSession = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
+      const biometricActive = await isBiometricSessionActive();
+      if (!biometricActive) return;
       router.replace(isBiometricSessionUnlocked() ? getPostLoginRoute() : '/(auth)/biometric');
     };
     void redirectSavedSession();
@@ -214,6 +214,7 @@ export default function LoginScreen() {
         tokenType: validation.token_type,
         expiresIn: validation.expires_in,
       });
+      await startBiometricSession();
       setBiometricSessionUnlocked(true);
       router.replace('/');
     } catch {

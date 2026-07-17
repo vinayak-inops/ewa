@@ -100,6 +100,30 @@ function LiteCustomTabBar({ state, navigation }: BottomTabBarProps) {
           </View>
         )}
 
+        {/* EWA — permission-gated (center tab) */}
+        {visible.ewa ? (
+          <Pressable
+            style={styles.tab}
+            onPress={() => navigation.navigate(state.routes[ewaIndex].name)}
+            hitSlop={8}>
+            <View style={[styles.iconWrap, ewaFocused && styles.iconWrapActive]}>
+              <Ionicons
+                name={ewaFocused ? 'wallet' : 'wallet-outline'}
+                size={22}
+                color={ewaFocused ? '#5b21b6' : '#9ca3af'}
+              />
+            </View>
+            <Text style={[styles.label, ewaFocused && styles.labelActive]}>EWA</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.tab}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="wallet-outline" size={22} color="#d1d5db" />
+            </View>
+            <Text style={styles.labelMuted}>EWA</Text>
+          </View>
+        )}
+
         {/* Apply — permission-gated */}
         {visible.applications ? (
           <Pressable
@@ -121,30 +145,6 @@ function LiteCustomTabBar({ state, navigation }: BottomTabBarProps) {
               <Ionicons name="document-text-outline" size={22} color="#d1d5db" />
             </View>
             <Text style={styles.labelMuted}>Apply</Text>
-          </View>
-        )}
-
-        {/* EWA — permission-gated */}
-        {visible.ewa ? (
-          <Pressable
-            style={styles.tab}
-            onPress={() => navigation.navigate(state.routes[ewaIndex].name)}
-            hitSlop={8}>
-            <View style={[styles.iconWrap, ewaFocused && styles.iconWrapActive]}>
-              <Ionicons
-                name={ewaFocused ? 'wallet' : 'wallet-outline'}
-                size={22}
-                color={ewaFocused ? '#5b21b6' : '#9ca3af'}
-              />
-            </View>
-            <Text style={[styles.label, ewaFocused && styles.labelActive]}>EWA</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.tab}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="wallet-outline" size={22} color="#d1d5db" />
-            </View>
-            <Text style={styles.labelMuted}>EWA</Text>
           </View>
         )}
 

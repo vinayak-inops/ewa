@@ -69,16 +69,6 @@ export async function saveAuthTokens(payload: StoredTokenPayload) {
   } else {
     await deleteItem(ID_TOKEN_KEY);
   }
-
-  if (__DEV__) {
-    console.log('[token-store] token saved', {
-      hasAccessToken: Boolean(payload.accessToken),
-      hasRefreshToken: Boolean(payload.refreshToken),
-      hasIdToken: Boolean(payload.idToken),
-      tokenType,
-      hasExpiresAt: Boolean(expiresAt),
-    });
-  }
 }
 
 export async function clearAuthTokens() {
@@ -91,9 +81,6 @@ export async function clearAuthTokens() {
     deleteItem(TOKEN_TYPE_KEY),
     deleteItem(EXPIRES_AT_KEY),
   ]);
-  if (__DEV__) {
-    console.log('[token-store] tokens cleared');
-  }
 }
 
 export async function getAccessToken() {
@@ -101,18 +88,13 @@ export async function getAccessToken() {
   const expiresAt = expiresAtRaw ? Number(expiresAtRaw) : NaN;
   if (Number.isFinite(expiresAt) && Date.now() >= expiresAt) {
     await clearAuthTokens();
-    if (__DEV__) {
-      console.log('[token-store] getAccessToken -> null (expired)');
-    }
     return null;
   }
 
   if (accessTokenMemory) return accessTokenMemory;
   const stored = await getItem(ACCESS_TOKEN_KEY);
   accessTokenMemory = stored ?? null;
-  if (__DEV__) {
-    console.log('[token-store] getAccessToken', { found: Boolean(accessTokenMemory) });
-  }
+  
   return accessTokenMemory;
 }
 
@@ -120,24 +102,17 @@ export async function getIdToken() {
   if (idTokenMemory) return idTokenMemory;
   const stored = await getItem(ID_TOKEN_KEY);
   idTokenMemory = stored ?? null;
-  if (__DEV__) {
-    console.log('[token-store] getIdToken', { found: Boolean(idTokenMemory) });
-  }
+  
   return idTokenMemory;
 }
 
 export async function getAuthHeader() {
   const token = await getAccessToken();
   if (!token) {
-    if (__DEV__) {
-      console.log('[token-store] getAuthHeader -> null (no token)');
-    }
     return null;
   }
   const tokenType = (await getItem(TOKEN_TYPE_KEY)) ?? 'Bearer';
   const header = `${tokenType} ${token}`;
-  if (__DEV__) {
-    console.log('[token-store] getAuthHeader -> built', { tokenType, tokenLength: token.length });
-  }
+ 
   return header;
 }

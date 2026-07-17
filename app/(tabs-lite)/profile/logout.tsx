@@ -1,4 +1,4 @@
-import { setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
+import { clearBiometricSession } from '@/hooks/auth/biometric-session';
 import { clearAuthTokens, getIdToken } from '@/hooks/auth/token-store';
 import { AppDispatch } from '@/store';
 import { clearRole } from '@/store/slices/roleSlice';
@@ -55,8 +55,8 @@ export default function LogoutScreen() {
       }
     } catch (error) {
     } finally {
+      await clearBiometricSession();
       await clearAuthTokens();
-      setBiometricSessionUnlocked(false);
       dispatch(clearRole());
       router.replace('/(auth)/login');
     }

@@ -169,7 +169,6 @@ export function useGetRequest<T>({
         if (!response.ok) {
           let body = '';
           try { body = await response.text(); } catch { /* ignore */ }
-          console.error(`[useGetRequest] ${normalizedMethod} ${requestUrl} → ${response.status}`, body);
           throw new Error(`${normalizedMethod} ${requestUrl} failed with status ${response.status}: ${body}`);
         }
 

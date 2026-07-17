@@ -1,6 +1,7 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
-import { isBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { isBiometricSessionActive, isBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
+import { enforceCleanInstall } from '@/hooks/auth/install-guard';
+import { clearAuthTokens, getAccessToken } from '@/hooks/auth/token-store';
 import { initializeRoleFromToken, fetchRolePermissions } from '@/store/slices/roleSlice';
 import { AppDispatch } from '@/store';
 import { Redirect } from 'expo-router';
@@ -14,13 +15,28 @@ export default function Index() {
 
   useEffect(() => {
     const run = async () => {
-      const token = await getAccessToken();
-      if (!token) {
+      await enforceCleanInstall();
+
+      const [biometricActive, token] = await Promise.all([
+        isBiometricSessionActive(),
+        getAccessToken(),
+      ]);
+
+      // No valid 31-day session → force Keycloak login
+      if (!biometricActive) {
+        if (token) await clearAuthTokens();
         setTarget('/(auth)/login');
         return;
       }
 
+      // 31-day session valid but not yet unlocked this app session → biometric screen
       if (!isBiometricSessionUnlocked()) {
+        setTarget('/(auth)/biometric');
+        return;
+      }
+
+      // Already unlocked this session — need a live token for role init
+      if (!token) {
         setTarget('/(auth)/biometric');
         return;
       }

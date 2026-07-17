@@ -16,10 +16,13 @@
     "build:lite:apk": "eas build --platform android --profile lite-apk",
     "build:rich:apk": "eas build --platform android --profile rich-apk",
     "build:lite:aab": "eas build --platform android --profile lite-aab",
-    "build:rich:aab": "eas build --platform android --profile rich-aab"
+    "build:rich:aab": "eas build --platform android --profile rich-aab",
+    "build:lite:ipa": "eas build --platform ios --profile lite-ipa",
+    "build:rich:ipa": "eas build --platform ios --profile rich-ipa"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
