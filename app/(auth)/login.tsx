@@ -1,6 +1,7 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
-import { isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
-import { getAccessToken, saveAuthTokens } from '@/hooks/auth/token-store';
+import { clearBiometricSession, isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
+import { refreshAccessToken } from '@/hooks/auth/keycloak-refresh';
+import { clearAuthTokens, getAccessToken, saveAuthTokens } from '@/hooks/auth/token-store';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -136,6 +137,18 @@ export default function LoginScreen() {
     const redirectSavedSession = async () => {
       const biometricActive = await isBiometricSessionActive();
       if (!biometricActive) return;
+
+      // Ensure we have a usable token before leaving the login screen.
+      // If access token is expired, try a silent refresh. If that also
+      // fails (refresh token gone), clear the session and stay here —
+      // this breaks the biometric ↔ login redirect loop.
+      const token = (await getAccessToken()) ?? (await refreshAccessToken());
+      if (!token) {
+        await clearBiometricSession();
+        await clearAuthTokens();
+        return;
+      }
+
       router.replace(isBiometricSessionUnlocked() ? getPostLoginRoute() : '/(auth)/biometric');
     };
     void redirectSavedSession();

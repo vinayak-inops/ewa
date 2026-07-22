@@ -1,5 +1,6 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
 import { clearBiometricSession, setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
+import { refreshAccessToken } from '@/hooks/auth/keycloak-refresh';
 import { clearAuthTokens, getAccessToken } from '@/hooks/auth/token-store';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -38,9 +39,13 @@ export default function BiometricScreen() {
     setErrorMessage('');
 
     try {
-      const token = await getAccessToken();
+      // Try the cached token first; if expired, attempt a silent refresh
+      const token = (await getAccessToken()) ?? (await refreshAccessToken());
       if (!token) {
-        setBiometricSessionUnlocked(false);
+        // Refresh token also gone — clear the 31-day session so login
+        // doesn't bounce back here in a loop
+        await clearBiometricSession();
+        await clearAuthTokens();
         router.replace('/(auth)/login');
         return;
       }

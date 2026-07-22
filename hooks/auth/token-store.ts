@@ -98,6 +98,10 @@ export async function getAccessToken() {
   return accessTokenMemory;
 }
 
+export async function getRefreshToken() {
+  return getItem(REFRESH_TOKEN_KEY);
+}
+
 export async function getIdToken() {
   if (idTokenMemory) return idTokenMemory;
   const stored = await getItem(ID_TOKEN_KEY);
