@@ -463,7 +463,7 @@ function getStripDayColor(detail: AttendanceDetail | null, hasAttendanceData: bo
 const DAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const ITEM_STEP = 42;
-const DAYS_TOTAL = 7;
+const DAYS_TOTAL = 31;
 
 function BannerIllustration({ b }: { b: BannerDef }) {
   return (
@@ -574,7 +574,7 @@ function WeekDayStrip({
     const stripColor = !sel && !tod ? getStripDayColor(dayDetail, Boolean(dayRow)) : null;
 
     return (
-      <Pressable disabled className="items-center w-10 mr-[2px] gap-[1px]">
+      <Pressable onPress={() => onSelectDate(date)} className="items-center w-10 mr-[2px] gap-[1px]">
         <Text className={`text-[10px] font-semibold mb-[2px] ${tod ? 'text-blue-600 font-bold' : 'text-slate-400'}`}>
           {DAY_SHORT[date.getDay()]}
         </Text>
@@ -773,7 +773,7 @@ export default function LiteAttendanceScreen() {
   const viewAllMode = mode === 'all' && Boolean(id);
   const today = useMemo(() => new Date(), []);
   const [currentDate, setCurrentDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
   const [employeeId, setEmployeeId] = useState('');
   const [tenantCode, setTenantCode] = useState('');
   const [attendanceRows, setAttendanceRows] = useState<AttendanceRow[]>([]);
@@ -1073,6 +1073,114 @@ export default function LiteAttendanceScreen() {
               </View>
             ))}
           </ScrollView>
+
+          {/* ── Punch Detail for Selected Date ── */}
+          {selectedDate && (() => {
+            const rec = selectedAttendanceRecord;
+            const detail = rec ? buildAttendanceDetail(rec) : null;
+            const punches = rec ? extractPunchRows(rec) : [];
+            const dateLabel = `${selectedDate.getDate()} ${MON_SHORT[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+
+            return (
+              <View
+                className="bg-white rounded-2xl overflow-hidden"
+                style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 }}
+              >
+                {/* Header */}
+                <View className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100">
+                  <View className="flex-row items-center gap-2">
+                    <View className="w-8 h-8 rounded-full bg-blue-50 items-center justify-center">
+                      <Ionicons name="calendar-outline" size={16} color="#2563eb" />
+                    </View>
+                    <Text className="text-[14px] font-bold text-slate-900">{dateLabel}</Text>
+                  </View>
+                  {detail && (
+                    <View
+                      className="px-[10px] py-[3px] rounded-full"
+                      style={{
+                        backgroundColor:
+                          detail.attendanceID === 'PP' ? '#dbeafe'
+                          : detail.attendanceID === 'AA' ? '#fee2e2'
+                          : detail.attendanceID === 'HH' ? '#fef3c7'
+                          : detail.attendanceID === 'WW' ? '#f1f5f9'
+                          : '#eff6ff',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11, fontWeight: '700',
+                          color:
+                            detail.attendanceID === 'PP' ? '#1d4ed8'
+                            : detail.attendanceID === 'AA' ? '#b91c1c'
+                            : detail.attendanceID === 'HH' ? '#92400e'
+                            : detail.attendanceID === 'WW' ? '#475569'
+                            : '#3730a3',
+                        }}
+                      >
+                        {detail.attendanceID === 'PP' ? 'Present'
+                          : detail.attendanceID === 'AA' ? 'Absent'
+                          : detail.attendanceID === 'HH' ? 'Half Day'
+                          : detail.attendanceID === 'WW' ? 'Week Off'
+                          : detail.attendanceID !== '-' ? detail.attendanceID
+                          : 'No Data'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+
+                {/* Punch list */}
+                <View className="px-4 py-3">
+                  <Text className="text-[11px] font-bold text-slate-400 mb-2" style={{ letterSpacing: 0.6 }}>
+                    PUNCH RECORDS{punches.length > 0 ? ` · ${punches.length}` : ''}
+                  </Text>
+                  {punches.length === 0 ? (
+                    <View className="items-center py-5 gap-1">
+                      <Ionicons name="finger-print-outline" size={28} color="#cbd5e1" />
+                      <Text className="text-[12px] text-slate-400 font-medium">No punch records for this day</Text>
+                    </View>
+                  ) : (
+                    <View className="gap-[6px]">
+                      {punches.map((punch) => {
+                        const isIn = punch.inOut === 'I';
+                        const timeStr = punch.punchedTime ? formatTransactionTime(punch.punchedTime).slice(11, 16) : '--';
+                        return (
+                          <View
+                            key={punch.id}
+                            className="flex-row items-center gap-3 rounded-xl px-3 py-[10px]"
+                            style={{ backgroundColor: isIn ? '#f0fdf4' : '#fff7f7' }}
+                          >
+                            <View
+                              className="w-8 h-8 rounded-full items-center justify-center"
+                              style={{ backgroundColor: isIn ? '#dcfce7' : '#fee2e2' }}
+                            >
+                              <Ionicons name={isIn ? 'log-in-outline' : 'log-out-outline'} size={16} color={isIn ? '#16a34a' : '#dc2626'} />
+                            </View>
+                            <View className="flex-1">
+                              <Text className="text-[13px] font-bold" style={{ color: isIn ? '#15803d' : '#b91c1c' }}>
+                                {isIn ? 'IN' : 'OUT'} · {timeStr}
+                              </Text>
+                              <Text className="text-[10px] text-slate-400 font-medium">
+                                {punch.typeOfMovement === 'P' ? 'Physical' : punch.typeOfMovement} · {punch.readerSerialNumber !== '-' ? punch.readerSerialNumber : 'Unknown reader'}
+                              </Text>
+                            </View>
+                            <View
+                              className="px-2 py-[2px] rounded-full"
+                              style={{ backgroundColor: punch.processed === 'Processed' ? '#dcfce7' : '#fef9c3' }}
+                            >
+                              <Text className="text-[9px] font-bold" style={{ color: punch.processed === 'Processed' ? '#15803d' : '#854d0e' }}>
+                                {punch.processed}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })()}
 
           {/* ── Face Modal ── */}
           <Modal visible={showFaceModal} transparent animationType="slide" onRequestClose={() => setShowFaceModal(false)}>

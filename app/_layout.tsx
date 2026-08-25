@@ -1,16 +1,43 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { Text, TextInput } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AppState, AppStateStatus, Text, TextInput } from 'react-native';
 import 'react-native-reanimated';
 import "../global.css";
 
 import StoreProvider from '@/components/providers/StoreProvider';
 import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
+import { isBiometricSessionUnlocked, setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+
+// Lock the session and require biometric re-auth after this much background time
+const BACKGROUND_LOCK_MS = 5 * 60 * 1000; // 5 minutes
+
+function useBackgroundAuthLock() {
+  const router = useRouter();
+  const backgroundTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        backgroundTimeRef.current = Date.now();
+      } else if (nextState === 'active') {
+        const bg = backgroundTimeRef.current;
+        if (bg !== null && Date.now() - bg >= BACKGROUND_LOCK_MS && isBiometricSessionUnlocked()) {
+          setBiometricSessionUnlocked(false);
+          router.replace('/(auth)/biometric');
+        }
+        backgroundTimeRef.current = null;
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [router]);
+}
 
 // Hide the native splash immediately — our JS loading screen takes over
 SplashScreen.hideAsync().catch(() => {});
@@ -24,6 +51,7 @@ export default function RootLayout() {
     Inter: require('../assets/fonts/Inter-Variable.ttf'),
   });
   const colorScheme = useColorScheme();
+  useBackgroundAuthLock();
 
   useEffect(() => {
     if (!fontsLoaded) return;

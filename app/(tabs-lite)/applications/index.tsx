@@ -33,6 +33,7 @@ function decodeJwtPayload(token: string) {
 
 type ServiceDef = {
   title: string;
+  approverTitle: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   applierRoute: string;
   approverRoute: string;
@@ -43,60 +44,70 @@ const LEAVE_POPUP_ROUTE = '__leave_popup__';
 const SERVICES: ServiceDef[] = [
   {
     title: 'Leave Application',
+    approverTitle: 'Leave Approval',
     icon: 'calendar-outline',
     applierRoute: LEAVE_POPUP_ROUTE,
     approverRoute: LEAVE_POPUP_ROUTE,
   },
   {
     title: 'Edit Punch',
+    approverTitle: 'Punch Edit Approval',
     icon: 'create-outline',
     applierRoute: '/(tabs-lite)/applications/edit-punch',
     approverRoute: '/(tabs-lite)/applications/edit-punch',
   },
   {
     title: 'Shift Change',
+    approverTitle: 'Shift Change Approval',
     icon: 'time-outline',
     applierRoute: '/(tabs-lite)/applications/shift-change',
     approverRoute: '/(tabs-lite)/applications/shift-change',
   },
   {
     title: 'Out Duty',
+    approverTitle: 'Out Duty Approval',
     icon: 'navigate-outline',
     applierRoute: '/(tabs-lite)/applications/out-duty-application',
     approverRoute: '/(tabs-lite)/applications/out-duty-application',
   },
   {
     title: 'OT Apply',
+    approverTitle: 'OT Approval',
     icon: 'briefcase-outline',
     applierRoute: '/(tabs-lite)/applications/ot-application',
     approverRoute: '/(tabs-lite)/applications/ot-application',
   },
   {
     title: 'Work From Home',
+    approverTitle: 'WFH Approval',
     icon: 'home-outline',
     applierRoute: '/(tabs-lite)/applications/wfh-application',
     approverRoute: '/(tabs-lite)/applications/wfh-application',
   },
   {
     title: 'Punch Apply',
+    approverTitle: 'Punch Approval',
     icon: 'finger-print-outline',
     applierRoute: '/(tabs-lite)/applications/punch-application',
     approverRoute: '/(tabs-lite)/applications/punch-application',
   },
   {
     title: 'Encashment',
+    approverTitle: 'Encashment Approval',
     icon: 'cash-outline',
     applierRoute: '/(tabs-lite)/applications/encashment-application',
     approverRoute: '/(tabs-lite)/applications/encashment-application',
   },
   {
     title: 'Comp Off',
+    approverTitle: 'Comp Off Approval',
     icon: 'swap-horizontal-outline',
     applierRoute: '/(tabs-lite)/applications/compoff-application',
     approverRoute: '/(tabs-lite)/applications/compoff-application',
   },
   {
     title: 'Attendance',
+    approverTitle: 'Attendance Approval',
     icon: 'today-outline',
     applierRoute: '/(tabs-lite)/attendance',
     approverRoute: '/(tabs-lite)/attendance',
@@ -274,7 +285,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
   );
 }
 
-function ServiceCard({ svc, onPress }: { svc: ServiceDef; onPress: () => void }) {
+function ServiceCard({ svc, displayTitle, onPress }: { svc: ServiceDef; displayTitle: string; onPress: () => void }) {
   return (
     <Pressable style={{ flex: 1 }} onPress={onPress}>
       {({ pressed }) => (
@@ -282,7 +293,7 @@ function ServiceCard({ svc, onPress }: { svc: ServiceDef; onPress: () => void })
           <View style={s.cardIconWrap}>
             <Ionicons name={svc.icon} size={22} color="#1e3a8a" />
           </View>
-          <Text style={s.cardTitle} numberOfLines={2}>{svc.title}</Text>
+          <Text style={s.cardTitle} numberOfLines={2}>{displayTitle}</Text>
         </View>
       )}
     </Pressable>
@@ -293,10 +304,12 @@ function CardGrid({
   services,
   getRoute,
   onLeavePress,
+  mode,
 }: {
   services: ServiceDef[];
   getRoute: (svc: ServiceDef) => string;
   onLeavePress: () => void;
+  mode: 'applier' | 'approver';
 }) {
   const router = useRouter();
   return (
@@ -307,6 +320,7 @@ function CardGrid({
             <ServiceCard
               key={svc.title}
               svc={svc}
+              displayTitle={mode === 'approver' ? svc.approverTitle : svc.title}
               onPress={() => {
                 const route = getRoute(svc);
                 if (route === LEAVE_POPUP_ROUTE) { onLeavePress(); }
@@ -426,6 +440,7 @@ export default function ApplicationsHubScreen() {
               </View>
               <CardGrid
                 services={visibleApplier}
+                mode="applier"
                 getRoute={(svc) => {
                   if (svc.applierRoute === LEAVE_POPUP_ROUTE) return LEAVE_POPUP_ROUTE;
                   const sep = svc.applierRoute.includes('?') ? '&' : '?';
@@ -444,6 +459,7 @@ export default function ApplicationsHubScreen() {
               </View>
               <CardGrid
                 services={visibleApprover}
+                mode="approver"
                 getRoute={(svc) => {
                   if (svc.approverRoute === LEAVE_POPUP_ROUTE) return LEAVE_POPUP_ROUTE;
                   const sep = svc.approverRoute.includes('?') ? '&' : '?';

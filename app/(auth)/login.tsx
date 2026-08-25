@@ -1,5 +1,6 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
 import { clearBiometricSession, isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
+import { recordPostLoginState } from '@/hooks/auth/install-guard';
 import { refreshAccessToken } from '@/hooks/auth/keycloak-refresh';
 import { clearAuthTokens, getAccessToken, saveAuthTokens } from '@/hooks/auth/token-store';
 import * as Linking from 'expo-linking';
@@ -228,6 +229,7 @@ export default function LoginScreen() {
         expiresIn: validation.expires_in,
       });
       await startBiometricSession();
+      await recordPostLoginState(validation.access_token);
       setBiometricSessionUnlocked(true);
       router.replace('/');
     } catch {

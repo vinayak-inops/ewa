@@ -3,10 +3,25 @@ import { clearBiometricSession, setBiometricSessionUnlocked } from '@/hooks/auth
 import { refreshAccessToken } from '@/hooks/auth/keycloak-refresh';
 import { clearAuthTokens, getAccessToken } from '@/hooks/auth/token-store';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+
+const BIOMETRIC_FAIL_KEY = 'ewa_biometric_fail_count';
+const MAX_BIOMETRIC_FAILS = 3;
+
+async function incrementFailCount(): Promise<number> {
+  const stored = await AsyncStorage.getItem(BIOMETRIC_FAIL_KEY);
+  const next = (stored ? parseInt(stored, 10) : 0) + 1;
+  await AsyncStorage.setItem(BIOMETRIC_FAIL_KEY, String(next));
+  return next;
+}
+
+async function resetFailCount() {
+  await AsyncStorage.removeItem(BIOMETRIC_FAIL_KEY);
+}
 
 const APP_FONT_FAMILY = 'Inter';
 
@@ -42,9 +57,9 @@ export default function BiometricScreen() {
       // Try the cached token first; if expired, attempt a silent refresh
       const token = (await getAccessToken()) ?? (await refreshAccessToken());
       if (!token) {
-        // Refresh token also gone — clear the 31-day session so login
-        // doesn't bounce back here in a loop
-        await clearBiometricSession();
+        // Keycloak refresh token expired — go to re-login but keep the
+        // 31-day biometric session so the next cold start still shows
+        // fingerprint instead of Keycloak. The login screen resets it on success.
         await clearAuthTokens();
         router.replace('/(auth)/login');
         return;
@@ -73,10 +88,19 @@ export default function BiometricScreen() {
       });
 
       if (!result.success) {
-        await fallbackToKeycloak();
+        const fails = await incrementFailCount();
+        if (fails >= MAX_BIOMETRIC_FAILS) {
+          await resetFailCount();
+          await fallbackToKeycloak();
+        } else {
+          setErrorMessage(
+            `Authentication failed. ${MAX_BIOMETRIC_FAILS - fails} attempt(s) remaining.`
+          );
+        }
         return;
       }
 
+      await resetFailCount();
       setBiometricSessionUnlocked(true);
       router.replace(getPostLoginRoute());
     } catch (error) {
@@ -85,8 +109,8 @@ export default function BiometricScreen() {
       await fallbackToKeycloak();
     } finally {
       isAuthenticatingRef.current = false;
-      setIsChecking(false);
       setIsAuthenticating(false);
+      setIsChecking(false);
     }
   }, [fallbackToKeycloak, router]);
 
