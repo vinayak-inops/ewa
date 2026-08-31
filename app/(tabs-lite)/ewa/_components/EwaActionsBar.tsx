@@ -26,7 +26,7 @@ export function EwaActionsBar() {
         <Text style={styles.actionLabel}>Bank</Text>
       </Pressable>
       <Link href="../claim-rules" style={styles.infoLink}>
-        Open Information
+        Terms and Rules
       </Link>
     </View>
   );

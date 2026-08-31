@@ -87,14 +87,20 @@ export async function getAccessToken() {
   const expiresAtRaw = await getItem(EXPIRES_AT_KEY);
   const expiresAt = expiresAtRaw ? Number(expiresAtRaw) : NaN;
   if (Number.isFinite(expiresAt) && Date.now() >= expiresAt) {
-    await clearAuthTokens();
+    // Access token expired — clear only the access token and its expiry.
+    // Do NOT clear the refresh token here; the caller will use it to
+    // silently get a new access token. Clearing it here would break
+    // the biometric silent-refresh flow on every token expiry.
+    accessTokenMemory = null;
+    await deleteItem(ACCESS_TOKEN_KEY);
+    await deleteItem(EXPIRES_AT_KEY);
     return null;
   }
 
   if (accessTokenMemory) return accessTokenMemory;
   const stored = await getItem(ACCESS_TOKEN_KEY);
   accessTokenMemory = stored ?? null;
-  
+
   return accessTokenMemory;
 }
 

@@ -32,7 +32,7 @@ const KEYCLOAK_AUTH_URL = KEYCLOAK_ISSUER ? `${KEYCLOAK_ISSUER}/protocol/openid-
 const KEYCLOAK_TOKEN_URL = KEYCLOAK_ISSUER ? `${KEYCLOAK_ISSUER}/protocol/openid-connect/token` : '';
 const KEYCLOAK_CLIENT_ID = process.env.EXPO_PUBLIC_KEYCLOAK_CLIENT_ID ?? '';
 const KEYCLOAK_CLIENT_SECRET = process.env.EXPO_PUBLIC_KEYCLOAK_CLIENT_SECRET ?? '';
-const KEYCLOAK_SCOPE = process.env.EXPO_PUBLIC_KEYCLOAK_SCOPE ?? 'openid profile email';
+const KEYCLOAK_SCOPE = process.env.EXPO_PUBLIC_KEYCLOAK_SCOPE ?? 'openid profile email offline_access';
 const APP_FONT_FAMILY = 'Inter';
 
 type TokenResponse = {
