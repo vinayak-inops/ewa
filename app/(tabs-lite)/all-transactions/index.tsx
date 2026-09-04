@@ -312,7 +312,7 @@ export default function AllTransactionsScreen() {
           <View style={styles.header}>
             <View style={styles.topRow}>
               <View style={styles.leftGroup}>
-                <Pressable onPress={() => router.replace('/')} hitSlop={8} style={styles.backButton}>
+                <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backButton}>
                   <Ionicons name="arrow-back" size={18} color="#fff" />
                 </Pressable>
                 <Text style={styles.title}>All Transactions</Text>

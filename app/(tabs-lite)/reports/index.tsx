@@ -21,7 +21,7 @@ export default function ReportsScreen() {
             <Pressable
               className="w-8 h-8 rounded-full bg-white/15 items-center justify-center"
               hitSlop={8}
-              onPress={() => router.push('/(tabs-lite)/main-launchpad' as any)}
+              onPress={() => router.back()}
             >
               <Ionicons name="arrow-back" size={18} color="#fff" />
             </Pressable>

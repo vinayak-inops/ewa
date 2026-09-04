@@ -46,8 +46,8 @@ function LiteCustomTabBar({ state, navigation }: BottomTabBarProps) {
   const visible = useTabVisibility();
 
   const mainLaunchpadIndex = state.routes.findIndex((r) => r.name === 'main-launchpad');
-  const attendanceIndex    = state.routes.findIndex((r) => r.name === 'attendance/index');
-  const applicationsIndex  = state.routes.findIndex((r) => r.name === 'applications/index');
+  const attendanceIndex    = state.routes.findIndex((r) => r.name === 'attendance');
+  const applicationsIndex  = state.routes.findIndex((r) => r.name === 'applications');
   const ewaIndex           = state.routes.findIndex((r) => r.name === 'ewa/index');
   const profileIndex       = state.routes.findIndex((r) => r.name === 'profile/index');
 
@@ -184,23 +184,14 @@ export default function LiteTabLayout() {
       <Tabs.Screen name="index" options={{ href: null, title: 'EWA' }} />
       <Tabs.Screen name="all-transactions/index" options={{ title: 'Transactions', tabBarShowLabel: false }} />
       <Tabs.Screen name="information/index" options={{ href: null }} />
-      <Tabs.Screen name="attendance/index" options={{ title: 'Attendance', tabBarShowLabel: false }} />
-      <Tabs.Screen name="attendance/muster/index" options={{ href: null }} />
+      <Tabs.Screen name="attendance" options={{ title: 'Attendance', tabBarShowLabel: false }} />
       <Tabs.Screen name="reports/index" options={{ href: null }} />
       <Tabs.Screen name="claim-rules/index" options={{ href: null }} />
       <Tabs.Screen name="bank-details/index" options={{ href: null }} />
       <Tabs.Screen name="ewa/index" options={{ title: 'EWA', tabBarShowLabel: false }} />
       <Tabs.Screen name="profile/index" options={{ title: 'Profile', tabBarShowLabel: false }} />
       <Tabs.Screen name="profile/logout" options={{ href: null }} />
-      <Tabs.Screen name="applications/index" options={{ title: 'Applications', tabBarShowLabel: false }} />
-      <Tabs.Screen name="applications/leave-application/index" options={{ href: null }} />
-      <Tabs.Screen name="applications/shift-change/index" options={{ href: null }} />
-      <Tabs.Screen name="applications/punch-application/index" options={{ href: null }} />
-      <Tabs.Screen name="applications/wfh-application/index" options={{ href: null }} />
-      <Tabs.Screen name="applications/ot-application/index" options={{ href: null }} />
-      <Tabs.Screen name="applications/out-duty-application/index" options={{ href: null }} />
-      <Tabs.Screen name="applications/compoff-application/index" options={{ href: null }} />
-      <Tabs.Screen name="applications/encashment-application/index" options={{ href: null }} />
+      <Tabs.Screen name="applications" options={{ title: 'Applications', tabBarShowLabel: false }} />
     </Tabs>
   );
 }

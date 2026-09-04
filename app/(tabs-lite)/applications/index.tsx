@@ -401,7 +401,7 @@ export default function ApplicationsHubScreen() {
             <Pressable
               style={s.backBtn}
               hitSlop={8}
-              onPress={() => router.push('/(tabs-lite)/main-launchpad' as any)}
+              onPress={() => router.navigate('/(tabs-lite)/main-launchpad' as any)}
             >
               <Ionicons name="arrow-back" size={18} color="#fff" />
             </Pressable>

@@ -347,7 +347,7 @@ export default function MusterDetailScreen() {
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      router.navigate('/(tabs-lite)/attendance' as any);
+      router.back();
       return true;
     });
     return () => sub.remove();
@@ -357,14 +357,15 @@ export default function MusterDetailScreen() {
     { field: 'employeeID', value: employeeId, operator: 'eq' },
     { field: 'tenantCode', value: tenantCode, operator: 'eq' },
     { field: 'month', value: selectedMonthNumber, operator: 'eq' },
-  ], [employeeId, tenantCode, selectedMonthNumber]);
+    { field: 'year', value: selectedYear, operator: 'eq' },
+  ], [employeeId, tenantCode, selectedMonthNumber, selectedYear]);
 
   useGetRequest<any[]>({
     url: ATTENDANCE_SEARCH_URL,
     method: 'POST',
     data: searchData,
     enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode, selectedMonthNumber],
+    dependencies: [employeeId, tenantCode, selectedMonthNumber, selectedYear],
     onSuccess: (data) => setAttendanceRows(normalizeRows(data)),
     onError: () => setAttendanceRows([]),
   });
@@ -372,18 +373,22 @@ export default function MusterDetailScreen() {
   const calAnchorMonthNumber = calAnchor.getMonth() + 1;
   const calAnchorYear = calAnchor.getFullYear();
 
+  // Only fetch a separate month when the calendar is open AND pointing to a different month/year
+  const calMonthDiffers = calAnchorMonthNumber !== selectedMonthNumber || calAnchorYear !== selectedYear;
+
   const calSearchData = useMemo(() => [
     { field: 'employeeID', value: employeeId, operator: 'eq' },
     { field: 'tenantCode', value: tenantCode, operator: 'eq' },
     { field: 'month', value: calAnchorMonthNumber, operator: 'eq' },
-  ], [employeeId, tenantCode, calAnchorMonthNumber]);
+    { field: 'year', value: calAnchorYear, operator: 'eq' },
+  ], [employeeId, tenantCode, calAnchorMonthNumber, calAnchorYear]);
 
   useGetRequest<any[]>({
     url: ATTENDANCE_SEARCH_URL,
     method: 'POST',
     data: calSearchData,
-    enabled: Boolean(employeeId && tenantCode && showCalendar),
-    dependencies: [employeeId, tenantCode, calAnchorMonthNumber, showCalendar],
+    enabled: Boolean(employeeId && tenantCode && showCalendar && calMonthDiffers),
+    dependencies: [employeeId, tenantCode, calAnchorMonthNumber, calAnchorYear, showCalendar, calMonthDiffers],
     onSuccess: (data) => setCalMonthRows(normalizeRows(data)),
     onError: () => setCalMonthRows([]),
   });
@@ -438,7 +443,7 @@ export default function MusterDetailScreen() {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-        <Pressable onPress={() => router.navigate('/(tabs-lite)/attendance' as any)} hitSlop={8} style={styles.backBtn}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={20} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>Attendance Detail</Text>

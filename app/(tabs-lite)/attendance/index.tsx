@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Easing, FlatList, Modal, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -553,11 +553,19 @@ function WeekDayStrip({
   }, [today]);
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      listRef.current?.scrollToEnd({ animated: false });
-    }, 50);
-    return () => clearTimeout(t);
-  }, [days]);
+    setVisibleMonth(`${MON_SHORT[today.getMonth()]} ${today.getFullYear()}`);
+  }, [today]);
+
+  // Scroll to today (last item) every time this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      setVisibleMonth(`${MON_SHORT[today.getMonth()]} ${today.getFullYear()}`);
+      const t = setTimeout(() => {
+        listRef.current?.scrollToIndex({ index: DAYS_TOTAL - 1, animated: false });
+      }, 50);
+      return () => clearTimeout(t);
+    }, [today])
+  );
 
   const handleScroll = useCallback((e: any) => {
     const offsetX = e.nativeEvent.contentOffset.x;
@@ -629,6 +637,10 @@ function WeekDayStrip({
               initialNumToRender={DAYS_TOTAL}
               maxToRenderPerBatch={30}
               windowSize={10}
+              initialScrollIndex={DAYS_TOTAL - 1}
+              onScrollToIndexFailed={() => {
+                setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 50);
+              }}
             />
           </View>
         )}
@@ -776,7 +788,17 @@ export default function LiteAttendanceScreen() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
   const [employeeId, setEmployeeId] = useState('');
   const [tenantCode, setTenantCode] = useState('');
+
+  // Pause all fetches when muster (or any child screen) is on top of this screen
+  const [isFocused, setIsFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
   const [attendanceRows, setAttendanceRows] = useState<AttendanceRow[]>([]);
+  const [currentMonthAttendanceRows, setCurrentMonthAttendanceRows] = useState<AttendanceRow[]>([]);
   const [todayPunches, setTodayPunches] = useState<TodayPunch[]>([]);
   const [punchOffset, setPunchOffset] = useState(0);
   const [hasMorePunches, setHasMorePunches] = useState(true);
@@ -804,6 +826,10 @@ export default function LiteAttendanceScreen() {
   }, [viewAllMode, id]);
 
   const selectedMonthNumber = currentDate.getMonth() + 1;
+  const selectedYearNumber = currentDate.getFullYear();
+  const currentMonthNumber = today.getMonth() + 1;
+  const currentYearNumber = today.getFullYear();
+  const currentMonthDataNeeded = selectedMonthNumber !== currentMonthNumber || selectedYearNumber !== currentYearNumber;
 
   const { loading: attendanceLoading } = useGetRequest<any[]>({
     url: ATTENDANCE_SEARCH_URL,
@@ -813,24 +839,45 @@ export default function LiteAttendanceScreen() {
       { field: 'tenantCode', value: tenantCode, operator: 'eq' },
       { field: 'month', value: selectedMonthNumber, operator: 'eq' },
     ],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode, selectedMonthNumber],
+    enabled: Boolean(employeeId && tenantCode && isFocused),
+    dependencies: [employeeId, tenantCode, selectedMonthNumber, isFocused],
     onSuccess: (data) => {
-      setAttendanceRows(normalizeAttendanceRows(data));
+      const rows = normalizeAttendanceRows(data);
+      setAttendanceRows(rows);
+      if (!currentMonthDataNeeded) setCurrentMonthAttendanceRows(rows);
     },
     onError: () => {
       setAttendanceRows([]);
+      if (!currentMonthDataNeeded) setCurrentMonthAttendanceRows([]);
     },
   });
 
   const selectedDateKey = useMemo(() => (selectedDate ? toLocalDateKey(selectedDate) : ''), [selectedDate]);
 
+  const { loading: currentMonthAttendanceLoading } = useGetRequest<any[]>({
+    url: ATTENDANCE_SEARCH_URL,
+    method: 'POST',
+    data: [
+      { field: 'employeeID', value: employeeId, operator: 'eq' },
+      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
+      { field: 'month', value: currentMonthNumber, operator: 'eq' },
+    ],
+    enabled: Boolean(employeeId && tenantCode && isFocused && currentMonthDataNeeded),
+    dependencies: [employeeId, tenantCode, currentMonthNumber, currentMonthDataNeeded, isFocused],
+    onSuccess: (data) => {
+      setCurrentMonthAttendanceRows(normalizeAttendanceRows(data));
+    },
+    onError: () => {
+      setCurrentMonthAttendanceRows([]);
+    },
+  });
+
   const totalMonthMinutes = useMemo(() => {
-    return attendanceRows.reduce((sum, row) => {
+    return currentMonthAttendanceRows.reduce((sum, row) => {
       const v = Number(row.hoursWorked);
       return sum + (Number.isFinite(v) ? Math.max(0, v) : 0);
     }, 0);
-  }, [attendanceRows]);
+  }, [currentMonthAttendanceRows]);
 
   useEffect(() => {
     setPunchOffset(0);
@@ -855,8 +902,8 @@ export default function LiteAttendanceScreen() {
     method: 'POST',
     params: punchParams,
     data: punchData,
-    enabled: Boolean(employeeId && tenantCode && selectedDateKey),
-    dependencies: [employeeId, tenantCode, selectedDateKey, punchOffset],
+    enabled: Boolean(employeeId && tenantCode && selectedDateKey && isFocused),
+    dependencies: [employeeId, tenantCode, selectedDateKey, punchOffset, isFocused],
     onSuccess: (data) => {
       const page = data ?? [];
       setTodayPunches((prev) => (punchOffset === 0 ? page : [...prev, ...page]));
@@ -958,7 +1005,7 @@ export default function LiteAttendanceScreen() {
         <View className="flex-row justify-between items-center mb-[14px]">
           <View className="flex-row items-center gap-[10px]">
             <Pressable
-              onPress={() => router.push('/(tabs-lite)/main-launchpad' as any)}
+              onPress={() => router.back()}
               hitSlop={8}
               className="w-8 h-8 rounded-full items-center justify-center bg-white/15"
             >
@@ -1043,10 +1090,10 @@ export default function LiteAttendanceScreen() {
           <WeekDayStrip
             today={today}
             selectedDate={selectedDate}
-            attendanceRows={attendanceRows}
+            attendanceRows={currentMonthAttendanceRows}
             onSelectDate={handleStripDateSelect}
             onOpenCalendar={() => setShowCalendar(true)}
-            loading={attendanceLoading}
+            loading={currentMonthDataNeeded ? currentMonthAttendanceLoading : attendanceLoading}
           />
 
           {/* ── Color Legend ── */}

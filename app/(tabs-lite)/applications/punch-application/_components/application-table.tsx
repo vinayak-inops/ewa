@@ -118,7 +118,7 @@ export default function ApplicationTable({
 
       {/* Header - fixed */}
       <View style={[s.header, { paddingTop: insets.top + 14 }]}>
-        <Pressable onPress={() => router.push("/(tabs-lite)/applications" as any)} hitSlop={8} style={s.backBtn}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={s.backBtn}>
           <ChevronLeft size={20} color="#fff" />
         </Pressable>
         <Text style={s.headerTitle}>{title}</Text>

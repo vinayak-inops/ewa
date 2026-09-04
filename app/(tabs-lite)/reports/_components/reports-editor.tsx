@@ -227,7 +227,7 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center gap-[10px]">
               <Pressable
-                onPress={() => router.push('/(tabs-lite)/main-launchpad' as any)}
+                onPress={() => router.back()}
                 hitSlop={8}
                 className="w-[34px] h-[34px] rounded-full items-center justify-center bg-white/15"
               >
