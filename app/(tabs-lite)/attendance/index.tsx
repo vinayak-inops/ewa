@@ -1,19 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Easing, FlatList, Modal, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import { Dimensions, Modal, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';
+import { FaceAttendanceButton } from './components/FaceAttendance';
+import { PunchRecords, buildAttendanceDetail, type AttendanceDetail } from './components/PunchRecords';
+import { WeekDayStrip } from './components/WeekDayStrip';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const OVAL_W = Math.min(196, Math.round(SCREEN_W * 0.50));
-const OVAL_H = Math.round(OVAL_W * 1.21);
-const CORNER_SIZE = Math.round(OVAL_W * 0.11);
+const { height: SCREEN_H } = Dimensions.get('window');
 
 const ATTENDANCE_SEARCH_URL = process.env.EXPO_PUBLIC_ATTENDANCE_SEARCH_URL ?? 'muster/muster/search';
 const DATA_CHECK_URL = process.env.EXPO_PUBLIC_DATA_CHECK_URL ?? 'muster/data_check/search';
+const FACE_PUNCH_URL = process.env.EXPO_PUBLIC_FACE_PUNCH_URL ?? 'muster/mobile_attendance_punches/search';
 
 type TodayPunch = {
   _id: string;
@@ -28,38 +29,27 @@ type TodayPunch = {
   tenantCode: string;
 };
 
-type AttendanceDetail = {
-  workOrderNumber: string;
-  shiftsAllocated: string;
-  shiftCode: string;
-  extraManShift: string;
-  attendanceID: string;
-  hoursWorked: number;
-  lateIn: number;
-  earlyOut: number;
-  extraHoursPostShift: number;
-  extraHoursPreShift: number;
-  extraHours: number;
-  personalOut: number;
-  officialOut: number;
-  otHours: number;
-  leaveCode: string;
-  firstIn: string;
-  lastOut: string;
-  inPunchCount: number;
-  outPunchCount: number;
+type FacePunchRecord = {
+  _id: string;
+  employeeID: string;
+  dateTime: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  tenantCode: string;
+  punchPhotoPath: string;
+  status: string;                    /* 'SUCCESS' | 'FAILED' */
+  geofenceValidated: boolean;
+  matchedSiteCode: string;
+  distanceFromSiteMeters: number;
+  radiusMeters: number;
+  accuracyToleranceMeters: number;
+  effectiveRadiusMeters: number;
+  validated: boolean;
+  errorDescription: string;
 };
 
 type AttendanceRow = Record<string, unknown>;
-type PunchRow = {
-  id: string;
-  employeeID: string;
-  inOut: string;
-  typeOfMovement: string;
-  punchedTime: string;
-  readerSerialNumber: string;
-  processed: string;
-};
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -341,75 +331,6 @@ function getNumericField(record: AttendanceRow, key: string): number | null {
   return null;
 }
 
-function buildAttendanceDetail(record: AttendanceRow): AttendanceDetail {
-  const punchDetails = isRecord(record.punchDetails) ? record.punchDetails : null;
-  const inPunches = Array.isArray(punchDetails?.inPunches) ? punchDetails.inPunches : [];
-  const outPunches = Array.isArray(punchDetails?.outPunches) ? punchDetails.outPunches : [];
-
-  const fallbackIn = inPunches.find((item) => isRecord(item) && typeof item.punchedTime === 'string' && item.punchedTime.trim() !== '');
-  const fallbackOut = [...outPunches]
-    .reverse()
-    .find((item) => isRecord(item) && typeof item.punchedTime === 'string' && item.punchedTime.trim() !== '');
-
-  return {
-    workOrderNumber: getFirstNonEmptyString(record, ['workOrderNumber', 'workOrderNo', 'woNumber']) || '-',
-    shiftsAllocated: getFirstNonEmptyString(record, ['shiftsAllocated', 'shiftAllocated']) || '-',
-    shiftCode: getFirstNonEmptyString(record, ['shiftCode', 'shift']) || '-',
-    extraManShift: getFirstNonEmptyString(record, ['extraManShift']) || '-',
-    attendanceID:
-      getFirstNonEmptyString(record, ['attendanceID', 'attendanceId', 'attendanceid', 'attendanceCode', 'attendanceStatus', 'status']) || '-',
-    hoursWorked: parseNumericValue(record.hoursWorked),
-    lateIn: parseNumericValue(record.lateIn),
-    earlyOut: parseNumericValue(record.earlyOut),
-    extraHoursPostShift: parseNumericValue(record.extraHoursPostShift),
-    extraHoursPreShift: parseNumericValue(record.extraHoursPreShift),
-    extraHours: parseNumericValue(record.extraHours),
-    personalOut: parseNumericValue(record.personalOut),
-    officialOut: parseNumericValue(record.officialOut),
-    otHours: parseNumericValue(record.otHours),
-    leaveCode: getFirstNonEmptyString(record, ['leaveCode', 'leave_code', 'leave', 'leaveId']) || '-',
-    firstIn: getFirstNonEmptyString(record, ['firstIn']) || (isRecord(fallbackIn) ? getFirstNonEmptyString(fallbackIn, ['punchedTime']) : ''),
-    lastOut: getFirstNonEmptyString(record, ['lastOut']) || (isRecord(fallbackOut) ? getFirstNonEmptyString(fallbackOut, ['punchedTime']) : ''),
-    inPunchCount: inPunches.length,
-    outPunchCount: outPunches.length,
-  };
-}
-
-function extractPunchRows(record: AttendanceRow): PunchRow[] {
-  const punchDetails = isRecord(record.punchDetails) ? record.punchDetails : null;
-  const buckets = [
-    ...(Array.isArray(punchDetails?.inPunches) ? punchDetails.inPunches : []),
-    ...(Array.isArray(punchDetails?.outPunches) ? punchDetails.outPunches : []),
-    ...(Array.isArray(punchDetails?.defaultPunches) ? punchDetails.defaultPunches : []),
-  ];
-  const rows = buckets
-    .filter((item) => isRecord(item))
-    .map((item, index) => ({
-      id:
-        getFirstNonEmptyString(item, ['_id', 'id']) ||
-        `${getFirstNonEmptyString(item, ['punchedTime', 'transactionTime', 'date']) || 'row'}-${index}`,
-      employeeID: getFirstNonEmptyString(item, ['employeeID']) || getFirstNonEmptyString(record, ['employeeID']) || '-',
-      inOut: getFirstNonEmptyString(item, ['inOut']) || '-',
-      typeOfMovement: getFirstNonEmptyString(item, ['typeOfMovement']) || '-',
-      punchedTime: getFirstNonEmptyString(item, ['punchedTime', 'transactionTime', 'date']) || '',
-      readerSerialNumber: getFirstNonEmptyString(item, ['readerSerialNumber']) || '-',
-      processed: typeof item.processed === 'boolean' ? (item.processed ? 'Processed' : 'Pending') : 'Processed',
-    }));
-  return rows.sort((a, b) => {
-    const left = a.punchedTime ? new Date(a.punchedTime).getTime() : 0;
-    const right = b.punchedTime ? new Date(b.punchedTime).getTime() : 0;
-    return left - right;
-  });
-}
-
-function formatTransactionTime(value: string): string {
-  if (!value || !value.trim()) return '--';
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return '--';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
-}
-
 function getAttendanceRowForDay(date: Date, rows: AttendanceRow[]) {
   const dayKey = toLocalDateKey(date);
   return rows.find((row) => getAttendanceDateKey(row) === dayKey) ?? null;
@@ -444,26 +365,7 @@ function getDayCardColor(detail: AttendanceDetail | null, hasAttendanceData: boo
   return '#eff6ff';
 }
 
-function getStripDayColor(detail: AttendanceDetail | null, hasAttendanceData: boolean): { bg: string; text: string } | null {
-  if (!hasAttendanceData || !detail) return null;
-  const leaveCode = (detail.leaveCode || '').trim().toUpperCase();
-  const attendanceId = (detail.attendanceID || '').trim().toUpperCase();
-  if (leaveCode && leaveCode !== '00' && leaveCode !== '0' && leaveCode !== '-') {
-    return { bg: '#f59e0b', text: '#fff' };
-  }
-  if (attendanceId === 'PP') return { bg: '#2563eb', text: '#fff' };
-  if (attendanceId === 'AA') return { bg: '#fca5a5', text: '#7f1d1d' };
-  if (attendanceId === 'HH') return { bg: '#fde68a', text: '#78350f' };
-  if (attendanceId === 'WW') return { bg: '#cbd5e1', text: '#334155' };
-  return { bg: '#a78bfa', text: '#fff' };
-}
-
 // ─── Components ──────────────────────────────────────────────────────────────
-
-const DAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const ITEM_STEP = 42;
-const DAYS_TOTAL = 31;
 
 function BannerIllustration({ b }: { b: BannerDef }) {
   return (
@@ -524,257 +426,6 @@ function BannerCarousel({ totalMonthMinutes }: { totalMonthMinutes: number }) {
   );
 }
 
-function WeekDayStrip({
-  today,
-  selectedDate,
-  attendanceRows,
-  onSelectDate,
-  onOpenCalendar,
-  loading,
-}: {
-  today: Date;
-  selectedDate: Date | null;
-  attendanceRows: AttendanceRow[];
-  onSelectDate: (d: Date) => void;
-  onOpenCalendar: () => void;
-  loading?: boolean;
-}) {
-  const listRef = useRef<FlatList<Date>>(null);
-  const [visibleMonth, setVisibleMonth] = useState(
-    `${MON_SHORT[today.getMonth()]} ${today.getFullYear()}`
-  );
-
-  const days = useMemo(() => {
-    const arr: Date[] = [];
-    for (let i = DAYS_TOTAL - 1; i >= 0; i--) {
-      arr.push(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i));
-    }
-    return arr;
-  }, [today]);
-
-  useEffect(() => {
-    setVisibleMonth(`${MON_SHORT[today.getMonth()]} ${today.getFullYear()}`);
-  }, [today]);
-
-  // Scroll to today (last item) every time this screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      setVisibleMonth(`${MON_SHORT[today.getMonth()]} ${today.getFullYear()}`);
-      const t = setTimeout(() => {
-        listRef.current?.scrollToIndex({ index: DAYS_TOTAL - 1, animated: false });
-      }, 50);
-      return () => clearTimeout(t);
-    }, [today])
-  );
-
-  const handleScroll = useCallback((e: any) => {
-    const offsetX = e.nativeEvent.contentOffset.x;
-    const idx = Math.min(Math.floor(offsetX / ITEM_STEP) + 3, days.length - 1);
-    const d = days[Math.max(0, idx)];
-    if (d) setVisibleMonth(`${MON_SHORT[d.getMonth()]} ${d.getFullYear()}`);
-  }, [days]);
-
-  const renderDay = useCallback(({ item: date }: { item: Date; index: number }) => {
-    const sel = selectedDate ? isSameCalendarDay(date, selectedDate) : false;
-    const tod = isSameCalendarDay(date, today);
-    const dayRow = getAttendanceRowForDay(date, attendanceRows);
-    const dayDetail = dayRow ? buildAttendanceDetail(dayRow) : null;
-    const stripColor = !sel && !tod ? getStripDayColor(dayDetail, Boolean(dayRow)) : null;
-
-    return (
-      <Pressable onPress={() => onSelectDate(date)} className="items-center w-10 mr-[2px] gap-[1px]">
-        <Text className={`text-[10px] font-semibold mb-[2px] ${tod ? 'text-blue-600 font-bold' : 'text-slate-400'}`}>
-          {DAY_SHORT[date.getDay()]}
-        </Text>
-        <View
-          className={`w-8 h-8 rounded-full items-center justify-center ${sel ? 'bg-blue-600' : tod && !sel ? 'border-2 border-blue-600 bg-blue-50' : ''}`}
-          style={[
-            !sel && !tod ? { backgroundColor: stripColor ? stripColor.bg : '#f1f5f9' } : undefined,
-          ]}
-        >
-          {sel
-            ? <Ionicons name="checkmark" size={13} color="#fff" />
-            : <Text
-                className={`text-xs font-semibold ${tod && !sel ? 'text-blue-600 font-bold' : 'text-slate-900'}`}
-                style={stripColor ? { color: stripColor.text } : undefined}
-              >
-                {date.getDate()}
-              </Text>
-          }
-        </View>
-      </Pressable>
-    );
-  }, [selectedDate, attendanceRows, today, onSelectDate]);
-
-  const getItemLayout = useCallback((_: any, index: number) => ({
-    length: ITEM_STEP, offset: ITEM_STEP * index, index,
-  }), []);
-
-  return (
-    <View className="gap-2">
-      <View
-        className="bg-white rounded-2xl p-3"
-        style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 }}
-      >
-        <Text className="text-[11px] font-bold text-slate-500 text-left mb-[6px]">{visibleMonth}</Text>
-        {loading ? (
-          <View className="h-[60px] items-center justify-center">
-            <ActivityIndicator size="small" color="#2563eb" />
-          </View>
-        ) : (
-          <View className="flex-row items-center gap-2">
-            <FlatList
-              ref={listRef}
-              data={days}
-              keyExtractor={(_, i) => String(i)}
-              renderItem={renderDay}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              getItemLayout={getItemLayout}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              className="flex-1"
-              initialNumToRender={DAYS_TOTAL}
-              maxToRenderPerBatch={30}
-              windowSize={10}
-              initialScrollIndex={DAYS_TOTAL - 1}
-              onScrollToIndexFailed={() => {
-                setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 50);
-              }}
-            />
-          </View>
-        )}
-      </View>
-    </View>
-  );
-}
-
-function FaceScanViewfinder({ status, onScan }: { status: 'idle' | 'scanning' | 'success'; onScan: () => void }) {
-  const pulse = useRef(new Animated.Value(1)).current;
-  const ring1 = useRef(new Animated.Value(0)).current;
-  const ring1O = useRef(new Animated.Value(0.7)).current;
-  const ring2 = useRef(new Animated.Value(0)).current;
-  const ring2O = useRef(new Animated.Value(0.7)).current;
-  const successScale = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (status === 'scanning') {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulse, { toValue: 1.04, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-          Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        ])
-      ).start();
-
-      const runRipple = (scale: Animated.Value, opacity: Animated.Value, delay: number) => {
-        scale.setValue(0.4);
-        opacity.setValue(0.6);
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 1.8, duration: 1800, delay, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0, duration: 1800, delay, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        ]).start(() => runRipple(scale, opacity, 0));
-      };
-      runRipple(ring1, ring1O, 0);
-      runRipple(ring2, ring2O, 900);
-    } else {
-      pulse.stopAnimation();
-      pulse.setValue(1);
-      ring1.stopAnimation();
-      ring2.stopAnimation();
-    }
-
-    if (status === 'success') {
-      Animated.spring(successScale, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
-    } else {
-      successScale.setValue(0);
-    }
-  }, [status]);
-
-  const isScanning = status === 'scanning';
-  const isSuccess = status === 'success';
-  const borderColor = isSuccess ? '#16a34a' : isScanning ? COLORS.primary : '#cbd5e1';
-
-  return (
-    <View className="items-center justify-center py-3">
-      {/* Ripple rings — Animated, must use style prop */}
-      <Animated.View
-        style={{
-          position: 'absolute',
-          width: OVAL_W + 4, height: OVAL_H + 4,
-          borderRadius: (OVAL_W + 4) / 2,
-          borderWidth: 1.5, borderColor: 'rgba(37,99,235,0.5)',
-          transform: [{ scale: ring1 }], opacity: ring1O,
-        }}
-      />
-      <Animated.View
-        style={{
-          position: 'absolute',
-          width: OVAL_W + 4, height: OVAL_H + 4,
-          borderRadius: (OVAL_W + 4) / 2,
-          borderWidth: 1.5, borderColor: 'rgba(37,99,235,0.5)',
-          transform: [{ scale: ring2 }], opacity: ring2O,
-        }}
-      />
-
-      {/* Main oval — dynamic borderColor + animated scale */}
-      <Animated.View
-        style={{
-          width: OVAL_W, height: OVAL_H,
-          borderRadius: OVAL_W / 2,
-          borderWidth: 2.5, borderColor,
-          alignItems: 'center', justifyContent: 'center',
-          backgroundColor: '#f8fafc',
-          transform: [{ scale: pulse }],
-        }}
-      >
-        {/* Corner brackets — computed from OVAL_W */}
-        {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => (
-          <View
-            key={corner}
-            style={{
-              position: 'absolute',
-              width: CORNER_SIZE, height: CORNER_SIZE,
-              borderColor,
-              top: corner.startsWith('t') ? 12 : undefined,
-              bottom: corner.startsWith('b') ? 12 : undefined,
-              left: corner.endsWith('l') ? 12 : undefined,
-              right: corner.endsWith('r') ? 12 : undefined,
-              borderTopWidth: corner.startsWith('t') ? 3 : 0,
-              borderBottomWidth: corner.startsWith('b') ? 3 : 0,
-              borderLeftWidth: corner.endsWith('l') ? 3 : 0,
-              borderRightWidth: corner.endsWith('r') ? 3 : 0,
-              borderTopLeftRadius: corner === 'tl' ? 6 : 0,
-              borderTopRightRadius: corner === 'tr' ? 6 : 0,
-              borderBottomLeftRadius: corner === 'bl' ? 6 : 0,
-              borderBottomRightRadius: corner === 'br' ? 6 : 0,
-            }}
-          />
-        ))}
-
-        {isSuccess ? (
-          <Animated.View style={{ transform: [{ scale: successScale }] }}>
-            <Ionicons name="checkmark-circle" size={64} color="#16a34a" />
-          </Animated.View>
-        ) : (
-          <View className="items-center justify-center">
-            <Ionicons name="person-outline" size={54} color={isScanning ? COLORS.primary : '#cbd5e1'} />
-            {isScanning && (
-              <View className="absolute w-[120px] h-[2px] bg-blue-600 opacity-70 rounded-[1px]" />
-            )}
-          </View>
-        )}
-      </Animated.View>
-
-      <View className="flex-row items-center gap-[6px] mt-3 bg-slate-100 rounded-full px-[14px] py-[6px]">
-        <View className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: isSuccess ? '#16a34a' : isScanning ? '#3b82f6' : '#cbd5e1' }} />
-        <Text className="text-xs font-bold" style={{ color: isSuccess ? '#16a34a' : isScanning ? COLORS.primary : COLORS.muted }}>
-          {isSuccess ? 'Verified' : isScanning ? 'Scanning' : 'Ready'}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function LiteAttendanceScreen() {
@@ -806,8 +457,7 @@ export default function LiteAttendanceScreen() {
   const isFetchingMoreRef = useRef(false);
   const PUNCH_PAGE_SIZE = 15;
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showFaceModal, setShowFaceModal] = useState(false);
-  const [faceScanStatus, setFaceScanStatus] = useState<'idle' | 'scanning' | 'success'>('idle');
+  const [facePunchHistory, setFacePunchHistory] = useState<FacePunchRecord[]>([]);
 
   useEffect(() => {
     if (viewAllMode) {
@@ -917,6 +567,26 @@ export default function LiteAttendanceScreen() {
       isFetchingMoreRef.current = false;
       setIsFetchingMore(false);
     },
+  });
+
+  /* Face punch history — mobile_attendance_punches collection */
+  useGetRequest<FacePunchRecord[]>({
+    url: FACE_PUNCH_URL,
+    method: 'POST',
+    params: { offset: 0, limit: 20 },
+    data: [
+      { field: 'employeeID', value: employeeId, operator: 'eq' },
+      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
+    ],
+    enabled: Boolean(employeeId && tenantCode && isFocused),
+    dependencies: [employeeId, tenantCode, isFocused],
+    onSuccess: (data) => {
+      const sorted = [...(data ?? [])].sort(
+        (a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+      );
+      setFacePunchHistory(sorted);
+    },
+    onError: () => setFacePunchHistory([]),
   });
 
   const gridDays = useMemo(() => buildMonthGrid(currentDate), [currentDate]);
@@ -1059,25 +729,7 @@ export default function LiteAttendanceScreen() {
       <View className="flex-1 bg-[#f8fafc] rounded-tl-3xl rounded-tr-3xl overflow-hidden">
 
         {/* Face Attendance button */}
-        <Pressable
-          onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(true); }}
-          style={({ pressed }) => [
-            { opacity: pressed ? 0.88 : 1 },
-            { shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 6, elevation: 3 },
-          ]}
-          className="flex-row items-center justify-between bg-blue-600 rounded-[14px] mx-[14px] mt-[14px] px-[14px] py-3"
-        >
-          <View className="flex-row items-center gap-3">
-            <View className="w-[38px] h-[38px] rounded-[10px] bg-white/20 items-center justify-center">
-              <Ionicons name="scan-circle-outline" size={22} color="#fff" />
-            </View>
-            <View>
-              <Text className="text-[14px] font-bold text-white">Face Attendance</Text>
-              <Text className="text-[11px] text-white/70 font-medium mt-[1px]">Mark your attendance via face scan</Text>
-            </View>
-          </View>
-          <Ionicons name="arrow-forward" size={16} color="rgba(255,255,255,0.8)" />
-        </Pressable>
+        <FaceAttendanceButton />
 
         <ScrollView
           className="flex-1"
@@ -1122,173 +774,143 @@ export default function LiteAttendanceScreen() {
           </ScrollView>
 
           {/* ── Punch Detail for Selected Date ── */}
-          {selectedDate && (() => {
-            const rec = selectedAttendanceRecord;
-            const detail = rec ? buildAttendanceDetail(rec) : null;
-            const punches = rec ? extractPunchRows(rec) : [];
-            const dateLabel = `${selectedDate.getDate()} ${MON_SHORT[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+          {selectedDate && (
+            <PunchRecords
+              selectedDate={selectedDate}
+              attendanceRow={selectedAttendanceRecord}
+            />
+          )}
 
-            return (
-              <View
-                className="bg-white rounded-2xl overflow-hidden"
-                style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 }}
-              >
-                {/* Header */}
-                <View className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100">
-                  <View className="flex-row items-center gap-2">
-                    <View className="w-8 h-8 rounded-full bg-blue-50 items-center justify-center">
-                      <Ionicons name="calendar-outline" size={16} color="#2563eb" />
-                    </View>
-                    <Text className="text-[14px] font-bold text-slate-900">{dateLabel}</Text>
-                  </View>
-                  {detail && (
+          {/* ── Face Punch History ── */}
+          {facePunchHistory.length > 0 && (
+            <View style={{ marginTop: 4 }}>
+              {/* Section header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="scan-circle-outline" size={15} color="#2563eb" />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#0f172a', letterSpacing: 0.1 }}>
+                    Face Punch History
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 11, color: '#64748b', fontWeight: '500' }}>
+                  {facePunchHistory.length} record{facePunchHistory.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+
+              {/* Record cards */}
+              <View style={{ gap: 8 }}>
+                {facePunchHistory.map((rec) => {
+                  const isSuccess = rec.status === 'SUCCESS' || rec.validated === true;
+                  const dt = rec.dateTime ? new Date(rec.dateTime) : null;
+                  const dateLabel = dt
+                    ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : '—';
+                  const timeLabel = dt
+                    ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
+                    : '—';
+
+                  return (
                     <View
-                      className="px-[10px] py-[3px] rounded-full"
+                      key={rec._id}
                       style={{
-                        backgroundColor:
-                          detail.attendanceID === 'PP' ? '#dbeafe'
-                          : detail.attendanceID === 'AA' ? '#fee2e2'
-                          : detail.attendanceID === 'HH' ? '#fef3c7'
-                          : detail.attendanceID === 'WW' ? '#f1f5f9'
-                          : '#eff6ff',
+                        backgroundColor: '#fff',
+                        borderRadius: 12,
+                        padding: 12,
+                        shadowColor: '#1e3a8a',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.06,
+                        shadowRadius: 6,
+                        elevation: 2,
                       }}
                     >
-                      <Text
-                        style={{
-                          fontSize: 11, fontWeight: '700',
-                          color:
-                            detail.attendanceID === 'PP' ? '#1d4ed8'
-                            : detail.attendanceID === 'AA' ? '#b91c1c'
-                            : detail.attendanceID === 'HH' ? '#92400e'
-                            : detail.attendanceID === 'WW' ? '#475569'
-                            : '#3730a3',
-                        }}
-                      >
-                        {detail.attendanceID === 'PP' ? 'Present'
-                          : detail.attendanceID === 'AA' ? 'Absent'
-                          : detail.attendanceID === 'HH' ? 'Half Day'
-                          : detail.attendanceID === 'WW' ? 'Week Off'
-                          : detail.attendanceID !== '-' ? detail.attendanceID
-                          : 'No Data'}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+                      {/* Top row: time + status pill */}
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <View>
+                          <Text style={{ fontSize: 16, fontWeight: '800', color: '#0f172a', letterSpacing: -0.3 }}>
+                            {timeLabel}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: '#64748b', fontWeight: '500', marginTop: 1 }}>
+                            {dateLabel}
+                          </Text>
+                        </View>
+                        {/* Status badge */}
+                        <View style={{
+                          flexDirection: 'row', alignItems: 'center', gap: 4,
+                          backgroundColor: isSuccess ? '#dcfce7' : '#fef3c7',
+                          borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4,
+                        }}>
+                          <Ionicons
+                            name={isSuccess ? 'checkmark-circle' : 'alert-circle'}
+                            size={12}
+                            color={isSuccess ? '#16a34a' : '#d97706'}
+                          />
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: isSuccess ? '#15803d' : '#92400e' }}>
+                            {isSuccess ? 'Verified' : 'Failed'}
+                          </Text>
+                        </View>
+                      </View>
 
+                      {/* Badge row: geofence + site */}
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: rec.errorDescription ? 8 : 0 }}>
+                        {/* Geofence badge */}
+                        <View style={{
+                          flexDirection: 'row', alignItems: 'center', gap: 4,
+                          backgroundColor: rec.geofenceValidated ? '#f0fdf4' : '#fef2f2',
+                          borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+                        }}>
+                          <Ionicons
+                            name={rec.geofenceValidated ? 'location' : 'location-outline'}
+                            size={11}
+                            color={rec.geofenceValidated ? '#16a34a' : '#dc2626'}
+                          />
+                          <Text style={{ fontSize: 10, fontWeight: '600', color: rec.geofenceValidated ? '#15803d' : '#b91c1c' }}>
+                            {rec.geofenceValidated ? 'Geofence ✓' : 'Geofence ✗'}
+                          </Text>
+                        </View>
 
-                {/* Punch list */}
-                <View className="px-4 py-3">
-                  <Text className="text-[11px] font-bold text-slate-400 mb-2" style={{ letterSpacing: 0.6 }}>
-                    PUNCH RECORDS{punches.length > 0 ? ` · ${punches.length}` : ''}
-                  </Text>
-                  {punches.length === 0 ? (
-                    <View className="items-center py-5 gap-1">
-                      <Ionicons name="finger-print-outline" size={28} color="#cbd5e1" />
-                      <Text className="text-[12px] text-slate-400 font-medium">No punch records for this day</Text>
-                    </View>
-                  ) : (
-                    <View className="gap-[6px]">
-                      {punches.map((punch) => {
-                        const isIn = punch.inOut === 'I';
-                        const timeStr = punch.punchedTime ? formatTransactionTime(punch.punchedTime).slice(11, 16) : '--';
-                        return (
-                          <View
-                            key={punch.id}
-                            className="flex-row items-center gap-3 rounded-xl px-3 py-[10px]"
-                            style={{ backgroundColor: isIn ? '#f0fdf4' : '#fff7f7' }}
-                          >
-                            <View
-                              className="w-8 h-8 rounded-full items-center justify-center"
-                              style={{ backgroundColor: isIn ? '#dcfce7' : '#fee2e2' }}
-                            >
-                              <Ionicons name={isIn ? 'log-in-outline' : 'log-out-outline'} size={16} color={isIn ? '#16a34a' : '#dc2626'} />
-                            </View>
-                            <View className="flex-1">
-                              <Text className="text-[13px] font-bold" style={{ color: isIn ? '#15803d' : '#b91c1c' }}>
-                                {isIn ? 'IN' : 'OUT'} · {timeStr}
-                              </Text>
-                              <Text className="text-[10px] text-slate-400 font-medium">
-                                {punch.typeOfMovement === 'P' ? 'Physical' : punch.typeOfMovement} · {punch.readerSerialNumber !== '-' ? punch.readerSerialNumber : 'Unknown reader'}
-                              </Text>
-                            </View>
-                            <View
-                              className="px-2 py-[2px] rounded-full"
-                              style={{ backgroundColor: punch.processed === 'Processed' ? '#dcfce7' : '#fef9c3' }}
-                            >
-                              <Text className="text-[9px] font-bold" style={{ color: punch.processed === 'Processed' ? '#15803d' : '#854d0e' }}>
-                                {punch.processed}
-                              </Text>
-                            </View>
+                        {/* Site code badge */}
+                        {!!rec.matchedSiteCode && (
+                          <View style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 4,
+                            backgroundColor: '#f1f5f9', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+                          }}>
+                            <Ionicons name="business-outline" size={10} color="#475569" />
+                            <Text style={{ fontSize: 10, fontWeight: '600', color: '#475569' }} numberOfLines={1}>
+                              {rec.matchedSiteCode.replace(/_/g, ' ')}
+                            </Text>
                           </View>
-                        );
-                      })}
+                        )}
+
+                        {/* Distance badge */}
+                        {rec.distanceFromSiteMeters !== undefined && (
+                          <View style={{
+                            backgroundColor: '#f1f5f9', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+                          }}>
+                            <Text style={{ fontSize: 10, fontWeight: '600', color: '#475569' }}>
+                              {Math.round(rec.distanceFromSiteMeters)}m away · r{Math.round(rec.effectiveRadiusMeters ?? rec.radiusMeters)}m
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Error description — only for failed records */}
+                      {!isSuccess && !!rec.errorDescription && (
+                        <View style={{
+                          marginTop: 4,
+                          backgroundColor: '#fef9c3',
+                          borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7,
+                        }}>
+                          <Text style={{ fontSize: 11, color: '#78350f', lineHeight: 16 }} numberOfLines={3}>
+                            {rec.errorDescription}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
-              </View>
-            );
-          })()}
-
-          {/* ── Face Modal ── */}
-          <Modal visible={showFaceModal} transparent animationType="slide" onRequestClose={() => setShowFaceModal(false)}>
-            <View className="flex-1 bg-black/50 justify-end">
-              <View className="bg-white rounded-tl-[28px] rounded-tr-[28px] px-5 pb-9" style={{ maxHeight: SCREEN_H * 0.88 }}>
-                <View className="w-9 h-1 rounded-sm bg-slate-300 self-center mt-[10px] mb-1" />
-                <View className="flex-row items-start justify-between py-4 mb-1 border-b border-slate-100">
-                  <View>
-                    <Text className="text-[18px] font-extrabold text-slate-900">Face Attendance</Text>
-                    <Text className="text-xs text-slate-500 mt-[2px]">Position your face in the frame</Text>
-                  </View>
-                  <Pressable onPress={() => setShowFaceModal(false)} className="w-8 h-8 rounded-full items-center justify-center bg-slate-100">
-                    <Ionicons name="close" size={20} color="#0f172a" />
-                  </Pressable>
-                </View>
-
-                <FaceScanViewfinder
-                  status={faceScanStatus}
-                  onScan={() => {
-                    setFaceScanStatus('scanning');
-                    setTimeout(() => setFaceScanStatus('success'), 2500);
-                  }}
-                />
-
-                {faceScanStatus === 'idle' && (
-                  <Text className="text-[13px] text-slate-500 text-center mb-4">Tap "Scan Face" to begin attendance</Text>
-                )}
-                {faceScanStatus === 'scanning' && (
-                  <Text className="text-[13px] text-blue-600 text-center mb-4">Scanning… please hold still</Text>
-                )}
-                {faceScanStatus === 'success' && (
-                  <Text className="text-[13px] text-green-600 font-bold text-center mb-4">✓ Attendance marked successfully!</Text>
-                )}
-
-                {faceScanStatus !== 'success' ? (
-                  <Pressable
-                    className={`flex-row items-center justify-center gap-2 rounded-2xl py-[15px] ${faceScanStatus === 'scanning' ? 'bg-blue-300' : 'bg-blue-600'}`}
-                    style={{ shadowColor: '#2563eb', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}
-                    disabled={faceScanStatus === 'scanning'}
-                    onPress={() => {
-                      setFaceScanStatus('scanning');
-                      setTimeout(() => setFaceScanStatus('success'), 2500);
-                    }}
-                  >
-                    <Ionicons name="scan-circle-outline" size={20} color="#fff" />
-                    <Text className="text-[15px] font-bold text-white">
-                      {faceScanStatus === 'scanning' ? 'Scanning...' : 'Scan Face'}
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    className="flex-row items-center justify-center gap-2 bg-green-600 rounded-2xl py-[15px]"
-                    onPress={() => { setFaceScanStatus('idle'); setShowFaceModal(false); }}
-                  >
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                    <Text className="text-[15px] font-bold text-white">Done</Text>
-                  </Pressable>
-                )}
+                  );
+                })}
               </View>
             </View>
-          </Modal>
+          )}
 
           {/* ── Calendar Modal ── */}
           <Modal

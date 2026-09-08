@@ -231,7 +231,7 @@ export default function LoginScreen() {
       await startBiometricSession();
       await recordPostLoginState(validation.access_token);
       setBiometricSessionUnlocked(true);
-      router.replace('/');
+      router.replace('/(auth)/permissions');
     } catch {
       setErrorMessage('Unable to complete login right now. Please retry.');
     } finally {

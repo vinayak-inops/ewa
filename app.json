@@ -12,7 +12,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.ewa",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Salary++ needs camera access to verify your face for attendance marking.",
+        "NSLocationWhenInUseUsageDescription": "Salary++ records your location when you mark attendance."
       }
     },
     "android": {
@@ -25,7 +27,10 @@
       "package": "com.anonymous.ewa",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
