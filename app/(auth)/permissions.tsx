@@ -1,33 +1,45 @@
 /**
  * Permissions screen — shown once after login.
  *
- * Lets the user toggle which permissions to grant before entering the app.
- * Tapping "Allow selected" requests each toggled-on permission in sequence,
- * then navigates to the main app.  "Not now" skips straight to the main app.
+ * Camera and Location are REQUIRED — the user cannot proceed without granting
+ * both.  Notifications and Contacts are optional.
+ *
+ * If the OS denies Camera or Location, an inline error is shown and navigation
+ * is blocked.  The required toggles are locked ON and cannot be turned off.
+ *
+ * Styling: 100 % NativeWind className — zero inline `style` props.
+ *   SafeAreaView from react-native-safe-area-context handles the status-bar
+ *   inset automatically, so no runtime paddingTop calculation is needed.
+ *   Ionicons `color` is a component prop, not a CSS style.
  */
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Linking,
   PermissionsAndroid,
   Platform,
   Pressable,
-  SafeAreaView,
   StatusBar,
   Switch,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+type PermKey = 'camera' | 'location' | 'notifications' | 'contacts';
+
 type PermItem = {
-  key:         'camera' | 'location' | 'notifications' | 'contacts';
+  key:         PermKey;
   icon:        React.ComponentProps<typeof Ionicons>['name'];
-  iconBg:      string;
-  iconColor:   string;
+  iconBgClass: string;   // NativeWind bg class for the icon circle
+  iconColor:   string;   // hex passed as Ionicons color prop (not a style)
   title:       string;
   description: string;
+  required:    boolean;
 };
 
 // ─── Permission definitions ───────────────────────────────────────────────────
@@ -36,60 +48,72 @@ const PERMISSIONS: PermItem[] = [
   {
     key:         'camera',
     icon:        'camera-outline',
-    iconBg:      '#e0f2fe',
+    iconBgClass: 'bg-sky-100',
     iconColor:   '#0369a1',
     title:       'Camera',
-    description: 'Scan and upload photos',
+    description: 'Required for face attendance verification',
+    required:    true,
   },
   {
     key:         'location',
     icon:        'location-outline',
-    iconBg:      '#d1fae5',
+    iconBgClass: 'bg-emerald-100',
     iconColor:   '#059669',
     title:       'Location',
-    description: 'Show results near you',
+    description: 'Required to record punch location accurately',
+    required:    true,
   },
   {
     key:         'notifications',
     icon:        'notifications-outline',
-    iconBg:      '#fef3c7',
+    iconBgClass: 'bg-amber-100',
     iconColor:   '#d97706',
     title:       'Notifications',
     description: 'Reminders and updates',
+    required:    false,
   },
   {
     key:         'contacts',
     icon:        'people-outline',
-    iconBg:      '#ffe4e6',
+    iconBgClass: 'bg-rose-100',
     iconColor:   '#e11d48',
     title:       'Contacts',
-    description: 'Find friends on the app',
+    description: 'Find colleagues on the app',
+    required:    false,
   },
 ];
 
 // ─── Permission request helpers ───────────────────────────────────────────────
 
-async function requestCamera() {
+/** Returns true if camera was granted, false if denied. */
+async function requestCamera(): Promise<boolean> {
   if (Platform.OS === 'android') {
-    await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
-  }
-  // iOS camera permission is triggered by the WebView automatically;
-  // no expo-camera package needed here — we just record the user intent.
-}
-
-async function requestLocation() {
-  if (Platform.OS === 'android') {
-    await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    const result = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.CAMERA,
       {
-        title:          'Location Permission',
-        message:        'The app needs location access to record your attendance accurately.',
+        title:          'Camera Permission Required',
+        message:        'Face Attendance needs camera access to verify your identity.',
         buttonPositive: 'Allow',
         buttonNegative: 'Deny',
       }
     );
+    return result === PermissionsAndroid.RESULTS.GRANTED;
   }
-  // iOS — will prompt on first use automatically
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { Camera } = require('expo-camera');
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    return status === 'granted';
+  } catch {
+    return true; // expo-camera not installed; WebView will prompt on first use
+  }
+}
+
+/** Returns true if location was granted, false if denied. */
+async function requestLocationPerm(): Promise<boolean> {
+  if (Platform.OS === 'web') return true;
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  return status === 'granted';
 }
 
 async function requestNotifications() {
@@ -104,11 +128,9 @@ async function requestNotifications() {
 
 async function requestContacts() {
   if (Platform.OS === 'android') {
-    await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.READ_CONTACTS
-    ).catch(() => {});
+    const perm = (PermissionsAndroid.PERMISSIONS as Record<string, string>)['READ_CONTACTS'];
+    if (perm) await PermissionsAndroid.request(perm as any).catch(() => {});
   }
-  // iOS contacts require expo-contacts — skip silently if unavailable
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -116,132 +138,159 @@ async function requestContacts() {
 export default function PermissionsScreen() {
   const router = useRouter();
 
-  // Camera and Location on by default; others off
-  const [enabled, setEnabled] = useState<Record<string, boolean>>({
+  const [enabled, setEnabled] = useState<Record<PermKey, boolean>>({
     camera:        true,
     location:      true,
     notifications: false,
     contacts:      false,
   });
-  const [loading, setLoading] = useState(false);
 
-  const toggle = (key: string) =>
+  const [loading,    setLoading]    = useState(false);
+  const [blockError, setBlockError] = useState<string | null>(null);
+
+  const toggle = (key: PermKey, required: boolean) => {
+    if (required) return;
     setEnabled((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const openSettings = () => Linking.openSettings().catch(() => {});
 
   const proceed = async () => {
+    if (loading) return;
     setLoading(true);
+    setBlockError(null);
+
     try {
-      if (enabled.camera)        await requestCamera();
-      if (enabled.location)      await requestLocation();
+      const cameraGranted = await requestCamera();
+      if (!cameraGranted) {
+        setBlockError('Camera permission is required for face attendance.\nPlease grant it to continue.');
+        return;
+      }
+
+      const locationGranted = await requestLocationPerm();
+      if (!locationGranted) {
+        setBlockError('Location permission is required to record your punch.\nPlease grant it to continue.');
+        return;
+      }
+
       if (enabled.notifications) await requestNotifications();
       if (enabled.contacts)      await requestContacts();
+
+      // All required permissions granted — let index.tsx re-evaluate and enter app
+      router.replace('/');
     } catch {
-      // Non-fatal — always navigate forward
+      setBlockError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
-      router.replace('/');
     }
   };
 
-  const skip = () => router.replace('/');
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+    <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 }}>
+      <View className="flex-1 px-6 pt-8 pb-6">
 
-        {/* Shield icon */}
-        <View style={{ alignItems: 'center', marginBottom: 28 }}>
-          <View style={{
-            width: 72, height: 72, borderRadius: 20,
-            backgroundColor: '#eff6ff',
-            alignItems: 'center', justifyContent: 'center',
-            shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.12, shadowRadius: 12, elevation: 4,
-          }}>
+        {/* ── Shield icon ── */}
+        <View className="items-center mb-7">
+          <View className="w-[72px] h-[72px] rounded-[20px] bg-blue-50 items-center justify-center shadow shadow-blue-600/20 elevation-4">
             <Ionicons name="shield-checkmark-outline" size={36} color="#2563eb" />
           </View>
         </View>
 
-        {/* Heading */}
-        <Text style={{ fontSize: 26, fontWeight: '800', color: '#0f172a', textAlign: 'center', marginBottom: 8 }}>
+        {/* ── Heading ── */}
+        <Text className="text-[26px] font-extrabold text-slate-900 text-center mb-2">
           Allow access
         </Text>
-        <Text style={{ fontSize: 14, color: '#64748b', textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
-          Turn on what you're comfortable sharing.{'\n'}Nothing happens without your say.
+        <Text className="text-sm text-slate-500 text-center leading-5 mb-8">
+          Camera and Location are needed to use the app.{'\n'}Other permissions are optional.
         </Text>
 
-        {/* Permission rows */}
-        <View style={{ gap: 2, marginBottom: 32 }}>
+        {/* ── Permission rows ── */}
+        <View className="gap-[2px] mb-6">
           {PERMISSIONS.map((item, index) => (
             <View key={item.key}>
-              <View style={{
-                flexDirection: 'row', alignItems: 'center',
-                paddingVertical: 14, gap: 14,
-              }}>
-                {/* Icon */}
-                <View style={{
-                  width: 44, height: 44, borderRadius: 12,
-                  backgroundColor: item.iconBg,
-                  alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                }}>
+              <View className="flex-row items-center py-[14px] gap-[14px]">
+
+                {/* Icon circle — bg from per-item NativeWind class */}
+                <View className={`w-11 h-11 rounded-xl items-center justify-center shrink-0 ${item.iconBgClass}`}>
                   <Ionicons name={item.icon} size={22} color={item.iconColor} />
                 </View>
 
-                {/* Text */}
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#0f172a', marginBottom: 2 }}>
-                    {item.title}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '500' }}>
+                {/* Labels */}
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-2 mb-[2px]">
+                    <Text className="text-[15px] font-bold text-slate-900">
+                      {item.title}
+                    </Text>
+                    {item.required && (
+                      <View className="px-[6px] py-[2px] rounded-full bg-blue-50">
+                        <Text className="text-[10px] font-bold text-blue-600">Required</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-xs text-slate-400 font-medium">
                     {item.description}
                   </Text>
                 </View>
 
-                {/* Toggle */}
+                {/* Toggle — locked for required items */}
                 <Switch
                   value={enabled[item.key]}
-                  onValueChange={() => toggle(item.key)}
+                  onValueChange={() => toggle(item.key, item.required)}
                   trackColor={{ false: '#e2e8f0', true: '#2563eb' }}
                   thumbColor="#fff"
                   ios_backgroundColor="#e2e8f0"
+                  disabled={item.required}
                 />
               </View>
 
-              {/* Divider (not after last item) */}
+              {/* Divider */}
               {index < PERMISSIONS.length - 1 && (
-                <View style={{ height: 1, backgroundColor: '#f1f5f9', marginLeft: 58 }} />
+                <View className="h-px bg-slate-100 ml-[58px]" />
               )}
             </View>
           ))}
         </View>
 
-        {/* Spacer */}
-        <View style={{ flex: 1 }} />
+        {/* ── Inline error card (shown when a required permission is denied) ── */}
+        {blockError && (
+          <View className="rounded-2xl p-4 mb-5 bg-orange-50 border border-orange-200">
+            <View className="flex-row items-start gap-3 mb-3">
+              <View className="mt-[1px]">
+                <Ionicons name="warning-outline" size={20} color="#c2410c" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[13px] font-bold text-orange-900 mb-1">
+                  Permission Required
+                </Text>
+                <Text className="text-xs text-orange-700 leading-[18px]">
+                  {blockError}
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={openSettings}
+              className="flex-row items-center justify-center gap-2 rounded-xl py-[10px] bg-orange-900"
+            >
+              <Ionicons name="settings-outline" size={15} color="#fff" />
+              <Text className="text-white text-[13px] font-bold">Open Settings</Text>
+            </Pressable>
+          </View>
+        )}
 
-        {/* Allow selected */}
+        {/* Spacer */}
+        <View className="flex-1" />
+
+        {/* ── Allow & Continue button ── */}
         <Pressable
           onPress={proceed}
           disabled={loading}
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? '#1d4ed8' : '#0f172a',
-            borderRadius: 16,
-            paddingVertical: 17,
-            alignItems: 'center',
-            marginBottom: 14,
-            opacity: loading ? 0.7 : 1,
-          })}
+          className={`rounded-2xl py-[17px] items-center bg-slate-900 ${loading ? 'opacity-70' : 'opacity-100'}`}
         >
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-            {loading ? 'Applying…' : 'Allow selected'}
+          <Text className="text-white text-base font-bold">
+            {loading ? 'Requesting permissions…' : 'Allow & Continue'}
           </Text>
-        </Pressable>
-
-        {/* Not now */}
-        <Pressable onPress={skip} style={{ alignItems: 'center', paddingVertical: 6 }}>
-          <Text style={{ fontSize: 14, color: '#64748b', fontWeight: '600' }}>Not now</Text>
         </Pressable>
 
       </View>

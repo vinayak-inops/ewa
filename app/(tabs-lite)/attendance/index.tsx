@@ -14,7 +14,7 @@ const { height: SCREEN_H } = Dimensions.get('window');
 
 const ATTENDANCE_SEARCH_URL = process.env.EXPO_PUBLIC_ATTENDANCE_SEARCH_URL ?? 'muster/muster/search';
 const DATA_CHECK_URL = process.env.EXPO_PUBLIC_DATA_CHECK_URL ?? 'muster/data_check/search';
-const FACE_PUNCH_URL = process.env.EXPO_PUBLIC_FACE_PUNCH_URL ?? 'muster/mobile_attendance_punches/search';
+const FACE_PUNCH_URL = process.env.EXPO_PUBLIC_FACE_PUNCH_URL ?? 'mobile_attendance_punches/search';
 
 type TodayPunch = {
   _id: string;
@@ -783,131 +783,89 @@ export default function LiteAttendanceScreen() {
 
           {/* ── Face Punch History ── */}
           {facePunchHistory.length > 0 && (
-            <View style={{ marginTop: 4 }}>
-              {/* Section header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 2 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="scan-circle-outline" size={15} color="#2563eb" />
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#0f172a', letterSpacing: 0.1 }}>
-                    Face Punch History
+            <View
+              className="bg-white rounded-2xl overflow-hidden"
+              style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 }}
+            >
+              {/* Card header — matches PunchRecords style */}
+              <View className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100">
+                <View className="flex-row items-center gap-2">
+                  <View className="w-8 h-8 rounded-full bg-blue-50 items-center justify-center">
+                    <Ionicons name="scan-circle-outline" size={16} color="#2563eb" />
+                  </View>
+                  <Text className="text-[14px] font-bold text-slate-900">Face Punches</Text>
+                </View>
+                <View className="px-[10px] py-[3px] rounded-full bg-blue-50">
+                  <Text className="text-[11px] font-bold text-blue-700">
+                    {facePunchHistory.length} record{facePunchHistory.length !== 1 ? 's' : ''}
                   </Text>
                 </View>
-                <Text style={{ fontSize: 11, color: '#64748b', fontWeight: '500' }}>
-                  {facePunchHistory.length} record{facePunchHistory.length !== 1 ? 's' : ''}
-                </Text>
               </View>
 
-              {/* Record cards */}
-              <View style={{ gap: 8 }}>
-                {facePunchHistory.map((rec) => {
-                  const isSuccess = rec.status === 'SUCCESS' || rec.validated === true;
-                  const dt = rec.dateTime ? new Date(rec.dateTime) : null;
-                  const dateLabel = dt
-                    ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                    : '—';
-                  const timeLabel = dt
-                    ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
-                    : '—';
+              {/* Row list */}
+              <View className="px-4 py-3">
+                <Text className="text-[11px] font-bold text-slate-400 mb-2" style={{ letterSpacing: 0.6 }}>
+                  FACE PUNCHES · {facePunchHistory.length}
+                </Text>
 
-                  return (
-                    <View
-                      key={rec._id}
-                      style={{
-                        backgroundColor: '#fff',
-                        borderRadius: 12,
-                        padding: 12,
-                        shadowColor: '#1e3a8a',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 6,
-                        elevation: 2,
-                      }}
-                    >
-                      {/* Top row: time + status pill */}
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <View>
-                          <Text style={{ fontSize: 16, fontWeight: '800', color: '#0f172a', letterSpacing: -0.3 }}>
+                <View className="gap-[6px]">
+                  {facePunchHistory.map((rec) => {
+                    const isSuccess = rec.status === 'SUCCESS' || rec.validated === true;
+                    const dt = rec.dateTime ? new Date(rec.dateTime) : null;
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    const timeLabel = dt ? `${pad(dt.getHours())}:${pad(dt.getMinutes())}` : '--';
+                    const dateLabel = dt
+                      ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : '—';
+                    const siteLabel = rec.matchedSiteCode
+                      ? rec.matchedSiteCode.replace(/_/g, ' ')
+                      : 'Face reader';
+
+                    return (
+                      <View
+                        key={rec._id}
+                        className="flex-row items-center gap-3 rounded-xl px-3 py-[10px]"
+                        style={{ backgroundColor: isSuccess ? '#f0fdf4' : '#fff7f7' }}
+                      >
+                        {/* Icon circle */}
+                        <View
+                          className="w-8 h-8 rounded-full items-center justify-center"
+                          style={{ backgroundColor: isSuccess ? '#dcfce7' : '#fee2e2' }}
+                        >
+                          <Ionicons
+                            name={isSuccess ? 'scan-circle' : 'scan-circle-outline'}
+                            size={16}
+                            color={isSuccess ? '#16a34a' : '#dc2626'}
+                          />
+                        </View>
+
+                        {/* Time + description */}
+                        <View className="flex-1">
+                          <Text className="text-[13px] font-bold" style={{ color: isSuccess ? '#15803d' : '#b91c1c' }}>
                             {timeLabel}
                           </Text>
-                          <Text style={{ fontSize: 11, color: '#64748b', fontWeight: '500', marginTop: 1 }}>
-                            {dateLabel}
+                          <Text className="text-[10px] text-slate-400 font-medium" numberOfLines={1}>
+                            {dateLabel}{rec.matchedSiteCode ? ` · ${siteLabel}` : ''}
                           </Text>
                         </View>
-                        {/* Status badge */}
-                        <View style={{
-                          flexDirection: 'row', alignItems: 'center', gap: 4,
-                          backgroundColor: isSuccess ? '#dcfce7' : '#fef3c7',
-                          borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4,
-                        }}>
-                          <Ionicons
-                            name={isSuccess ? 'checkmark-circle' : 'alert-circle'}
-                            size={12}
-                            color={isSuccess ? '#16a34a' : '#d97706'}
+
+                        {/* Status dot + label */}
+                        <View className="flex-row items-center gap-[5px]">
+                          <View
+                            className="w-[7px] h-[7px] rounded-full"
+                            style={{ backgroundColor: isSuccess ? '#16a34a' : '#dc2626' }}
                           />
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: isSuccess ? '#15803d' : '#92400e' }}>
+                          <Text
+                            className="text-[11px] font-bold"
+                            style={{ color: isSuccess ? '#15803d' : '#b91c1c' }}
+                          >
                             {isSuccess ? 'Verified' : 'Failed'}
                           </Text>
                         </View>
                       </View>
-
-                      {/* Badge row: geofence + site */}
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: rec.errorDescription ? 8 : 0 }}>
-                        {/* Geofence badge */}
-                        <View style={{
-                          flexDirection: 'row', alignItems: 'center', gap: 4,
-                          backgroundColor: rec.geofenceValidated ? '#f0fdf4' : '#fef2f2',
-                          borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
-                        }}>
-                          <Ionicons
-                            name={rec.geofenceValidated ? 'location' : 'location-outline'}
-                            size={11}
-                            color={rec.geofenceValidated ? '#16a34a' : '#dc2626'}
-                          />
-                          <Text style={{ fontSize: 10, fontWeight: '600', color: rec.geofenceValidated ? '#15803d' : '#b91c1c' }}>
-                            {rec.geofenceValidated ? 'Geofence ✓' : 'Geofence ✗'}
-                          </Text>
-                        </View>
-
-                        {/* Site code badge */}
-                        {!!rec.matchedSiteCode && (
-                          <View style={{
-                            flexDirection: 'row', alignItems: 'center', gap: 4,
-                            backgroundColor: '#f1f5f9', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
-                          }}>
-                            <Ionicons name="business-outline" size={10} color="#475569" />
-                            <Text style={{ fontSize: 10, fontWeight: '600', color: '#475569' }} numberOfLines={1}>
-                              {rec.matchedSiteCode.replace(/_/g, ' ')}
-                            </Text>
-                          </View>
-                        )}
-
-                        {/* Distance badge */}
-                        {rec.distanceFromSiteMeters !== undefined && (
-                          <View style={{
-                            backgroundColor: '#f1f5f9', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
-                          }}>
-                            <Text style={{ fontSize: 10, fontWeight: '600', color: '#475569' }}>
-                              {Math.round(rec.distanceFromSiteMeters)}m away · r{Math.round(rec.effectiveRadiusMeters ?? rec.radiusMeters)}m
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Error description — only for failed records */}
-                      {!isSuccess && !!rec.errorDescription && (
-                        <View style={{
-                          marginTop: 4,
-                          backgroundColor: '#fef9c3',
-                          borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7,
-                        }}>
-                          <Text style={{ fontSize: 11, color: '#78350f', lineHeight: 16 }} numberOfLines={3}>
-                            {rec.errorDescription}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </View>
               </View>
             </View>
           )}

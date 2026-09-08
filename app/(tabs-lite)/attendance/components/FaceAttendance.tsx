@@ -15,13 +15,13 @@
  *   FaceCamera.web.tsx  → <iframe srcDoc>       (Expo Web / laptop)
  */
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   Linking,
   Modal,
-  PermissionsAndroid,
   Platform,
   Pressable,
   Text,
@@ -79,97 +79,71 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-// ─── Location — platform-aware permission request + real coords ───────────────
+// ─── Location — expo-location (works correctly on Android, iOS, Web) ───────────
 //
-//  Android: PermissionsAndroid.request() shows the native OS dialog.
-//           navigator.geolocation alone does NOT prompt on Android.
-//  iOS    : getCurrentPosition() triggers the native dialog automatically.
-//  Web    : Browser shows its own permission prompt via getCurrentPosition().
+//  Uses expo-location for native (Android/iOS) so permission grants are
+//  honoured correctly — navigator.geolocation on Android has its own internal
+//  permission check that ignores PermissionsAndroid results, causing "denied"
+//  even after the user tapped Allow.
+//  Falls back to navigator.geolocation only on Web where expo-location is N/A.
 
 async function requestLocation(): Promise<GeoCoords> {
-  /* ── Android: must ask via PermissionsAndroid first ── */
-  if (Platform.OS === 'android') {
-    console.log('[Location] Android — calling PermissionsAndroid.request()');
-
-    const result = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title:          'Location Permission Required',
-        message:
-          'Face Attendance needs your GPS location to accurately record your punch.',
-        buttonPositive: 'Allow',
-        buttonNegative: 'Deny',
+  /* ── Web: use browser geolocation API ── */
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.permissions) {
+      try {
+        const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        console.log('[Location] Web permissions state:', status.state);
+        if (status.state === 'denied') throw new Error('PERMANENTLY_DENIED');
+      } catch (e) {
+        if ((e as Error).message === 'PERMANENTLY_DENIED') throw e;
       }
-    );
-
-    console.log('[Location] Android permission result:', result);
-
-    if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-      throw new Error('PERMANENTLY_DENIED');
     }
-
-    if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-      throw new Error(
-        'Location permission denied.\nPlease tap "Allow" when asked for location access.'
+    return new Promise((resolve, reject) => {
+      if (!navigator?.geolocation) {
+        reject(new Error('Geolocation is not supported on this device.'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+        (err) => {
+          if (err.code === 1) reject(new Error('BROWSER_DENIED'));
+          else if (err.code === 2) reject(new Error('GPS signal unavailable.\nMake sure Location Services are turned on and try again.'));
+          else reject(new Error('Location timed out.\nMove to an area with better signal and try again.'));
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
       );
-    }
+    });
   }
 
-  /* ── Web: check Permissions API first to know if browser has blocked it ── */
-  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.permissions) {
-    try {
-      const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-      console.log('[Location] Web permissions state:', status.state);
-      if (status.state === 'denied') {
-        /* Browser has permanently blocked — popup won't appear on retry */
-        throw new Error('PERMANENTLY_DENIED');
-      }
-      /* 'granted' or 'prompt' → fall through, getCurrentPosition will handle it */
-    } catch (e) {
-      if ((e as Error).message === 'PERMANENTLY_DENIED') throw e;
-      /* permissions API not supported — proceed anyway */
-    }
+  /* ── Native (Android / iOS): use expo-location ── */
+  console.log('[Location] Requesting foreground permission via expo-location…');
+
+  const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
+  console.log('[Location] expo-location status:', status, 'canAskAgain:', canAskAgain);
+
+  if (status !== 'granted') {
+    if (!canAskAgain) throw new Error('PERMANENTLY_DENIED');
+    throw new Error('Location permission denied.\nPlease tap "Allow" when asked for location access.');
   }
 
-  /* ── Get actual position (browser popup on web/iOS; Android already granted) ── */
-  return new Promise((resolve, reject) => {
-    if (!navigator?.geolocation) {
-      reject(new Error('Geolocation is not supported on this device.'));
-      return;
+  try {
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
+    console.log('[Location] Fix — lat:', loc.coords.latitude, 'lon:', loc.coords.longitude, 'acc:', loc.coords.accuracy, 'm');
+    return {
+      latitude:  loc.coords.latitude,
+      longitude: loc.coords.longitude,
+      accuracy:  loc.coords.accuracy ?? 0,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '';
+    if (msg.toLowerCase().includes('timeout')) {
+      throw new Error('Location timed out.\nMove to an area with better signal and try again.');
     }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        console.log(
-          '[Location] Fix —',
-          'lat:', pos.coords.latitude,
-          'lon:', pos.coords.longitude,
-          'acc:', pos.coords.accuracy, 'm'
-        );
-        resolve({
-          latitude:  pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy:  pos.coords.accuracy,
-        });
-      },
-      (err) => {
-        console.warn('[Location] getCurrentPosition error code:', err.code, err.message);
-        /* GeolocationPositionError: 1=DENIED 2=UNAVAILABLE 3=TIMEOUT */
-        if (err.code === 1) {
-          reject(new Error(
-            Platform.OS === 'web'
-              ? 'BROWSER_DENIED'   /* web: user clicked Block in the popup */
-              : 'Location permission denied.\nPlease enable location access in your device settings.'
-          ));
-        } else if (err.code === 2) {
-          reject(new Error('GPS signal unavailable.\nMake sure Location Services are turned on and try again.'));
-        } else {
-          reject(new Error('Location timed out.\nMove to an area with better signal and try again.'));
-        }
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
-    );
-  });
+    throw new Error('GPS signal unavailable.\nMake sure Location Services are turned on and try again.');
+  }
 }
 
 // ─── API call ─────────────────────────────────────────────────────────────────
@@ -575,7 +549,9 @@ export function FaceAttendanceButton() {
       setIsPermanent(isPerm);
       setLocErrMsg(
         isPerm
-          ? 'Location is blocked by your browser.\nClick the 🔒 lock icon in the address bar → Location → Allow, then retry.'
+          ? Platform.OS === 'web'
+            ? 'Location is blocked by your browser.\nClick the 🔒 lock icon in the address bar → Location → Allow, then retry.'
+            : 'Location is permanently blocked.\nOpen Settings → App Permissions → Location → Allow.'
           : isBrowserDenied
           ? 'You blocked location access. Click "Grant Location" to ask again.'
           : raw

@@ -1,6 +1,7 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
 import { isBiometricSessionActive, isBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
 import { enforceCleanInstall } from '@/hooks/auth/install-guard';
+import { areRequiredPermissionsGranted } from '@/hooks/auth/permission-guard';
 import { clearAuthTokens, getAccessToken } from '@/hooks/auth/token-store';
 import { initializeRoleFromToken, fetchRolePermissions } from '@/store/slices/roleSlice';
 import { AppDispatch } from '@/store';
@@ -38,6 +39,14 @@ export default function Index() {
       // Already unlocked this session — need a live token for role init
       if (!token) {
         setTarget('/(auth)/biometric');
+        return;
+      }
+
+      // Check required OS permissions (camera + location) — no dialog shown here.
+      // If not yet granted, send user to the permissions screen first.
+      const permissionsOk = await areRequiredPermissionsGranted();
+      if (!permissionsOk) {
+        setTarget('/(auth)/permissions');
         return;
       }
 
