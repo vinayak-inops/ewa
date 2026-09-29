@@ -10,11 +10,10 @@ import {
   Pressable,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function decodeJwtPayload(token: string) {
   try {
@@ -180,16 +179,22 @@ const BANNERS: BannerDef[] = [
 
 function BannerIllustration({ b }: { b: BannerDef }) {
   return (
-    <View pointerEvents="none" style={s.illustrationWrap}>
-      <View style={[s.ringOuter, { backgroundColor: b.ringB }]} />
-      <View style={[s.ringInner, { backgroundColor: b.ringA }]} />
-      <View style={s.ringCenter}>
+    <View pointerEvents="none" className="absolute right-0 top-0 bottom-0 w-[110px] items-center justify-center">
+      <View className="absolute w-24 h-24 rounded-full" style={{ backgroundColor: b.ringB }} />
+      <View className="absolute w-[68px] h-[68px] rounded-full" style={{ backgroundColor: b.ringA }} />
+      <View className="w-[52px] h-[52px] rounded-full bg-white/[0.12] items-center justify-center">
         <Ionicons name={b.primaryIcon} size={36} color={b.accent} />
       </View>
-      <View style={[s.floatIconA, { backgroundColor: b.ringA }]}>
+      <View
+        className="absolute top-3.5 right-2.5 w-[26px] h-[26px] rounded-full items-center justify-center"
+        style={{ backgroundColor: b.ringA }}
+      >
         <Ionicons name={b.secondaryIcon} size={14} color={b.accent} />
       </View>
-      <View style={[s.floatIconB, { backgroundColor: b.ringA }]}>
+      <View
+        className="absolute bottom-[18px] left-1.5 w-[22px] h-[22px] rounded-full items-center justify-center"
+        style={{ backgroundColor: b.ringA }}
+      >
         <Ionicons name={b.tertiaryIcon} size={12} color={b.accent} />
       </View>
     </View>
@@ -204,15 +209,27 @@ function BannerCarousel() {
       decelerationRate="fast"
       snapToInterval={272}
       snapToAlignment="start"
-      contentContainerStyle={s.bannerScroll}
+      contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}
     >
       {BANNERS.map((b) => (
-        <View key={b.id} style={[s.bannerCard, { backgroundColor: b.bg }]}>
-          <View pointerEvents="none" style={[s.bannerShine, { backgroundColor: b.ringA }]} />
+        <View
+          key={b.id}
+          className="w-[260px] h-[160px] rounded-[18px] overflow-hidden flex-row"
+          style={{ backgroundColor: b.bg }}
+        >
+          <View
+            pointerEvents="none"
+            className="absolute w-[200px] h-[200px] rounded-full -top-[80px] -right-[60px] opacity-40"
+            style={{ backgroundColor: b.ringA }}
+          />
           <BannerIllustration b={b} />
-          <View style={s.bannerContent}>
-            <Text style={s.bannerTitle}>{b.title}</Text>
-            <Text style={s.bannerSub}>{b.sub}</Text>
+          <View className="flex-1 py-4 pl-4 pr-1 justify-end">
+            <Text className="text-base text-white font-extrabold leading-[22px] tracking-[-0.3px] mb-1">
+              {b.title}
+            </Text>
+            <Text className="text-[10px] text-white/60 font-medium leading-[14px] mb-2.5">
+              {b.sub}
+            </Text>
           </View>
         </View>
       ))}
@@ -233,45 +250,54 @@ function LeaveTypePopup({
 }) {
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <View style={s.leaveOverlay}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
-        <View style={s.leaveSheet}>
-          <View style={s.leaveDrag} />
-          <Text style={s.leaveTitle}>Select Leave Type</Text>
-          <Text style={s.leaveSub}>Choose the type of leave you want to apply for</Text>
+      <View className="flex-1 bg-black/[0.45] justify-end">
+        <Pressable className="flex-1" onPress={onClose} />
+        <View className="bg-white rounded-tl-3xl rounded-tr-3xl px-5 pt-3 pb-8 gap-1">
+          <View className="w-10 h-1 rounded-sm bg-slate-200 self-center mb-3.5" />
+          <Text className="text-[18px] font-extrabold text-[#0f172a] mb-0.5">Select Leave Type</Text>
+          <Text className="text-[13px] text-slate-500 mb-3.5">Choose the type of leave you want to apply for</Text>
 
-          <Pressable style={s.leaveOption} onPress={onShortDay}>
+          <Pressable className="mb-2" onPress={onShortDay}>
             {({ pressed }) => (
-              <View style={[s.leaveOptionInner, pressed && { opacity: 0.75 }]}>
-                <View style={[s.leaveOptionIcon, { backgroundColor: '#eff6ff' }]}>
+              <View
+                className="flex-row items-center gap-3.5 bg-[#f8fafc] rounded-2xl p-3.5 border border-slate-200"
+                style={pressed ? { opacity: 0.75 } : undefined}
+              >
+                <View className="w-[46px] h-[46px] rounded-[14px] items-center justify-center bg-[#eff6ff]">
                   <Ionicons name="partly-sunny-outline" size={22} color="#1d4ed8" />
                 </View>
-                <View style={s.leaveOptionBody}>
-                  <Text style={s.leaveOptionTitle}>Short Day Leave</Text>
-                  <Text style={s.leaveOptionSub}>Half day or short absence</Text>
+                <View className="flex-1 gap-0.5">
+                  <Text className="text-[15px] font-bold text-[#0f172a]">Short Day Leave</Text>
+                  <Text className="text-xs text-slate-500">Half day or short absence</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
               </View>
             )}
           </Pressable>
 
-          <Pressable style={s.leaveOption} onPress={onLongDay}>
+          <Pressable className="mb-2" onPress={onLongDay}>
             {({ pressed }) => (
-              <View style={[s.leaveOptionInner, pressed && { opacity: 0.75 }]}>
-                <View style={[s.leaveOptionIcon, { backgroundColor: '#f0fdf4' }]}>
+              <View
+                className="flex-row items-center gap-3.5 bg-[#f8fafc] rounded-2xl p-3.5 border border-slate-200"
+                style={pressed ? { opacity: 0.75 } : undefined}
+              >
+                <View className="w-[46px] h-[46px] rounded-[14px] items-center justify-center bg-[#f0fdf4]">
                   <Ionicons name="calendar-clear-outline" size={22} color="#15803d" />
                 </View>
-                <View style={s.leaveOptionBody}>
-                  <Text style={s.leaveOptionTitle}>Long Day Leave</Text>
-                  <Text style={s.leaveOptionSub}>Full day or multi-day absence</Text>
+                <View className="flex-1 gap-0.5">
+                  <Text className="text-[15px] font-bold text-[#0f172a]">Long Day Leave</Text>
+                  <Text className="text-xs text-slate-500">Full day or multi-day absence</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
               </View>
             )}
           </Pressable>
 
-          <Pressable style={s.leaveCancelBtn} onPress={onClose}>
-            <Text style={s.leaveCancelTxt}>Cancel</Text>
+          <Pressable
+            className="mt-1.5 py-3.5 items-center rounded-[14px] border border-slate-200"
+            onPress={onClose}
+          >
+            <Text className="text-[15px] font-semibold text-slate-500">Cancel</Text>
           </Pressable>
         </View>
       </View>
@@ -287,13 +313,18 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 function ServiceCard({ svc, displayTitle, onPress }: { svc: ServiceDef; displayTitle: string; onPress: () => void }) {
   return (
-    <Pressable style={{ flex: 1 }} onPress={onPress}>
+    <Pressable className="flex-1" onPress={onPress}>
       {({ pressed }) => (
-        <View style={[s.card, pressed && { transform: [{ scale: 0.94 }], opacity: 0.8 }]}>
-          <View style={s.cardIconWrap}>
+        <View
+          className="py-2.5 px-1 bg-transparent"
+          style={pressed ? { transform: [{ scale: 0.94 }], opacity: 0.8 } : undefined}
+        >
+          <View className="w-[52px] h-[52px] rounded-full bg-[#eff6ff] items-center justify-center mb-1.5 self-center">
             <Ionicons name={svc.icon} size={22} color="#1e3a8a" />
           </View>
-          <Text style={s.cardTitle} numberOfLines={2}>{displayTitle}</Text>
+          <Text className="text-[10.5px] font-medium text-slate-700 text-center leading-[14px]" numberOfLines={2}>
+            {displayTitle}
+          </Text>
         </View>
       )}
     </Pressable>
@@ -313,9 +344,9 @@ function CardGrid({
 }) {
   const router = useRouter();
   return (
-    <View style={s.grid}>
+    <View className="gap-1">
       {chunk(services, 4).map((row, rowIndex) => (
-        <View key={rowIndex} style={s.gridRow}>
+        <View key={rowIndex} className="flex-row">
           {row.map((svc) => (
             <ServiceCard
               key={svc.title}
@@ -329,7 +360,7 @@ function CardGrid({
             />
           ))}
           {row.length < 4 && Array.from({ length: 4 - row.length }).map((_, i) => (
-            <View key={`pad-${i}`} style={{ flex: 1 }} />
+            <View key={`pad-${i}`} className="flex-1" />
           ))}
         </View>
       ))}
@@ -369,11 +400,10 @@ export default function ApplicationsHubScreen() {
   const b9  = useCanAccess('applicationApprover', 'compOff');
   const b10 = useCanAccess('applicationApprover', 'attendance');
 
-  // Leave Application card (index 0) is visible if either leave OR specialLeave is accessible
-  const applierFlags = [a0 || a1, a2, a3, a4, a5, a6, a7, a8, a9, a10];
+  const applierFlags  = [a0 || a1, a2, a3, a4, a5, a6, a7, a8, a9, a10];
   const approverFlags = [b0 || b1, b2, b3, b4, b5, b6, b7, b8, b9, b10];
 
-  const visibleApplier = loading ? [] : SERVICES.filter((_, i) => applierFlags[i]);
+  const visibleApplier  = loading ? [] : SERVICES.filter((_, i) => applierFlags[i]);
   const visibleApprover = loading ? [] : SERVICES.filter((_, i) => approverFlags[i]);
 
   const [leavePopupVisible, setLeavePopupVisible] = useState(false);
@@ -392,51 +422,52 @@ export default function ApplicationsHubScreen() {
   }, []);
 
   return (
-    <View style={s.screen}>
+    <View className="flex-1 bg-[#0a1c63]">
       <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
 
-      <View style={[s.top, { paddingTop: insets.top + 14 }]}>
-        <View style={s.topRow}>
-          <View style={s.topLeft}>
+      {/* ── HEADER ── */}
+      <SafeAreaView edges={['top']} className="bg-[#0a1c63]">
+        <View className="flex-row justify-between items-center px-4 pt-3 pb-[18px]">
+          <View className="flex-row items-center gap-2.5">
             <Pressable
-              style={s.backBtn}
+              className="w-8 h-8 rounded-full bg-white/15 items-center justify-center"
               hitSlop={8}
               onPress={() => router.navigate('/(tabs-lite)/main-launchpad' as any)}
             >
               <Ionicons name="arrow-back" size={18} color="#fff" />
             </Pressable>
-            <Text style={s.greeting}>Applications</Text>
+            <Text className="text-white text-xl font-bold">Applications</Text>
           </View>
-          <View style={s.topIcons}>
+          <View className="flex-row gap-3.5">
             <Ionicons name="notifications-outline" size={18} color="#fff" />
             <Ionicons name="settings-outline" size={18} color="#fff" />
           </View>
         </View>
+      </SafeAreaView>
 
-      </View>
-
-      <View style={s.bannerSection}>
+      {/* ── BANNER CAROUSEL ── */}
+      <View className="bg-[#0a1c63] pb-4">
         <BannerCarousel />
       </View>
 
       {loading ? (
-        <View style={s.loadingWrap}>
+        <View className="flex-1 items-center justify-center bg-[#f8fafc] rounded-t-3xl">
           <ActivityIndicator size="large" color="#bfdbfe" />
-          <Text style={s.loadingText}>Loading your services...</Text>
+          <Text className="text-slate-500 text-[13px] font-medium mt-3.5">Loading your services...</Text>
         </View>
       ) : (
         <ScrollView
-          style={s.sheet}
-          contentContainerStyle={[s.sheetContent, { paddingBottom: insets.bottom + 90 }]}
+          className="flex-1 bg-[#f8fafc] rounded-t-3xl"
+          contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 14, gap: 12, paddingBottom: insets.bottom + 90 }}
           showsVerticalScrollIndicator={false}
           overScrollMode="never"
           bounces={false}
         >
           {visibleApplier.length > 0 && (
-            <View style={s.panel}>
-              <View style={s.panelHead}>
-                <Text style={s.panelKicker}>MY APPLICATIONS</Text>
-                <Text style={s.panelLink}>All services: {visibleApplier.length}</Text>
+            <View className="bg-white rounded-2xl p-3.5 gap-2">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-[10px] tracking-[0.8px] text-slate-400 font-bold">MY APPLICATIONS</Text>
+                <Text className="text-xs text-slate-500">All services: {visibleApplier.length}</Text>
               </View>
               <CardGrid
                 services={visibleApplier}
@@ -452,10 +483,10 @@ export default function ApplicationsHubScreen() {
           )}
 
           {visibleApprover.length > 0 && (
-            <View style={s.panel}>
-              <View style={s.panelHead}>
-                <Text style={s.panelKicker}>APPROVALS</Text>
-                <Text style={s.panelLink}>All services: {visibleApprover.length}</Text>
+            <View className="bg-white rounded-2xl p-3.5 gap-2">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-[10px] tracking-[0.8px] text-slate-400 font-bold">APPROVALS</Text>
+                <Text className="text-xs text-slate-500">All services: {visibleApprover.length}</Text>
               </View>
               <CardGrid
                 services={visibleApprover}
@@ -487,137 +518,3 @@ export default function ApplicationsHubScreen() {
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0a1c63' },
-
-  top: { paddingHorizontal: 16, paddingBottom: 18, backgroundColor: '#0a1c63' },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  backBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  greeting: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  topIcons: { flexDirection: 'row', gap: 14 },
-
-  bannerSection: { backgroundColor: '#0a1c63', paddingTop: 0, paddingBottom: 16 },
-  sheet: { flex: 1, backgroundColor: '#f8fafc', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  sheetContent: { paddingHorizontal: 14, paddingTop: 14, gap: 12 },
-
-  bannerScroll: { gap: 12, paddingHorizontal: 16 },
-  bannerCard: { width: 260, height: 160, borderRadius: 18, overflow: 'hidden', flexDirection: 'row' },
-  bannerShine: {
-    position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    top: -80, right: -60, opacity: 0.4,
-  },
-  illustrationWrap: {
-    position: 'absolute', right: 0, top: 0, bottom: 0, width: 110,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ringOuter: {
-    position: 'absolute', width: 96, height: 96, borderRadius: 48,
-  },
-  ringInner: {
-    position: 'absolute', width: 68, height: 68, borderRadius: 34,
-  },
-  ringCenter: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  floatIconA: {
-    position: 'absolute', top: 14, right: 10,
-    width: 26, height: 26, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  floatIconB: {
-    position: 'absolute', bottom: 18, left: 6,
-    width: 22, height: 22, borderRadius: 11,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  bannerContent: { flex: 1, paddingVertical: 16, paddingLeft: 16, paddingRight: 4, justifyContent: 'flex-end' },
-  bannerTitle: { fontSize: 16, fontWeight: '800', color: '#fff', lineHeight: 22, letterSpacing: -0.3, marginBottom: 4 },
-  bannerSub: { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '500', lineHeight: 14, marginBottom: 10 },
-  bannerLearnRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  bannerLearn: { fontSize: 11, fontWeight: '700' },
-
-  panel: { backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 8 },
-  panelHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  panelKicker: { fontSize: 10, letterSpacing: 0.8, color: '#94a3b8', fontWeight: '700' },
-  panelLink: { fontSize: 12, color: '#64748b' },
-
-  grid: { gap: 4 },
-  gridRow: { flexDirection: 'row' },
-
-  card: {
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    backgroundColor: 'transparent',
-  },
-  cardIconWrap: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 6,
-    alignSelf: 'center',
-  },
-  cardTitle: {
-    fontSize: 10.5, fontWeight: '500',
-    color: '#334155', textAlign: 'center', lineHeight: 14,
-  },
-
-  leaveOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  leaveSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 32,
-    gap: 4,
-  },
-  leaveDrag: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: '#e2e8f0',
-    alignSelf: 'center',
-    marginBottom: 14,
-  },
-  leaveTitle: {
-    fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 2,
-  },
-  leaveSub: {
-    fontSize: 13, color: '#64748b', marginBottom: 14,
-  },
-  leaveOption: { marginBottom: 8 },
-  leaveOptionInner: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#f8fafc',
-    borderRadius: 16, padding: 14,
-    borderWidth: 1, borderColor: '#e2e8f0',
-  },
-  leaveOptionIcon: {
-    width: 46, height: 46, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  leaveOptionBody: { flex: 1, gap: 2 },
-  leaveOptionTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
-  leaveOptionSub: { fontSize: 12, color: '#64748b' },
-  leaveCancelBtn: {
-    marginTop: 6,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  leaveCancelTxt: { fontSize: 15, fontWeight: '600', color: '#64748b' },
-
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  loadingText: { color: '#64748b', fontSize: 13, fontWeight: '500', marginTop: 14 },
-});

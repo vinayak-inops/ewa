@@ -16,15 +16,12 @@ export default function MainLaunchpadScreen() {
 
         {/* EWA Card */}
         <Pressable
-          className="rounded-2xl overflow-hidden p-3 bg-[#4c008f]"
-          style={({ pressed }) => [
-            { minHeight: 104 },
-            pressed && { transform: [{ scale: 0.99 }] },
-          ]}
+          className="rounded-2xl overflow-hidden p-3 bg-[#4c008f] min-h-[104px]"
+          style={({ pressed }) => pressed ? { transform: [{ scale: 0.99 }] } : undefined}
           onPress={() => router.push('/(tabs-lite)/ewa' as any)}
         >
-          <View className="absolute" style={{ width: 140, height: 140, borderRadius: 70, right: -24, top: -84, backgroundColor: '#9d14d9' }} />
-          <View className="absolute" style={{ width: 160, height: 120, borderRadius: 60, right: -18, bottom: -76, backgroundColor: '#3b0077' }} />
+          <View className="absolute w-[140px] h-[140px] rounded-full -right-6 -top-[84px] bg-[#9d14d9]" />
+          <View className="absolute w-[160px] h-[120px] rounded-[60px] -right-[18px] -bottom-[76px] bg-[#3b0077]" />
 
           <View className="flex-row justify-between items-start">
             <View className="flex-1 pr-3">
@@ -33,7 +30,7 @@ export default function MainLaunchpadScreen() {
                 Earned wage access, withdrawals, balance, and requests
               </Text>
             </View>
-            <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: '#16a34a' }}>
+            <View className="w-10 h-10 rounded-full items-center justify-center bg-green-600">
               <Ionicons name="wallet-outline" size={23} color="#ffffff" />
             </View>
           </View>
@@ -46,15 +43,12 @@ export default function MainLaunchpadScreen() {
 
         {/* Applications Card */}
         <Pressable
-          className="rounded-2xl overflow-hidden p-3 bg-[#1f2937]"
-          style={({ pressed }) => [
-            { minHeight: 104 },
-            pressed && { transform: [{ scale: 0.99 }] },
-          ]}
+          className="rounded-2xl overflow-hidden p-3 bg-[#1f2937] min-h-[104px]"
+          style={({ pressed }) => pressed ? { transform: [{ scale: 0.99 }] } : undefined}
           onPress={() => router.push('/(tabs-lite)/applications' as any)}
         >
-          <View className="absolute" style={{ width: 140, height: 140, borderRadius: 70, right: -24, top: -84, backgroundColor: '#374151' }} />
-          <View className="absolute" style={{ width: 160, height: 120, borderRadius: 60, right: -18, bottom: -76, backgroundColor: '#111827' }} />
+          <View className="absolute w-[140px] h-[140px] rounded-full -right-6 -top-[84px] bg-[#374151]" />
+          <View className="absolute w-[160px] h-[120px] rounded-[60px] -right-[18px] -bottom-[76px] bg-[#111827]" />
 
           <View className="flex-row justify-between items-start">
             <View className="flex-1 pr-3">
@@ -63,7 +57,7 @@ export default function MainLaunchpadScreen() {
                 Leave, shift, OT, punch and more services
               </Text>
             </View>
-            <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: '#f59e0b', borderWidth: 3, borderColor: '#fbbf24' }}>
+            <View className="w-10 h-10 rounded-full items-center justify-center bg-amber-400 border-[3px] border-amber-300">
               <Ionicons name="apps-outline" size={23} color="#ffffff" />
             </View>
           </View>

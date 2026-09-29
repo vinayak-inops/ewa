@@ -199,7 +199,7 @@ export function useGetRequest<T>({
     },
     [
       enabled,
-      requestUrl,
+      requestUrl,        // already incorporates params via JSON.stringify inside toAbsoluteUrl
       url,
       normalizedMethod,
       normalizedRequestData,
@@ -207,7 +207,8 @@ export function useGetRequest<T>({
       cacheKey,
       cacheDurationMs,
       requireAuth,
-      params,
+      // params intentionally omitted — it is already encoded into requestUrl;
+      // keeping it here would cause an infinite loop when callers pass inline objects.
       shouldUseCache,
     ]
   );

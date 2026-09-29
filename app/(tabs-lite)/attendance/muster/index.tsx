@@ -1,26 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { BackHandler, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackHandler, Modal, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';
 
-const APP_FONT_FAMILY = 'Inter';
 const ATTENDANCE_SEARCH_URL = process.env.EXPO_PUBLIC_ATTENDANCE_SEARCH_URL ?? 'muster/muster/search';
-
-const COLORS = {
-  ink: '#0f172a',
-  muted: '#64748b',
-  primary: '#2563eb',
-  primaryStrong: '#1d4ed8',
-  primaryDark: '#1e3a8a',
-  heroBg: '#dbeafe',
-  heroBgLight: '#eff6ff',
-  white: '#ffffff',
-  border: '#e2e8f0',
-};
 
 type AttendanceRow = Record<string, unknown>;
 
@@ -222,9 +209,6 @@ function getAttendanceRowForDay(date: Date, rows: AttendanceRow[]): AttendanceRo
   return rows.find((r) => getDateKey(r) === key) ?? null;
 }
 
-function hasAttendanceForDay(date: Date, rows: AttendanceRow[]): boolean {
-  return getAttendanceRowForDay(date, rows) !== null;
-}
 
 function getDayCardColor(d: AttendanceDetail | null, hasData: boolean): string {
   if (!hasData || !d) return '#e5e7eb';
@@ -261,7 +245,6 @@ function punchLabel(inOut: string) {
 
 export default function MusterDetailScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { date } = useLocalSearchParams<{ date?: string }>();
 
   const [employeeId, setEmployeeId] = useState('');
@@ -276,7 +259,6 @@ export default function MusterDetailScreen() {
   }, [date]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
-
   const today = useMemo(() => new Date(), []);
 
   const isFuture = useMemo(() => {
@@ -293,7 +275,6 @@ export default function MusterDetailScreen() {
 
   const [showCalendar, setShowCalendar] = useState(false);
   const [calAnchor, setCalAnchor] = useState<Date>(initialDate);
-
   const calGrid = useMemo(() => buildMonthGrid(calAnchor), [calAnchor]);
 
   const goDay = (direction: 'prev' | 'next') => {
@@ -305,10 +286,7 @@ export default function MusterDetailScreen() {
   };
 
   const goCalMonth = (direction: 'prev' | 'next') => {
-    setCalAnchor((prev) => {
-      const next = new Date(prev.getFullYear(), prev.getMonth() + (direction === 'next' ? 1 : -1), 1);
-      return next;
-    });
+    setCalAnchor((prev) => new Date(prev.getFullYear(), prev.getMonth() + (direction === 'next' ? 1 : -1), 1));
   };
 
   const jumpCalToToday = () => {
@@ -346,10 +324,7 @@ export default function MusterDetailScreen() {
   }, []);
 
   useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      router.back();
-      return true;
-    });
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { router.back(); return true; });
     return () => sub.remove();
   }, [router]);
 
@@ -372,8 +347,6 @@ export default function MusterDetailScreen() {
 
   const calAnchorMonthNumber = calAnchor.getMonth() + 1;
   const calAnchorYear = calAnchor.getFullYear();
-
-  // Only fetch a separate month when the calendar is open AND pointing to a different month/year
   const calMonthDiffers = calAnchorMonthNumber !== selectedMonthNumber || calAnchorYear !== selectedYear;
 
   const calSearchData = useMemo(() => [
@@ -394,9 +367,7 @@ export default function MusterDetailScreen() {
   });
 
   const activeCalRows = useMemo(() => {
-    if (calAnchorMonthNumber === selectedMonthNumber && calAnchorYear === selectedYear) {
-      return attendanceRows;
-    }
+    if (calAnchorMonthNumber === selectedMonthNumber && calAnchorYear === selectedYear) return attendanceRows;
     return calMonthRows;
   }, [calAnchorMonthNumber, calAnchorYear, selectedMonthNumber, selectedYear, attendanceRows, calMonthRows]);
 
@@ -438,81 +409,110 @@ export default function MusterDetailScreen() {
   for (let i = 0; i < allFields.length; i += 2) pairs.push(allFields.slice(i, i + 2));
 
   return (
-    <View style={styles.screen}>
+    <View className="flex-1 bg-[#f8fafc]">
       <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={20} color="#fff" />
-        </Pressable>
-        <Text style={styles.headerTitle}>Attendance Detail</Text>
-        <View style={styles.recordsBadge}>
-          <Text style={styles.recordsBadgeText}>{punches.length} records</Text>
+      {/* ── Header ── */}
+      <SafeAreaView edges={['top']} className="bg-[#0a1c63]">
+        <View className="px-4 pt-3.5 pb-[18px] flex-row items-center gap-2.5">
+          <Pressable onPress={() => router.back()} hitSlop={8}
+            className="w-8 h-8 rounded-full items-center justify-center bg-white/15">
+            <Ionicons name="chevron-back" size={20} color="#fff" />
+          </Pressable>
+          <Text className="text-base font-bold text-white flex-1">Attendance Detail</Text>
+          <View className="bg-white/15 rounded-[20px] px-2.5 py-1">
+            <Text className="text-[11px] font-bold text-[#c7d2fe]">{punches.length} records</Text>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 14, paddingBottom: 96, gap: 12 }}
+        showsVerticalScrollIndicator={false}
+      >
 
         {/* ── Day navigator ── */}
-        <View style={styles.dayCard}>
+        <View
+          className="bg-white rounded-[20px] overflow-hidden"
+          style={{
+            shadowColor: '#1e3a8a',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.1,
+            shadowRadius: 10,
+            elevation: 4,
+          }}
+        >
           {/* Dark header band */}
-          <View style={styles.dayHeader}>
-            <Pressable onPress={() => goDay('prev')} style={styles.dayNavBtn} hitSlop={10}>
+          <View className="bg-[#0a1c63] flex-row items-center px-3 py-4">
+            <Pressable onPress={() => goDay('prev')} hitSlop={10}
+              className="w-[34px] h-[34px] rounded-full bg-white/[0.12] items-center justify-center">
               <Ionicons name="chevron-back" size={18} color="rgba(255,255,255,0.9)" />
             </Pressable>
 
-            <Pressable style={styles.dayCenter} onPress={() => { setCalAnchor(selectedDate); setShowCalendar(true); }}>
-              <Text style={styles.dayWeekday}>
+            <Pressable
+              className="flex-1 items-center gap-1"
+              onPress={() => { setCalAnchor(selectedDate); setShowCalendar(true); }}
+            >
+              <Text className="text-[10px] font-semibold text-white/55 uppercase tracking-[1px]">
                 {selectedDate.toLocaleDateString('en-IN', { weekday: 'long' })}
-                {isToday ? <Text style={styles.dayTodayBadge}> · Today</Text> : null}
+                {isToday ? <Text className="text-[#93c5fd] font-bold"> · Today</Text> : null}
               </Text>
-              <View style={styles.dayDateRow}>
-                <Text style={styles.dayDate}>
+              <View className="flex-row items-center">
+                <Text className="text-base font-extrabold text-white tracking-[0.1px]">
                   {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </Text>
-                <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.6)" style={{ marginLeft: 5 }} />
+                <View className="ml-[5px]">
+                  <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.6)" />
+                </View>
               </View>
             </Pressable>
 
-            <Pressable onPress={() => goDay('next')} disabled={isFuture} hitSlop={10}
-              style={[styles.dayNavBtn, isFuture && { opacity: 0.25 }]}>
+            <Pressable
+              onPress={() => goDay('next')}
+              disabled={isFuture}
+              hitSlop={10}
+              className={`w-[34px] h-[34px] rounded-full bg-white/[0.12] items-center justify-center ${isFuture ? 'opacity-25' : ''}`}
+            >
               <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
             </Pressable>
           </View>
 
           {/* Stat tiles */}
-          <View style={styles.dayStatsRow}>
-            <View style={styles.dayStat}>
-              <View style={[styles.dayStatIcon, { backgroundColor: '#dcfce7' }]}>
+          <View className="flex-row py-3.5 px-2 bg-white">
+            {/* First In */}
+            <View className="flex-1 items-center gap-[5px]">
+              <View className="w-8 h-8 rounded-[10px] items-center justify-center bg-[#dcfce7]">
                 <Ionicons name="log-in-outline" size={14} color="#16a34a" />
               </View>
-              <Text style={styles.dayStatLabel}>First In</Text>
-              <Text style={[styles.dayStatValue, { color: '#16a34a' }]}>
+              <Text className="text-[10px] font-medium text-slate-500 tracking-[0.2px]">First In</Text>
+              <Text className="text-[13px] font-extrabold tracking-[0.3px] text-[#16a34a]">
                 {detail?.firstIn ? new Date(detail.firstIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
               </Text>
             </View>
 
-            <View style={styles.dayStatDivider} />
+            <View className="w-px bg-slate-200 my-1" />
 
-            <View style={styles.dayStat}>
-              <View style={[styles.dayStatIcon, { backgroundColor: '#dbeafe' }]}>
+            {/* Last Out */}
+            <View className="flex-1 items-center gap-[5px]">
+              <View className="w-8 h-8 rounded-[10px] items-center justify-center bg-[#dbeafe]">
                 <Ionicons name="log-out-outline" size={14} color="#1d4ed8" />
               </View>
-              <Text style={styles.dayStatLabel}>Last Out</Text>
-              <Text style={[styles.dayStatValue, { color: '#1d4ed8' }]}>
+              <Text className="text-[10px] font-medium text-slate-500 tracking-[0.2px]">Last Out</Text>
+              <Text className="text-[13px] font-extrabold tracking-[0.3px] text-[#1d4ed8]">
                 {detail?.lastOut ? new Date(detail.lastOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
               </Text>
             </View>
 
-            <View style={styles.dayStatDivider} />
+            <View className="w-px bg-slate-200 my-1" />
 
-            <View style={styles.dayStat}>
-              <View style={[styles.dayStatIcon, { backgroundColor: '#e0e7ff' }]}>
-                <Ionicons name="time-outline" size={14} color={COLORS.primaryStrong} />
+            {/* Hours */}
+            <View className="flex-1 items-center gap-[5px]">
+              <View className="w-8 h-8 rounded-[10px] items-center justify-center bg-[#e0e7ff]">
+                <Ionicons name="time-outline" size={14} color="#1d4ed8" />
               </View>
-              <Text style={styles.dayStatLabel}>Hours</Text>
-              <Text style={[styles.dayStatValue, { color: COLORS.primaryStrong }]}>
+              <Text className="text-[10px] font-medium text-slate-500 tracking-[0.2px]">Hours</Text>
+              <Text className="text-[13px] font-extrabold tracking-[0.3px] text-[#1d4ed8]">
                 {detail ? toHHMM(detail.hoursWorked) : '--:--'}
               </Text>
             </View>
@@ -521,67 +521,89 @@ export default function MusterDetailScreen() {
 
         {/* ── Calendar modal ── */}
         <Modal visible={showCalendar} transparent animationType="slide" onRequestClose={() => setShowCalendar(false)}>
-          <Pressable style={styles.calBackdrop} onPress={() => setShowCalendar(false)} />
-          <View style={styles.calSheet}>
-            <View style={styles.calHandle} />
+          <Pressable className="flex-1 bg-black/[0.45]" onPress={() => setShowCalendar(false)} />
+          <View
+            className="bg-white rounded-tl-[28px] rounded-tr-[28px] px-3.5 pb-8"
+            style={{ elevation: 20 }}
+          >
+            <View className="w-9 h-1 rounded-sm bg-slate-300 self-center mt-2.5 mb-1" />
 
-            {/* Top bar: title + month nav + close */}
-            <View style={styles.calTopBar}>
-              <View style={styles.calTopBarLeft}>
-                <Text style={styles.calTopTitle}>Select Date</Text>
+            {/* Top bar */}
+            <View className="flex-row items-center justify-between bg-[#1e3a8a] rounded-2xl px-3.5 py-3 mb-3 mt-1">
+              <View className="gap-[3px]">
+                <Text className="text-[15px] font-extrabold text-white tracking-[0.2px]">Select Date</Text>
                 <Pressable onPress={jumpCalToToday}>
-                  <Text style={styles.calTopSub}>{calMonthTitle} · Tap to jump to today</Text>
+                  <Text className="text-[10px] text-white/55 font-medium">{calMonthTitle} · Tap to jump to today</Text>
                 </Pressable>
               </View>
-              <View style={styles.calTopRight}>
-                <Pressable style={styles.calNavBtnDark} onPress={() => goCalMonth('prev')} hitSlop={8}>
+              <View className="flex-row items-center gap-1.5">
+                <Pressable className="w-[30px] h-[30px] rounded-full bg-white/15 items-center justify-center"
+                  onPress={() => goCalMonth('prev')} hitSlop={8}>
                   <Ionicons name="chevron-back" size={16} color="#fff" />
                 </Pressable>
-                <Pressable style={styles.calNavBtnDark} onPress={() => goCalMonth('next')} hitSlop={8}>
+                <Pressable className="w-[30px] h-[30px] rounded-full bg-white/15 items-center justify-center"
+                  onPress={() => goCalMonth('next')} hitSlop={8}>
                   <Ionicons name="chevron-forward" size={16} color="#fff" />
                 </Pressable>
-                <Pressable hitSlop={10} onPress={() => setShowCalendar(false)} style={styles.calCloseBtn}>
+                <Pressable hitSlop={10} onPress={() => setShowCalendar(false)}
+                  className="w-[30px] h-[30px] rounded-full bg-white/[0.12] items-center justify-center ml-0.5">
                   <Ionicons name="close" size={16} color="#fff" />
                 </Pressable>
               </View>
             </View>
 
             {/* Weekday headers */}
-            <View style={styles.calWeekRow}>
+            <View className="flex-row mb-1 py-1.5">
               {DAY_NAMES.map((d) => (
-                <Text key={d} style={styles.calWeekCell}>{d}</Text>
+                <Text key={d} className="w-[14.285%] text-center text-[11px] font-bold text-slate-500 tracking-[0.2px]">{d}</Text>
               ))}
             </View>
 
             {/* Day grid */}
-            <View style={styles.calGrid}>
+            <View className="flex-row flex-wrap mt-0.5">
               {calGrid.map((cell, idx) => {
-                const isSelected = sameDay(cell.date, selectedDate);
+                const isSelected  = sameDay(cell.date, selectedDate);
                 const isTodayCell = sameDay(cell.date, today);
-                const disabled = !cell.isCurrentMonth || isFutureDay(cell.date, today);
-                const dayRow = cell.isCurrentMonth ? getAttendanceRowForDay(cell.date, activeCalRows) : null;
-                const dayDetail = dayRow ? buildDetail(dayRow) : null;
-                const dayColor = cell.isCurrentMonth && !isSelected ? getDayCardColor(dayDetail, Boolean(dayRow)) : null;
-                const cellKey = `${cell.date.getFullYear()}-${cell.date.getMonth()}-${cell.date.getDate()}-${idx}`;
+                const disabled    = !cell.isCurrentMonth || isFutureDay(cell.date, today);
+                const dayRow      = cell.isCurrentMonth ? getAttendanceRowForDay(cell.date, activeCalRows) : null;
+                const dayDetail   = dayRow ? buildDetail(dayRow) : null;
+                const dayColor    = cell.isCurrentMonth && !isSelected ? getDayCardColor(dayDetail, Boolean(dayRow)) : null;
+                const cellKey     = `${cell.date.getFullYear()}-${cell.date.getMonth()}-${cell.date.getDate()}-${idx}`;
                 return (
-                  <Pressable key={cellKey} style={styles.calGridCell} disabled={disabled} onPress={() => handleCalSelect(cell)}>
-                    <View style={[
-                      styles.calDayInner,
-                      dayColor ? { backgroundColor: dayColor } : null,
-                      isTodayCell && !isSelected && styles.calTodayRing,
-                      isSelected && styles.calSelectedBlock,
-                      disabled && !isSelected && styles.calFuture,
-                    ]}>
-                      <Text style={[
-                        styles.calDayText,
-                        !cell.isCurrentMonth && styles.calDayMuted,
-                        isTodayCell && !isSelected && styles.calDayToday,
-                        isSelected && styles.calDaySelected,
-                        disabled && !isSelected && styles.calDayDisabled,
-                      ]}>
+                  <Pressable
+                    key={cellKey}
+                    className="w-[14.285%] aspect-square max-h-[46px] items-center justify-center py-0.5"
+                    disabled={disabled}
+                    onPress={() => handleCalSelect(cell)}
+                  >
+                    <View
+                      className={`w-9 h-9 items-center justify-center rounded-full
+                        ${isTodayCell && !isSelected ? 'border-2 border-blue-600 bg-blue-50' : ''}
+                        ${isSelected ? 'bg-blue-600' : ''}
+                        ${disabled && !isSelected ? 'opacity-30' : ''}
+                      `}
+                      style={[
+                        dayColor && !isSelected ? { backgroundColor: dayColor } : null,
+                        isSelected ? {
+                          shadowColor: '#2563eb',
+                          shadowOffset: { width: 0, height: 3 },
+                          shadowOpacity: 0.4,
+                          shadowRadius: 6,
+                          elevation: 5,
+                        } : null,
+                      ]}
+                    >
+                      <Text className={`text-[13px] font-semibold text-[#0f172a]
+                        ${!cell.isCurrentMonth ? 'text-[#e2e8f0] font-normal' : ''}
+                        ${isTodayCell && !isSelected ? 'text-blue-700 font-extrabold' : ''}
+                        ${isSelected ? 'text-white font-extrabold' : ''}
+                        ${disabled && !isSelected ? 'text-slate-300' : ''}
+                      `}>
                         {cell.label}
                       </Text>
-                      {isTodayCell && !isSelected && <View style={styles.calTodayDot} />}
+                      {isTodayCell && !isSelected && (
+                        <View className="absolute bottom-1 w-1 h-1 rounded-full bg-blue-600" />
+                      )}
                     </View>
                   </Pressable>
                 );
@@ -589,22 +611,22 @@ export default function MusterDetailScreen() {
             </View>
 
             {/* Legend */}
-            <View style={styles.calLegend}>
-              <View style={styles.calLegendItem}>
-                <View style={[styles.calLegendDot, { backgroundColor: '#e2e8f0' }]} />
-                <Text style={styles.calLegendText}>No data</Text>
+            <View className="flex-row flex-wrap items-center justify-center gap-3 mt-3 py-2.5 bg-[#f8fafc] rounded-xl">
+              <View className="flex-row items-center gap-[5px]">
+                <View className="w-2 h-2 rounded-full bg-slate-200" />
+                <Text className="text-[10px] text-slate-500 font-semibold">No data</Text>
               </View>
-              <View style={styles.calLegendItem}>
-                <View style={[styles.calLegendDot, { backgroundColor: COLORS.heroBg, borderWidth: 2, borderColor: COLORS.primary }]} />
-                <Text style={styles.calLegendText}>Today</Text>
+              <View className="flex-row items-center gap-[5px]">
+                <View className="w-2 h-2 rounded-full bg-blue-100 border-2 border-blue-600" />
+                <Text className="text-[10px] text-slate-500 font-semibold">Today</Text>
               </View>
-              <View style={styles.calLegendItem}>
-                <View style={[styles.calLegendDot, { backgroundColor: COLORS.primary }]} />
-                <Text style={styles.calLegendText}>Selected</Text>
+              <View className="flex-row items-center gap-[5px]">
+                <View className="w-2 h-2 rounded-full bg-blue-600" />
+                <Text className="text-[10px] text-slate-500 font-semibold">Selected</Text>
               </View>
-              <View style={styles.calLegendItem}>
-                <View style={[styles.calLegendDot, { backgroundColor: '#dbeafe' }]} />
-                <Text style={styles.calLegendText}>Present</Text>
+              <View className="flex-row items-center gap-[5px]">
+                <View className="w-2 h-2 rounded-full bg-blue-100" />
+                <Text className="text-[10px] text-slate-500 font-semibold">Present</Text>
               </View>
             </View>
           </View>
@@ -612,20 +634,32 @@ export default function MusterDetailScreen() {
 
         {detail ? (
           <>
-            {/* Attendance Details grid */}
-            <View style={styles.card}>
-              <View style={styles.cardHead}>
-                <Text style={styles.cardKicker}>ATTENDANCE DETAILS</Text>
-                <Text style={styles.cardSub}>{dateLabel}</Text>
+            {/* ── Attendance Details grid ── */}
+            <View
+              className="bg-white rounded-2xl p-3.5"
+              style={{
+                shadowColor: '#1e3a8a',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                elevation: 2,
+              }}
+            >
+              <View className="flex-row justify-between items-center mb-2.5">
+                <Text className="text-[10px] font-bold text-slate-400 tracking-[0.8px]">ATTENDANCE DETAILS</Text>
+                <Text className="text-[11px] text-slate-500">{dateLabel}</Text>
               </View>
               {pairs.map((pair, pi) => (
-                <View key={pi} style={[styles.detailRow, pi === pairs.length - 1 && { borderBottomWidth: 0 }]}>
+                <View key={pi} className={`flex-row border-b border-[#f1f5f9] ${pi === pairs.length - 1 ? 'border-b-0' : ''}`}>
                   {pair.map((item, ci) => {
                     const isDash = !item.value || item.value === '-' || item.value === '00:00';
                     return (
-                      <View key={item.label} style={[styles.detailCell, ci === 0 && styles.detailCellLeft]}>
-                        <Text style={styles.detailLabel}>{item.label}</Text>
-                        <Text style={[styles.detailValue, isDash && styles.detailValueMuted]}>{item.value || '-'}</Text>
+                      <View key={item.label}
+                        className={`flex-1 py-2 px-0.5 ${ci === 0 ? 'border-r border-[#f1f5f9] mr-3 pr-3' : ''}`}>
+                        <Text className="text-[10px] text-slate-500 font-medium mb-0.5">{item.label}</Text>
+                        <Text className={`text-[13px] font-bold ${isDash ? 'text-slate-300' : 'text-[#0f172a]'}`}>
+                          {item.value || '-'}
+                        </Text>
                       </View>
                     );
                   })}
@@ -633,392 +667,77 @@ export default function MusterDetailScreen() {
               ))}
             </View>
 
-            {/* Punch Details */}
-            <View style={styles.card}>
-              <View style={styles.cardHead}>
-                <Text style={styles.cardKicker}>PUNCH DETAILS</Text>
-                <Text style={styles.cardSub}>{punches.length} records</Text>
+            {/* ── Punch Details ── */}
+            <View
+              className="bg-white rounded-2xl p-3.5"
+              style={{
+                shadowColor: '#1e3a8a',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                elevation: 2,
+              }}
+            >
+              <View className="flex-row justify-between items-center mb-2.5">
+                <Text className="text-[10px] font-bold text-slate-400 tracking-[0.8px]">PUNCH DETAILS</Text>
+                <Text className="text-[11px] text-slate-500">{punches.length} records</Text>
               </View>
               {punches.length > 0 ? (
                 punches.map((p, i) => {
-                  const isIn = p.inOut.trim().toUpperCase() === 'I';
+                  const isIn   = p.inOut.trim().toUpperCase() === 'I';
                   const isLast = i === punches.length - 1;
                   return (
-                    <View key={p.id} style={[styles.punchItem, isLast && { borderBottomWidth: 0 }]}>
-                      <View style={[styles.punchIcon, { backgroundColor: isIn ? '#dcfce7' : '#dbeafe' }]}>
+                    <View key={p.id}
+                      className={`flex-row items-center py-2.5 gap-3 ${!isLast ? 'border-b border-[#f1f5f9]' : ''}`}>
+                      <View className={`w-10 h-10 rounded-xl items-center justify-center shrink-0 ${isIn ? 'bg-[#dcfce7]' : 'bg-[#dbeafe]'}`}>
                         <Ionicons name={isIn ? 'log-in-outline' : 'log-out-outline'} size={18} color={isIn ? '#16a34a' : '#1d4ed8'} />
                       </View>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={[styles.punchType, { color: isIn ? '#16a34a' : '#1d4ed8' }]}>{punchLabel(p.inOut)}</Text>
-                          <View style={[styles.moveBadge, { backgroundColor: isIn ? '#dcfce7' : '#dbeafe' }]}>
-                            <Text style={[styles.moveBadgeText, { color: isIn ? '#16a34a' : '#1d4ed8' }]}>{p.typeOfMovement}</Text>
+                      <View className="flex-1 gap-0.5">
+                        <View className="flex-row items-center gap-1.5">
+                          <Text className={`text-[13px] font-bold ${isIn ? 'text-[#16a34a]' : 'text-[#1d4ed8]'}`}>
+                            {punchLabel(p.inOut)}
+                          </Text>
+                          <View className={`rounded-[4px] px-1.5 py-0.5 ${isIn ? 'bg-[#dcfce7]' : 'bg-[#dbeafe]'}`}>
+                            <Text className={`text-[10px] font-bold ${isIn ? 'text-[#16a34a]' : 'text-[#1d4ed8]'}`}>
+                              {p.typeOfMovement}
+                            </Text>
                           </View>
                         </View>
-                        <Text style={styles.punchReader}>{p.readerSerialNumber}</Text>
-                        <Text style={styles.punchEmp}>EMP: {p.employeeID}</Text>
+                        <Text className="text-[11px] text-slate-500">{p.readerSerialNumber}</Text>
+                        <Text className="text-[10px] text-slate-500">EMP: {p.employeeID}</Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                        <Text style={styles.punchTime}>
+                      <View className="items-end gap-0.5">
+                        <Text className="text-sm font-extrabold text-[#0f172a]">
                           {p.punchedTime ? new Date(p.punchedTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
                         </Text>
-                        <Text style={styles.punchDate}>
+                        <Text className="text-[10px] text-slate-500">
                           {p.punchedTime ? new Date(p.punchedTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '--'}
                         </Text>
-                        <Text style={[styles.punchStatus, { color: p.processed === 'Processed' ? '#16a34a' : '#f59e0b' }]}>{p.processed}</Text>
+                        <Text className={`text-[10px] font-semibold ${p.processed === 'Processed' ? 'text-green-600' : 'text-amber-400'}`}>
+                          {p.processed}
+                        </Text>
                       </View>
                     </View>
                   );
                 })
               ) : (
-                <View style={styles.empty}>
+                <View className="items-center py-5 gap-1.5">
                   <Ionicons name="finger-print-outline" size={28} color="#cbd5e1" />
-                  <Text style={styles.emptyText}>No punch records for this date.</Text>
+                  <Text className="text-[13px] text-slate-500">No punch records for this date.</Text>
                 </View>
               )}
             </View>
           </>
         ) : (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyStateIcon}>
-              <Ionicons name="calendar-outline" size={32} color={COLORS.primary} />
+          <View className="items-center py-12 gap-2.5 bg-white rounded-2xl mt-2">
+            <View className="w-16 h-16 rounded-full bg-blue-100 items-center justify-center">
+              <Ionicons name="calendar-outline" size={32} color="#2563eb" />
             </View>
-            <Text style={styles.emptyStateTitle}>No Attendance Data</Text>
-            <Text style={styles.emptyStateSub}>No records found for {dateLabel}.</Text>
+            <Text className="text-base font-bold text-[#0f172a]">No Attendance Data</Text>
+            <Text className="text-[13px] text-slate-500 text-center">No records found for {dateLabel}.</Text>
           </View>
         )}
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f8fafc' },
-
-  header: {
-    backgroundColor: '#0a1c63',
-    paddingHorizontal: 16,
-    paddingBottom: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  backBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)' },
-  headerTitle: { fontFamily: APP_FONT_FAMILY, fontSize: 16, fontWeight: '700', color: '#fff', flex: 1 },
-  recordsBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  recordsBadgeText: { fontFamily: APP_FONT_FAMILY, fontSize: 11, fontWeight: '700', color: '#c7d2fe' },
-
-  sheet: { flex: 1 },
-  content: { padding: 14, paddingBottom: 96, gap: 12 },
-
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 14,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  cardKicker: { fontFamily: APP_FONT_FAMILY, fontSize: 10, fontWeight: '700', color: '#94a3b8', letterSpacing: 0.8 },
-  cardSub: { fontFamily: APP_FONT_FAMILY, fontSize: 11, color: COLORS.muted },
-
-  detailRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  detailCell: { flex: 1, paddingVertical: 8, paddingHorizontal: 2 },
-  detailCellLeft: { borderRightWidth: 1, borderRightColor: '#f1f5f9', marginRight: 12, paddingRight: 12 },
-  detailLabel: { fontFamily: APP_FONT_FAMILY, fontSize: 10, color: COLORS.muted, fontWeight: '500', marginBottom: 2 },
-  detailValue: { fontFamily: APP_FONT_FAMILY, fontSize: 13, fontWeight: '700', color: COLORS.ink },
-  detailValueMuted: { color: '#cbd5e1' },
-
-  punchItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', gap: 12 },
-  punchIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  punchType: { fontFamily: APP_FONT_FAMILY, fontSize: 13, fontWeight: '700' },
-  moveBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  moveBadgeText: { fontFamily: APP_FONT_FAMILY, fontSize: 10, fontWeight: '700' },
-  punchReader: { fontFamily: APP_FONT_FAMILY, fontSize: 11, color: COLORS.muted },
-  punchEmp: { fontFamily: APP_FONT_FAMILY, fontSize: 10, color: COLORS.muted },
-  punchTime: { fontFamily: APP_FONT_FAMILY, fontSize: 14, fontWeight: '800', color: COLORS.ink },
-  punchDate: { fontFamily: APP_FONT_FAMILY, fontSize: 10, color: COLORS.muted },
-  punchStatus: { fontFamily: APP_FONT_FAMILY, fontSize: 10, fontWeight: '600' },
-
-  empty: { alignItems: 'center', paddingVertical: 20, gap: 6 },
-  emptyText: { fontFamily: APP_FONT_FAMILY, fontSize: 13, color: COLORS.muted },
-
-  emptyState: { alignItems: 'center', paddingVertical: 48, gap: 10, backgroundColor: '#fff', borderRadius: 16, marginTop: 8 },
-  emptyStateIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#dbeafe', alignItems: 'center', justifyContent: 'center' },
-  emptyStateTitle: { fontFamily: APP_FONT_FAMILY, fontSize: 16, fontWeight: '700', color: COLORS.ink },
-  emptyStateSub: { fontFamily: APP_FONT_FAMILY, fontSize: 13, color: COLORS.muted, textAlign: 'center' },
-
-  dayCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  dayHeader: {
-    backgroundColor: '#0a1c63',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 16,
-  },
-  dayNavBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayCenter: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  dayWeekday: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.55)',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  dayTodayBadge: {
-    color: '#93c5fd',
-    fontWeight: '700',
-  },
-  dayDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dayDate: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.1,
-  },
-  dayStatsRow: {
-    flexDirection: 'row',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    backgroundColor: '#fff',
-  },
-  dayStat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 5,
-  },
-  dayStatDivider: {
-    width: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 4,
-  },
-  dayStatIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayStatLabel: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    fontWeight: '500',
-    color: COLORS.muted,
-    letterSpacing: 0.2,
-  },
-  dayStatValue: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  calBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  calSheet: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 14,
-    paddingBottom: 32,
-    elevation: 20,
-  },
-  calHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#cbd5e1',
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  calTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.primaryDark,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  calTopBarLeft: {
-    gap: 3,
-  },
-  calTopTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.2,
-  },
-  calTopSub: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.55)',
-    fontWeight: '500',
-  },
-  calTopRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  calNavBtnDark: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calCloseBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 2,
-  },
-  calWeekRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-    paddingVertical: 6,
-  },
-  calWeekCell: {
-    width: '14.285%' as any,
-    textAlign: 'center',
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.muted,
-    letterSpacing: 0.2,
-  },
-  calGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 2,
-  },
-  calGridCell: {
-    width: '14.285%' as any,
-    aspectRatio: 1,
-    maxHeight: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 2,
-  },
-  calDayInner: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-  },
-  calTodayRing: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    backgroundColor: '#eff6ff',
-  },
-  calTodayDot: {
-    position: 'absolute',
-    bottom: 4,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.primary,
-  },
-  calSelectedBlock: {
-    backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  calFuture: {
-    opacity: 0.3,
-  },
-  calDayText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.ink,
-  },
-  calDayMuted: {
-    color: '#e2e8f0',
-    fontWeight: '400',
-  },
-  calDayToday: {
-    color: COLORS.primaryStrong,
-    fontWeight: '800',
-  },
-  calDaySelected: {
-    color: COLORS.white,
-    fontWeight: '800',
-  },
-  calDayDisabled: {
-    color: '#cbd5e1',
-  },
-  calLegend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 12,
-    paddingVertical: 10,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-  },
-  calLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  calLegendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  calLegendText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: '600',
-  },
-});

@@ -3,11 +3,11 @@ import { clearBiometricSession, isBiometricSessionActive, isBiometricSessionUnlo
 import { recordPostLoginState } from '@/hooks/auth/install-guard';
 import { refreshAccessToken } from '@/hooks/auth/keycloak-refresh';
 import { clearAuthTokens, getAccessToken, saveAuthTokens } from '@/hooks/auth/token-store';
+import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Animated,

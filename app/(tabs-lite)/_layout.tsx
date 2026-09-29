@@ -41,129 +41,98 @@ function useTabVisibility() {
   }, [permissions, loading]);
 }
 
+// ─── Tab item config ──────────────────────────────────────────────────────────
+
+type TabItemProps = {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  iconActive: React.ComponentProps<typeof Ionicons>['name'];
+  focused: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+};
+
+function TabItem({ label, icon, iconActive, focused, disabled, onPress }: TabItemProps) {
+  const color = disabled ? '#d1d5db' : focused ? '#111827' : '#9ca3af';
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={8}
+      style={styles.tab}
+    >
+      {/* Orange top indicator */}
+      <View style={[styles.topBar, focused && styles.topBarActive]} />
+
+      <Ionicons name={focused ? iconActive : icon} size={22} color={color} />
+
+      <Text style={[styles.label, focused && styles.labelActive, disabled && styles.labelMuted]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+// ─── Custom Tab Bar ───────────────────────────────────────────────────────────
+
 function LiteCustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const visible = useTabVisibility();
 
-  const mainLaunchpadIndex = state.routes.findIndex((r) => r.name === 'main-launchpad');
-  const attendanceIndex    = state.routes.findIndex((r) => r.name === 'attendance');
-  const applicationsIndex  = state.routes.findIndex((r) => r.name === 'applications');
-  const ewaIndex           = state.routes.findIndex((r) => r.name === 'ewa/index');
-  const profileIndex       = state.routes.findIndex((r) => r.name === 'profile/index');
+  const mainLaunchpadIndex  = state.routes.findIndex((r) => r.name === 'main-launchpad');
+  const attendanceIndex     = state.routes.findIndex((r) => r.name === 'attendance');
+  const applicationsIndex   = state.routes.findIndex((r) => r.name === 'applications');
+  const ewaIndex            = state.routes.findIndex((r) => r.name === 'ewa/index');
+  const profileIndex        = state.routes.findIndex((r) => r.name === 'profile/index');
 
-  const launchpadFocused   = state.index === mainLaunchpadIndex;
-  const attendanceFocused  = state.index === attendanceIndex;
-  const applicationsFocused = state.index === applicationsIndex;
-  const ewaFocused         = state.index === ewaIndex;
-  const profileFocused     = state.index === profileIndex;
+  const nav = (name: string) => navigation.navigate(name);
 
   return (
-    <View style={[styles.tabShell, { bottom: Math.max(insets.bottom, 14) }]}>
-      <View style={styles.tabBar}>
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
 
-        {/* Home — always visible */}
-        <Pressable
-          style={styles.tab}
-          onPress={() => navigation.navigate(state.routes[mainLaunchpadIndex].name)}
-          hitSlop={8}>
-          <View style={[styles.iconWrap, launchpadFocused && styles.iconWrapActive]}>
-            <Ionicons
-              name={launchpadFocused ? 'grid' : 'grid-outline'}
-              size={22}
-              color={launchpadFocused ? '#5b21b6' : '#9ca3af'}
-            />
-          </View>
-          <Text style={[styles.label, launchpadFocused && styles.labelActive]}>Home</Text>
-        </Pressable>
+      <TabItem
+        label="Home"
+        icon="home-outline"
+        iconActive="home"
+        focused={state.index === mainLaunchpadIndex}
+        onPress={() => nav(state.routes[mainLaunchpadIndex].name)}
+      />
 
-        {/* Attendance — permission-gated */}
-        {visible.attendance ? (
-          <Pressable
-            style={styles.tab}
-            onPress={() => navigation.navigate(state.routes[attendanceIndex].name)}
-            hitSlop={8}>
-            <View style={[styles.iconWrap, attendanceFocused && styles.iconWrapActive]}>
-              <Ionicons
-                name={attendanceFocused ? 'calendar' : 'calendar-outline'}
-                size={22}
-                color={attendanceFocused ? '#5b21b6' : '#9ca3af'}
-              />
-            </View>
-            <Text style={[styles.label, attendanceFocused && styles.labelActive]}>Attendance</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.tab}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="calendar-outline" size={22} color="#d1d5db" />
-            </View>
-            <Text style={styles.labelMuted}>Attendance</Text>
-          </View>
-        )}
+      <TabItem
+        label="Attendance"
+        icon="time-outline"
+        iconActive="time"
+        focused={state.index === attendanceIndex}
+        disabled={!visible.attendance}
+        onPress={() => nav(state.routes[attendanceIndex].name)}
+      />
 
-        {/* EWA — permission-gated (center tab) */}
-        {visible.ewa ? (
-          <Pressable
-            style={styles.tab}
-            onPress={() => navigation.navigate(state.routes[ewaIndex].name)}
-            hitSlop={8}>
-            <View style={[styles.iconWrap, ewaFocused && styles.iconWrapActive]}>
-              <Ionicons
-                name={ewaFocused ? 'wallet' : 'wallet-outline'}
-                size={22}
-                color={ewaFocused ? '#5b21b6' : '#9ca3af'}
-              />
-            </View>
-            <Text style={[styles.label, ewaFocused && styles.labelActive]}>EWA</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.tab}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="wallet-outline" size={22} color="#d1d5db" />
-            </View>
-            <Text style={styles.labelMuted}>EWA</Text>
-          </View>
-        )}
+      <TabItem
+        label="EWA"
+        icon="cash-outline"
+        iconActive="cash"
+        focused={state.index === ewaIndex}
+        disabled={!visible.ewa}
+        onPress={() => nav(state.routes[ewaIndex].name)}
+      />
 
-        {/* Apply — permission-gated */}
-        {visible.applications ? (
-          <Pressable
-            style={styles.tab}
-            onPress={() => navigation.navigate(state.routes[applicationsIndex].name)}
-            hitSlop={8}>
-            <View style={[styles.iconWrap, applicationsFocused && styles.iconWrapActive]}>
-              <Ionicons
-                name={applicationsFocused ? 'document-text' : 'document-text-outline'}
-                size={22}
-                color={applicationsFocused ? '#5b21b6' : '#9ca3af'}
-              />
-            </View>
-            <Text style={[styles.label, applicationsFocused && styles.labelActive]}>Apply</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.tab}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="document-text-outline" size={22} color="#d1d5db" />
-            </View>
-            <Text style={styles.labelMuted}>Apply</Text>
-          </View>
-        )}
+      <TabItem
+        label="Apply"
+        icon="document-text-outline"
+        iconActive="document-text"
+        focused={state.index === applicationsIndex}
+        disabled={!visible.applications}
+        onPress={() => nav(state.routes[applicationsIndex].name)}
+      />
 
-        {/* Profile — always visible */}
-        <Pressable
-          style={styles.tab}
-          onPress={() => navigation.navigate(state.routes[profileIndex].name)}
-          hitSlop={8}>
-          <View style={[styles.iconWrap, profileFocused && styles.iconWrapActive]}>
-            <Ionicons
-              name={profileFocused ? 'person' : 'person-outline'}
-              size={22}
-              color={profileFocused ? '#5b21b6' : '#9ca3af'}
-            />
-          </View>
-          <Text style={[styles.label, profileFocused && styles.labelActive]}>Profile</Text>
-        </Pressable>
+      <TabItem
+        label="Profile"
+        icon="person-outline"
+        iconActive="person"
+        focused={state.index === profileIndex}
+        onPress={() => nav(state.routes[profileIndex].name)}
+      />
 
-      </View>
     </View>
   );
 }
@@ -191,62 +160,56 @@ export default function LiteTabLayout() {
       <Tabs.Screen name="ewa/index" options={{ title: 'EWA', tabBarShowLabel: false }} />
       <Tabs.Screen name="profile/index" options={{ title: 'Profile', tabBarShowLabel: false }} />
       <Tabs.Screen name="profile/logout" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="applications" options={{ title: 'Applications', tabBarShowLabel: false }} />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  tabShell: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-  },
   tabBar: {
-    borderRadius: 22,
     backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e8eaf0',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'space-around',
-    paddingHorizontal: 6,
-    paddingVertical: 10,
-    elevation: 16,
-    shadowColor: '#1e1b4b',
-    shadowOpacity: 0.10,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 6 },
+    paddingTop: 0,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -3 },
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    paddingBottom: 4,
+    gap: 2,
   },
-  iconWrap: {
-    width: 40,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+  // Orange indicator line at very top of active tab
+  topBar: {
+    height: 3,
+    width: 28,
+    borderRadius: 2,
+    backgroundColor: 'transparent',
+    marginBottom: 4,
   },
-  iconWrapActive: {
-    backgroundColor: '#ede9fe',
+  topBarActive: {
+    backgroundColor: '#f59e0b',  // amber-400 — matches the orange in second image
   },
   label: {
     fontSize: 10,
     fontWeight: '600',
     color: '#9ca3af',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   labelActive: {
-    color: '#5b21b6',
+    color: '#111827',
   },
   labelMuted: {
-    fontSize: 10,
-    fontWeight: '600',
     color: '#d1d5db',
-    letterSpacing: 0.2,
   },
 });

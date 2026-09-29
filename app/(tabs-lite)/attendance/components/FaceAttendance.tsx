@@ -25,7 +25,7 @@ import {
   Platform,
   Pressable,
   Text,
-  View,
+  View
 } from 'react-native';
 
 import { getAccessToken, getAuthHeader } from '@/hooks/auth/token-store';
@@ -79,21 +79,13 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-// ─── Location — expo-location (works correctly on Android, iOS, Web) ───────────
-//
-//  Uses expo-location for native (Android/iOS) so permission grants are
-//  honoured correctly — navigator.geolocation on Android has its own internal
-//  permission check that ignores PermissionsAndroid results, causing "denied"
-//  even after the user tapped Allow.
-//  Falls back to navigator.geolocation only on Web where expo-location is N/A.
+// ─── Location ─────────────────────────────────────────────────────────────────
 
 async function requestLocation(): Promise<GeoCoords> {
-  /* ── Web: use browser geolocation API ── */
   if (Platform.OS === 'web') {
     if (typeof navigator !== 'undefined' && navigator.permissions) {
       try {
         const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        console.log('[Location] Web permissions state:', status.state);
         if (status.state === 'denied') throw new Error('PERMANENTLY_DENIED');
       } catch (e) {
         if ((e as Error).message === 'PERMANENTLY_DENIED') throw e;
@@ -116,32 +108,19 @@ async function requestLocation(): Promise<GeoCoords> {
     });
   }
 
-  /* ── Native (Android / iOS): use expo-location ── */
-  console.log('[Location] Requesting foreground permission via expo-location…');
-
   const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
-  console.log('[Location] expo-location status:', status, 'canAskAgain:', canAskAgain);
-
   if (status !== 'granted') {
     if (!canAskAgain) throw new Error('PERMANENTLY_DENIED');
     throw new Error('Location permission denied.\nPlease tap "Allow" when asked for location access.');
   }
 
   try {
-    const loc = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
-    });
-    console.log('[Location] Fix — lat:', loc.coords.latitude, 'lon:', loc.coords.longitude, 'acc:', loc.coords.accuracy, 'm');
-    return {
-      latitude:  loc.coords.latitude,
-      longitude: loc.coords.longitude,
-      accuracy:  loc.coords.accuracy ?? 0,
-    };
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    return { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? 0 };
   } catch (err) {
     const msg = err instanceof Error ? err.message : '';
-    if (msg.toLowerCase().includes('timeout')) {
+    if (msg.toLowerCase().includes('timeout'))
       throw new Error('Location timed out.\nMove to an area with better signal and try again.');
-    }
     throw new Error('GPS signal unavailable.\nMake sure Location Services are turned on and try again.');
   }
 }
@@ -159,7 +138,6 @@ async function submitPunch(opts: {
   const authHeader = await getAuthHeader();
   if (!authHeader) throw new Error('Not authenticated');
 
-  /* IST offset (+05:30) */
   const now      = new Date();
   const ist      = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
   const dateTime = ist.toISOString().replace('Z', '+05:30');
@@ -170,59 +148,39 @@ async function submitPunch(opts: {
     collectionName: 'mobile_attendance_punches',
     event:          '',
     id:             '',
-    data: {
-      employeeID,
-      dateTime,
-      latitude:  geo.latitude,
-      longitude: geo.longitude,
-      accuracy:  geo.accuracy,
-    },
+    data: { employeeID, dateTime, latitude: geo.latitude, longitude: geo.longitude, accuracy: geo.accuracy },
   });
 
-  console.log('[Punch] Payload event:', eventJson);
-
-  /* base64 data URL → Blob */
-  const [meta, b64] = base64Image.split(',');
-  const mime        = meta.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg';
-  const bytes       = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  const photoBlob   = new Blob([bytes], { type: mime });
-
+  // React Native's fetch() does not support data: URIs on Android —
+  // use the {uri, name, type} object form instead, which the native
+  // FormData implementation handles correctly on both iOS and Android.
   const form = new FormData();
-  form.append('event',      new Blob([eventJson], { type: 'application/json' }));
-  form.append('punchPhoto', photoBlob, 'punch.jpg');
+  form.append('event', eventJson);
+  form.append('punchPhoto', { uri: base64Image, name: 'punch.jpg', type: 'image/jpeg' } as any);
 
   const res = await fetch(PUNCH_URL, {
     method:  'POST',
-    headers: {
-      Authorization: authHeader,
-      'X-user':      'default-user',
-      'X-Tenant':    tenantCode || 'default',
-      /* Do NOT set Content-Type — browser sets multipart boundary automatically */
-    },
-    body: form,
+    headers: { Authorization: authHeader, 'X-user': 'default-user', 'X-Tenant': tenantCode || 'default' },
+    body:    form,
   });
 
-  /* Non-2xx → hard throw */
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`Server ${res.status}: ${body || res.statusText}`);
   }
 
-  /* Parse and return response JSON — server always returns a PunchResponse body */
-  const json = (await res.json()) as PunchResponse;
-  console.log('[Punch] Response:', JSON.stringify(json));
-  return json;
+  return (await res.json()) as PunchResponse;
 }
 
 // ─── FaceAttendanceModal ──────────────────────────────────────────────────────
 
-function FaceAttendanceModal({
+export function FaceAttendanceModal({
   visible,
   geo,
   onClose,
 }: {
   visible: boolean;
-  geo:     GeoCoords;        /* real coordinates from pre-check */
+  geo:     GeoCoords;
   onClose: () => void;
 }) {
   const [state,       setState]       = useState<PunchState>('idle');
@@ -232,7 +190,6 @@ function FaceAttendanceModal({
   const tenantCode = useRef('');
   const camKey     = useRef(0);
 
-  /* Load employee + tenant from JWT on every open */
   useEffect(() => {
     if (!visible) return;
     const run = async () => {
@@ -242,14 +199,16 @@ function FaceAttendanceModal({
       if (!p) return;
       employeeID.current = String(p.employeeID ?? p.employeeId ?? p.empId ?? '');
       tenantCode.current = String(p.tenantCode  ?? p.tenant    ?? p.org   ?? '');
-      console.log('[FaceModal] employeeID:', employeeID.current, 'tenantCode:', tenantCode.current);
     };
     void run();
   }, [visible]);
 
-  /* Reset state each time modal opens */
   useEffect(() => {
-    if (visible) { setState('idle'); setErrorMsg(''); setPunchResult(null); }
+    if (visible) {
+      setState('idle');
+      setErrorMsg('');
+      setPunchResult(null);
+    }
   }, [visible]);
 
   const handleClose = useCallback(() => {
@@ -264,93 +223,72 @@ function FaceAttendanceModal({
     camKey.current += 1;
   }, []);
 
-  /* Receives log / photo / error from the face-camera page */
   const handleCameraMessage = useCallback(
     async (event: { nativeEvent: { data: string } }) => {
       let msg: { type: string; data?: string; message?: string; level?: string };
-      try {
-        msg = JSON.parse(event.nativeEvent.data);
-      } catch {
-        return;
-      }
+      try { msg = JSON.parse(event.nativeEvent.data); } catch { return; }
 
-      /* Mirror all in-page logs to Metro / DevTools */
-      if (msg.type === 'log') {
-        const lvl = msg.level ?? 'info';
-        if (lvl === 'error')     console.error('[FaceCam]', msg.message);
-        else if (lvl === 'warn') console.warn('[FaceCam]',  msg.message);
-        else                     console.log('[FaceCam]',   msg.message);
-        return;
-      }
+      if (msg.type === 'log') return;
 
       if (msg.type === 'photo' && msg.data) {
-        console.log('[FaceCam] Photo received — submitting punch');
-        console.log('[FaceCam] Using geo — lat:', geo.latitude, 'lon:', geo.longitude, 'acc:', geo.accuracy);
         try {
           setState('uploading');
           const result = await submitPunch({
             base64Image: msg.data,
             employeeID:  employeeID.current,
             tenantCode:  tenantCode.current,
-            geo,                               /* ← real coords, pre-fetched */
+            geo,
           });
           setPunchResult(result);
-
-          /* Branch on API-level status — server returns 200 even for failures */
           if (result.status === 'SUCCESS' || result.validated === true) {
-            console.log('[FaceCam] Punch SUCCESS ✓');
             setState('success');
           } else {
-            console.warn('[FaceCam] Punch FAILED —', result.errorDescription);
             setState('punch_failed');
           }
         } catch (err) {
           const errText = err instanceof Error ? err.message : 'Failed to submit punch';
-          console.error('[FaceCam] Submit error:', errText);
           setErrorMsg(errText);
           setState('error');
         }
       } else if (msg.type === 'error') {
-        console.error('[FaceCam] Camera page error:', msg.message);
         setErrorMsg(msg.message ?? 'Camera error');
         setState('error');
       }
     },
-    [geo]   /* geo is stable for the lifetime of one modal open */
+    [geo]
   );
 
   const showCamera = state === 'idle';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+      <View className="flex-1 bg-black/55 justify-end">
         <Pressable style={{ position: 'absolute', inset: 0 } as any} onPress={handleClose} />
         <View
-          style={{
-            backgroundColor: '#fff',
-            borderTopLeftRadius: 28, borderTopRightRadius: 28,
-            paddingHorizontal: 20, paddingBottom: 36,
-            maxHeight: SCREEN_H * 0.93,
-          }}
+          className="bg-white rounded-tl-[28px] rounded-tr-[28px] px-5 pb-9"
+          style={{ maxHeight: SCREEN_H * 0.93 }}
         >
           {/* Handle */}
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#cbd5e1', alignSelf: 'center', marginTop: 10, marginBottom: 4 }} />
+          <View className="w-9 h-1 rounded-sm bg-slate-300 self-center mt-2.5 mb-1" />
 
           {/* Header */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', marginBottom: 12 }}>
+          <View className="flex-row justify-between items-center py-3.5 border-b border-slate-100 mb-3">
             <View>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#0f172a' }}>Face Attendance</Text>
-              <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Blink once to verify &amp; record your punch</Text>
+              <Text className="text-[18px] font-extrabold text-slate-900">Face Attendance</Text>
+              <Text className="text-xs text-slate-500 mt-0.5">Blink once to verify &amp; record your punch</Text>
             </View>
-            <Pressable onPress={handleClose} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable
+              onPress={handleClose}
+              className="w-8 h-8 rounded-full bg-slate-100 items-center justify-center"
+            >
               <Ionicons name="close" size={20} color="#0f172a" />
             </Pressable>
           </View>
 
-          {/* Location badge — always shown so user knows coords were captured */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#f0fdf4', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 12 }}>
+          {/* Location badge */}
+          <View className="flex-row items-center gap-1.5 bg-green-50 rounded-[10px] px-2.5 py-1.5 mb-3">
             <Ionicons name="location" size={13} color="#16a34a" />
-            <Text style={{ fontSize: 11, color: '#15803d', fontWeight: '600', flex: 1 }} numberOfLines={1}>
+            <Text className="text-[11px] text-green-700 font-semibold flex-1" numberOfLines={1}>
               {`${geo.latitude.toFixed(5)}, ${geo.longitude.toFixed(5)}  ±${Math.round(geo.accuracy)}m`}
             </Text>
           </View>
@@ -358,12 +296,12 @@ function FaceAttendanceModal({
           {/* ── Camera ── */}
           {showCamera && (
             <>
-              <View style={{ height: 340, borderRadius: 16, overflow: 'hidden', backgroundColor: '#0f172a', marginBottom: 14 }}>
+              <View className="h-[340px] rounded-2xl overflow-hidden bg-slate-900 mb-3.5">
                 <FaceCamera key={camKey.current} onMessage={handleCameraMessage} />
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e' }} />
-                <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>
+              <View className="flex-row items-center justify-center gap-1.5">
+                <View className="w-2 h-2 rounded-full bg-green-400" />
+                <Text className="text-xs text-slate-500 font-semibold">
                   Centre your face in the oval, then blink once
                 </Text>
               </View>
@@ -372,9 +310,9 @@ function FaceAttendanceModal({
 
           {/* ── Uploading ── */}
           {state === 'uploading' && (
-            <View style={{ alignItems: 'center', justifyContent: 'center', height: 220, gap: 14 }}>
+            <View className="items-center justify-center h-[220px] gap-3.5">
               <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={{ color: '#475569', fontSize: 14, fontWeight: '600' }}>
+              <Text className="text-slate-500 text-sm font-semibold">
                 Verifying face &amp; recording punch…
               </Text>
             </View>
@@ -383,36 +321,45 @@ function FaceAttendanceModal({
           {/* ── Success ── */}
           {state === 'success' && (
             <>
-              <View style={{ alignItems: 'center', gap: 10, paddingVertical: 20 }}>
-                <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center' }}>
+              <View className="items-center gap-2.5 py-5">
+                <View className="w-[68px] h-[68px] rounded-full bg-green-100 items-center justify-center">
                   <Ionicons name="checkmark-circle" size={52} color="#16a34a" />
                 </View>
-                <Text style={{ fontSize: 17, fontWeight: '800', color: '#15803d' }}>Attendance Marked!</Text>
-                <Text style={{ fontSize: 12, color: '#64748b', textAlign: 'center' }}>
+                <Text className="text-[17px] font-extrabold text-green-700">Attendance Marked!</Text>
+                <Text className="text-xs text-slate-500 text-center">
                   Your punch has been recorded successfully.
                 </Text>
               </View>
 
-              {/* Response detail cards */}
               {punchResult && (
-                <View style={{ gap: 6, marginBottom: 16 }}>
+                <View className="gap-1.5 mb-4">
                   {/* Geofence badge */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: punchResult.geofenceValidated ? '#f0fdf4' : '#fef9c3', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
-                    <Ionicons name={punchResult.geofenceValidated ? 'shield-checkmark' : 'alert-circle'} size={16} color={punchResult.geofenceValidated ? '#16a34a' : '#ca8a04'} />
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: punchResult.geofenceValidated ? '#15803d' : '#a16207', flex: 1 }}>
+                  <View
+                    className="flex-row items-center gap-2 rounded-[10px] px-3 py-2"
+                    style={{ backgroundColor: punchResult.geofenceValidated ? '#f0fdf4' : '#fef9c3' }}
+                  >
+                    <Ionicons
+                      name={punchResult.geofenceValidated ? 'shield-checkmark' : 'alert-circle'}
+                      size={16}
+                      color={punchResult.geofenceValidated ? '#16a34a' : '#ca8a04'}
+                    />
+                    <Text
+                      className="text-xs font-semibold flex-1"
+                      style={{ color: punchResult.geofenceValidated ? '#15803d' : '#a16207' }}
+                    >
                       {punchResult.geofenceValidated ? 'Within geofenced zone' : 'Outside geofenced zone'}
                     </Text>
                   </View>
 
-                  {/* Employee + time row */}
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    <View style={{ flex: 1, backgroundColor: '#f8fafc', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
-                      <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '600', marginBottom: 2 }}>Employee</Text>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#0f172a' }}>{punchResult.employeeID}</Text>
+                  {/* Employee + time */}
+                  <View className="flex-row gap-1.5">
+                    <View className="flex-1 bg-slate-50 rounded-[10px] px-2.5 py-2">
+                      <Text className="text-[10px] text-slate-400 font-semibold mb-0.5">Employee</Text>
+                      <Text className="text-[13px] font-bold text-slate-900">{punchResult.employeeID}</Text>
                     </View>
-                    <View style={{ flex: 2, backgroundColor: '#f8fafc', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
-                      <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '600', marginBottom: 2 }}>Punch Time</Text>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#0f172a' }} numberOfLines={1}>
+                    <View className="flex-[2] bg-slate-50 rounded-[10px] px-2.5 py-2">
+                      <Text className="text-[10px] text-slate-400 font-semibold mb-0.5">Punch Time</Text>
+                      <Text className="text-xs font-bold text-slate-900" numberOfLines={1}>
                         {punchResult.dateTime
                           ? new Date(punchResult.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                           : '—'}
@@ -422,53 +369,75 @@ function FaceAttendanceModal({
                 </View>
               )}
 
-              <Pressable onPress={handleClose} style={{ backgroundColor: '#16a34a', borderRadius: 16, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+              <Pressable
+                onPress={handleClose}
+                className="bg-green-600 rounded-2xl py-[15px] items-center flex-row justify-center gap-2"
+              >
                 <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Done</Text>
+                <Text className="text-white text-[15px] font-bold">Done</Text>
               </Pressable>
             </>
           )}
 
-          {/* ── Punch Failed (API returned FAILED / validated=false) ── */}
+          {/* ── Punch Failed ── */}
           {state === 'punch_failed' && punchResult && (
             <>
-              <View style={{ alignItems: 'center', gap: 10, paddingVertical: 20 }}>
-                <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center' }}>
+              <View className="items-center gap-2.5 py-5">
+                <View className="w-[68px] h-[68px] rounded-full bg-amber-100 items-center justify-center">
                   <Ionicons name="warning" size={48} color="#d97706" />
                 </View>
-                <Text style={{ fontSize: 17, fontWeight: '800', color: '#92400e' }}>Punch Not Recorded</Text>
-                <Text style={{ fontSize: 12, color: '#78716c', textAlign: 'center', paddingHorizontal: 8 }}>
+                <Text className="text-[17px] font-extrabold text-amber-900">Punch Not Recorded</Text>
+                <Text className="text-xs text-stone-500 text-center px-2">
                   {punchResult.errorDescription || 'Verification failed — please contact HR.'}
                 </Text>
               </View>
 
-              {/* Status breakdown */}
-              <View style={{ gap: 6, marginBottom: 16 }}>
+              <View className="gap-1.5 mb-4">
                 {/* Geofence row */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: punchResult.geofenceValidated ? '#f0fdf4' : '#fef2f2', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
-                  <Ionicons name={punchResult.geofenceValidated ? 'location' : 'location-outline'} size={15} color={punchResult.geofenceValidated ? '#16a34a' : '#dc2626'} />
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: punchResult.geofenceValidated ? '#15803d' : '#b91c1c', flex: 1 }}>
+                <View
+                  className="flex-row items-center gap-2 rounded-[10px] px-3 py-2"
+                  style={{ backgroundColor: punchResult.geofenceValidated ? '#f0fdf4' : '#fef2f2' }}
+                >
+                  <Ionicons
+                    name={punchResult.geofenceValidated ? 'location' : 'location-outline'}
+                    size={15}
+                    color={punchResult.geofenceValidated ? '#16a34a' : '#dc2626'}
+                  />
+                  <Text
+                    className="text-xs font-semibold flex-1"
+                    style={{ color: punchResult.geofenceValidated ? '#15803d' : '#b91c1c' }}
+                  >
                     {punchResult.geofenceValidated ? 'Geofence: Passed' : 'Geofence: Failed — you may be outside the allowed zone'}
                   </Text>
                 </View>
 
                 {/* Face validated row */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: punchResult.validated ? '#f0fdf4' : '#fef2f2', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
-                  <Ionicons name={punchResult.validated ? 'person-circle' : 'person-circle-outline'} size={15} color={punchResult.validated ? '#16a34a' : '#dc2626'} />
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: punchResult.validated ? '#15803d' : '#b91c1c', flex: 1 }}>
+                <View
+                  className="flex-row items-center gap-2 rounded-[10px] px-3 py-2"
+                  style={{ backgroundColor: punchResult.validated ? '#f0fdf4' : '#fef2f2' }}
+                >
+                  <Ionicons
+                    name={punchResult.validated ? 'person-circle' : 'person-circle-outline'}
+                    size={15}
+                    color={punchResult.validated ? '#16a34a' : '#dc2626'}
+                  />
+                  <Text
+                    className="text-xs font-semibold flex-1"
+                    style={{ color: punchResult.validated ? '#15803d' : '#b91c1c' }}
+                  >
                     {punchResult.validated ? 'Face: Verified' : 'Face: Not verified'}
                   </Text>
                 </View>
 
                 {/* Employee + time */}
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  <View style={{ flex: 1, backgroundColor: '#f8fafc', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
-                    <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '600', marginBottom: 2 }}>Employee</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#0f172a' }}>{punchResult.employeeID}</Text>
+                <View className="flex-row gap-1.5">
+                  <View className="flex-1 bg-slate-50 rounded-[10px] px-2.5 py-2">
+                    <Text className="text-[10px] text-slate-400 font-semibold mb-0.5">Employee</Text>
+                    <Text className="text-[13px] font-bold text-slate-900">{punchResult.employeeID}</Text>
                   </View>
-                  <View style={{ flex: 2, backgroundColor: '#f8fafc', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
-                    <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '600', marginBottom: 2 }}>Time</Text>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#0f172a' }} numberOfLines={1}>
+                  <View className="flex-[2] bg-slate-50 rounded-[10px] px-2.5 py-2">
+                    <Text className="text-[10px] text-slate-400 font-semibold mb-0.5">Time</Text>
+                    <Text className="text-xs font-bold text-slate-900" numberOfLines={1}>
                       {punchResult.dateTime
                         ? new Date(punchResult.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                         : '—'}
@@ -477,14 +446,20 @@ function FaceAttendanceModal({
                 </View>
               </View>
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable onPress={handleRetry} style={{ flex: 1, backgroundColor: '#2563eb', borderRadius: 16, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+              <View className="flex-row gap-2.5">
+                <Pressable
+                  onPress={handleRetry}
+                  className="flex-1 bg-blue-600 rounded-2xl py-[15px] items-center flex-row justify-center gap-2"
+                >
                   <Ionicons name="refresh-outline" size={18} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Retry</Text>
+                  <Text className="text-white text-sm font-bold">Retry</Text>
                 </Pressable>
-                <Pressable onPress={handleClose} style={{ flex: 1, backgroundColor: '#f1f5f9', borderRadius: 16, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+                <Pressable
+                  onPress={handleClose}
+                  className="flex-1 bg-slate-100 rounded-2xl py-[15px] items-center flex-row justify-center gap-2"
+                >
                   <Ionicons name="close-outline" size={18} color="#475569" />
-                  <Text style={{ color: '#475569', fontSize: 14, fontWeight: '700' }}>Close</Text>
+                  <Text className="text-slate-500 text-sm font-bold">Close</Text>
                 </Pressable>
               </View>
             </>
@@ -493,18 +468,19 @@ function FaceAttendanceModal({
           {/* ── Error (network / auth) ── */}
           {state === 'error' && (
             <>
-              <View style={{ alignItems: 'center', justifyContent: 'center', height: 200, gap: 10 }}>
-                <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center' }}>
+              <View className="items-center justify-center h-[200px] gap-2.5">
+                <View className="w-[68px] h-[68px] rounded-full bg-red-100 items-center justify-center">
                   <Ionicons name="close-circle" size={52} color="#dc2626" />
                 </View>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#b91c1c' }}>Something went wrong</Text>
-                <Text style={{ fontSize: 12, color: '#64748b', textAlign: 'center', paddingHorizontal: 16 }}>
-                  {errorMsg}
-                </Text>
+                <Text className="text-[15px] font-bold text-red-700">Something went wrong</Text>
+                <Text className="text-xs text-slate-500 text-center px-4">{errorMsg}</Text>
               </View>
-              <Pressable onPress={handleRetry} style={{ backgroundColor: '#2563eb', borderRadius: 16, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+              <Pressable
+                onPress={handleRetry}
+                className="bg-blue-600 rounded-2xl py-[15px] items-center flex-row justify-center gap-2"
+              >
                 <Ionicons name="refresh-outline" size={20} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Try Again</Text>
+                <Text className="text-white text-[15px] font-bold">Try Again</Text>
               </Pressable>
             </>
           )}
@@ -517,19 +493,17 @@ function FaceAttendanceModal({
 // ─── FaceAttendanceButton ─────────────────────────────────────────────────────
 
 export function FaceAttendanceButton() {
-  const [btnState,   setBtnState]   = useState<ButtonState>('idle');
-  const [locErrMsg,  setLocErrMsg]  = useState('');
-  const [isPermanent, setIsPermanent] = useState(false); // "never ask again" on Android
-  const [showModal,  setShowModal]  = useState(false);
-  const [geo,        setGeo]        = useState<GeoCoords>({ latitude: 0, longitude: 0, accuracy: 0 });
+  const [btnState,    setBtnState]    = useState<ButtonState>('idle');
+  const [locErrMsg,   setLocErrMsg]   = useState('');
+  const [isPermanent, setIsPermanent] = useState(false);
+  const [showModal,   setShowModal]   = useState(false);
+  const [geo,         setGeo]         = useState<GeoCoords>({ latitude: 0, longitude: 0, accuracy: 0 });
 
   const handlePress = async () => {
     if (btnState === 'locating') return;
-
     setBtnState('locating');
     setLocErrMsg('');
     setIsPermanent(false);
-    console.log('[FaceAttendance] Requesting location…');
 
     try {
       const coords = await requestLocation();
@@ -537,15 +511,9 @@ export function FaceAttendanceButton() {
       setBtnState('idle');
       setShowModal(true);
     } catch (err) {
-      const raw = err instanceof Error ? err.message : 'Could not get location';
-      console.error('[FaceAttendance] Location error:', raw);
-
-      const isPerm = raw === 'PERMANENTLY_DENIED';
-      /* BROWSER_DENIED = user clicked "Block" in the browser popup this session.
-         On the next retry the Permissions API state will be 'denied' → PERMANENTLY_DENIED.
-         For now treat it as retriable (browser may ask again on some browsers). */
+      const raw             = err instanceof Error ? err.message : 'Could not get location';
+      const isPerm          = raw === 'PERMANENTLY_DENIED';
       const isBrowserDenied = raw === 'BROWSER_DENIED';
-
       setIsPermanent(isPerm);
       setLocErrMsg(
         isPerm
@@ -560,12 +528,7 @@ export function FaceAttendanceButton() {
     }
   };
 
-  const openSettings = useCallback(() => {
-    Linking.openSettings().catch(() => {
-      console.warn('[FaceAttendance] Could not open settings');
-    });
-  }, []);
-
+  const openSettings     = useCallback(() => { Linking.openSettings().catch(() => {}); }, []);
   const handleModalClose = useCallback(() => {
     setShowModal(false);
     setBtnState('idle');
@@ -584,15 +547,9 @@ export function FaceAttendanceButton() {
         disabled={isLocating}
         style={({ pressed }) => [
           { opacity: pressed || isLocating ? 0.82 : 1 },
-          {
-            shadowColor: '#1e3a8a',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.18,
-            shadowRadius: 6,
-            elevation: 3,
-          },
+          { shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 6, elevation: 3 },
         ]}
-        className="flex-row items-center justify-between bg-blue-600 rounded-[14px] mx-[14px] mt-[14px] px-[14px] py-3"
+        className="flex-row items-center justify-between bg-blue-600 rounded-[14px] mx-3.5 mt-3.5 px-3.5 py-3"
       >
         <View className="flex-row items-center gap-3">
           <View className="w-[38px] h-[38px] rounded-[10px] bg-white/20 items-center justify-center">
@@ -615,16 +572,14 @@ export function FaceAttendanceButton() {
 
       {/* ── Inline location error card ── */}
       {hasLocErr && (
-        <View style={{ marginHorizontal: 14, marginTop: 8, backgroundColor: '#fff7ed', borderRadius: 12, borderWidth: 1, borderColor: '#fed7aa', padding: 12 }}>
-
-          {/* Header row */}
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+        <View className="mx-3.5 mt-2 bg-orange-50 rounded-xl border border-orange-200 p-3">
+          <View className="flex-row items-start gap-2">
             <Ionicons name="location-outline" size={18} color="#c2410c" style={{ marginTop: 1 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#9a3412', marginBottom: 3 }}>
+            <View className="flex-1">
+              <Text className="text-[13px] font-bold text-orange-900 mb-[3px]">
                 Location Required
               </Text>
-              <Text style={{ fontSize: 12, color: '#c2410c', lineHeight: 17 }}>
+              <Text className="text-xs text-orange-600 leading-[17px]">
                 {isPermanent
                   ? 'Location is permanently blocked. Open your device Settings to allow it.'
                   : locErrMsg}
@@ -632,42 +587,42 @@ export function FaceAttendanceButton() {
             </View>
           </View>
 
-          {/* ── Mobile: Open Settings + optional Retry ── */}
+          {/* Mobile: Settings + Retry */}
           {Platform.OS !== 'web' && (
-            <View style={{ gap: 8, marginTop: 10 }}>
+            <View className="gap-2 mt-2.5">
               <Pressable
                 onPress={openSettings}
-                style={{ backgroundColor: '#9a3412', borderRadius: 8, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                className="bg-orange-900 rounded-lg py-[9px] flex-row items-center justify-center gap-1.5"
               >
                 <Ionicons name="settings-outline" size={15} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Open Settings</Text>
+                <Text className="text-white text-[13px] font-bold">Open Settings</Text>
               </Pressable>
               {!isPermanent && (
                 <Pressable
                   onPress={handlePress}
-                  style={{ backgroundColor: '#ea580c', borderRadius: 8, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  className="bg-orange-500 rounded-lg py-[9px] flex-row items-center justify-center gap-1.5"
                 >
                   <Ionicons name="refresh-outline" size={15} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Retry</Text>
+                  <Text className="text-white text-[13px] font-bold">Retry</Text>
                 </Pressable>
               )}
             </View>
           )}
 
-          {/* ── Web / laptop: re-trigger browser popup directly ── */}
+          {/* Web: Grant Location */}
           {Platform.OS === 'web' && (
             <Pressable
               onPress={handlePress}
-              style={{ marginTop: 10, backgroundColor: '#ea580c', borderRadius: 8, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              className="mt-2.5 bg-orange-500 rounded-lg py-2.5 flex-row items-center justify-center gap-1.5"
             >
               <Ionicons name="locate-outline" size={15} color="#fff" />
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Grant Location</Text>
+              <Text className="text-white text-[13px] font-bold">Grant Location</Text>
             </Pressable>
           )}
         </View>
       )}
 
-      {/* ── Modal (only opens after location is confirmed) ── */}
+      {/* ── Modal ── */}
       <FaceAttendanceModal
         visible={showModal}
         geo={geo}

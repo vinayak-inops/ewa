@@ -4,11 +4,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Dimensions, Modal, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HEADER_SPACER_HEIGHT, ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { getAccessToken } from '@/hooks/auth/token-store';
-import { FaceAttendanceButton } from './components/FaceAttendance';
-import { PunchRecords, buildAttendanceDetail, type AttendanceDetail } from './components/PunchRecords';
-import { WeekDayStrip } from './components/WeekDayStrip';
+import { DaySummary } from './muster/DaySummary';
+import { MonthlySummary } from './muster/MonthlySummary';
+import { PunchRecords, buildAttendanceDetail, type AttendanceDetail } from './muster/PunchRecords';
+import { TodayPunches } from './muster/TodayPunches';
+import { WeekDayStrip } from './muster/WeekDayStrip';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -358,10 +361,11 @@ function getDayCardColor(detail: AttendanceDetail | null, hasAttendanceData: boo
     if (leaveCode === 'FL') return '#fef3c7';
     return '#eff6ff';
   }
+  if (attendanceId === 'PP') return '#2563eb';
+  if (attendanceId === 'HD') return '#fed7aa';
   if (attendanceId === 'AA') return '#fee2e2';
-  if (attendanceId === 'HH') return '#fef3c7';
-  if (attendanceId === 'PP') return '#dbeafe';
   if (attendanceId === 'WW') return '#f3f4f6';
+  if (attendanceId === 'HH') return '#fef3c7';
   return '#eff6ff';
 }
 
@@ -372,7 +376,7 @@ function BannerIllustration({ b }: { b: BannerDef }) {
     <View pointerEvents="none" className="absolute right-0 top-0 bottom-0 w-[110px] items-center justify-center">
       <View className="absolute w-24 h-24 rounded-full" style={{ backgroundColor: b.ringB }} />
       <View className="absolute w-[68px] h-[68px] rounded-full" style={{ backgroundColor: b.ringA }} />
-      <View className="w-[52px] h-[52px] rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+      <View className="w-[52px] h-[52px] rounded-full items-center justify-center bg-white/[0.12]">
         <Ionicons name={b.primaryIcon} size={36} color={b.accent} />
       </View>
       <View className="absolute top-[14px] right-[10px] w-[26px] h-[26px] rounded-full items-center justify-center" style={{ backgroundColor: b.ringA }}>
@@ -410,7 +414,7 @@ function BannerCarousel({ totalMonthMinutes }: { totalMonthMinutes: number }) {
           />
           <BannerIllustration b={b} />
           <View className="flex-1 py-4 pl-4 pr-1 justify-end">
-            <Text className="text-base font-extrabold text-white leading-[22px] mb-1" style={{ letterSpacing: -0.3 }}>{b.title}</Text>
+            <Text className="text-base font-extrabold text-white leading-[22px] mb-1 tracking-[-0.3px]">{b.title}</Text>
             {b.id === 'b1' ? (
               <View className="flex-row items-center gap-1 mb-[10px]">
                 <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.75)" />
@@ -485,12 +489,14 @@ export default function LiteAttendanceScreen() {
     url: ATTENDANCE_SEARCH_URL,
     method: 'POST',
     data: [
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-      { field: 'month', value: selectedMonthNumber, operator: 'eq' },
+      { field: 'employeeID', value: employeeId,          operator: 'eq' },
+      { field: 'tenantCode', value: tenantCode,          operator: 'eq' },
+      { field: 'month',      value: selectedMonthNumber, operator: 'eq' },
+      { field: 'year',       value: selectedYearNumber,  operator: 'eq' },
     ],
     enabled: Boolean(employeeId && tenantCode && isFocused),
-    dependencies: [employeeId, tenantCode, selectedMonthNumber, isFocused],
+    // ↓ year added so navigating across years also triggers a re-fetch
+    dependencies: [employeeId, tenantCode, selectedMonthNumber, selectedYearNumber, isFocused],
     onSuccess: (data) => {
       const rows = normalizeAttendanceRows(data);
       setAttendanceRows(rows);
@@ -628,6 +634,7 @@ export default function LiteAttendanceScreen() {
     [todayPunches]
   );
 
+
   const handleStripDateSelect = useCallback((date: Date) => {
     setSelectedDate(date);
     setCurrentDate(new Date(date.getFullYear(), date.getMonth(), 1));
@@ -635,6 +642,7 @@ export default function LiteAttendanceScreen() {
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setSelectedDate(null);
+    setAttendanceRows([]);          // clear immediately so tiles show "—" while loading
     setCurrentDate((prev) => {
       const next = new Date(prev);
       next.setMonth(prev.getMonth() + (direction === 'next' ? 1 : -1));
@@ -667,73 +675,33 @@ export default function LiteAttendanceScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#0a1c63]">
-      <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
+    <View className="flex-1 bg-[#0B1424]">
+      <StatusBar barStyle="light-content" backgroundColor="#0B1424" />
 
       {/* ── Header ── */}
-      <View className="bg-[#0a1c63] px-4 pb-[18px]" style={{ paddingTop: insets.top + 14 }}>
-        <View className="flex-row justify-between items-center mb-[14px]">
-          <View className="flex-row items-center gap-[10px]">
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={8}
-              className="w-8 h-8 rounded-full items-center justify-center bg-white/15"
-            >
-              <Ionicons name="arrow-back" size={18} color="#fff" />
-            </Pressable>
-            <Text className="text-white text-xl font-bold">Attendance</Text>
-          </View>
-          <View className="flex-row gap-[14px]">
-            <Ionicons name="notifications-outline" size={18} color="#fff" />
-            <Ionicons name="settings-outline" size={18} color="#fff" />
-          </View>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Attendance"
+        backgroundColor="#0B1424"
+        onBack={() => router.back()}
+        onNotification={() => router.push('/(tabs-lite)/settings/notifications' as any)}
+        onSettings={() => router.push('/(tabs-lite)/settings' as any)}
+      />
+
+      {/* Dark spacer — keeps content below the absolute header */}
+      <View style={{ height: HEADER_SPACER_HEIGHT(insets.top) }} />
 
       {/* ── Monthly Hours Card ── */}
-      <View className="bg-[#0a1c63] pb-4 px-4">
-        <View className="bg-[#1d4ed8] rounded-[18px] h-[130px] overflow-hidden flex-row">
-          <View
-            pointerEvents="none"
-            className="absolute w-[200px] h-[200px] rounded-full opacity-40"
-            style={{ backgroundColor: 'rgba(59,130,246,0.35)', top: -80, right: -60 }}
-          />
-          <View pointerEvents="none" className="absolute right-0 top-0 bottom-0 w-[110px] items-center justify-center">
-            <View className="absolute w-24 h-24 rounded-full bg-blue-400/20" />
-            <View className="absolute w-[68px] h-[68px] rounded-full bg-blue-500/35" />
-            <View className="w-[52px] h-[52px] rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-              <Ionicons name="time-outline" size={30} color="rgba(191,219,254,0.9)" />
-            </View>
-            <View className="absolute top-[14px] right-[10px] w-[26px] h-[26px] rounded-full bg-blue-500/35 items-center justify-center">
-              <Ionicons name="analytics-outline" size={12} color="#bfdbfe" />
-            </View>
-            <View className="absolute bottom-[18px] left-[6px] w-[22px] h-[22px] rounded-full bg-blue-500/35 items-center justify-center">
-              <Ionicons name="checkmark-done-outline" size={10} color="#bfdbfe" />
-            </View>
-          </View>
-          <View className="flex-1 py-4 pl-4 pr-1 justify-center">
-            <View className="flex-row items-center justify-between pr-3">
-              <View className="flex-1">
-                <Text className="text-[13px] text-white font-bold leading-[18px] mb-1">Monthly{'\n'}Working Hours</Text>
-                <Text className="text-[10px] text-white/55 font-medium">Total this month</Text>
-              </View>
-              <Text className="text-[26px] font-extrabold text-white" style={{ letterSpacing: -0.5 }}>
-                {`${Math.floor(totalMonthMinutes / 60)}h ${String(totalMonthMinutes % 60).padStart(2, '0')}m`}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
+      {/* <MonthlyHoursCard totalMinutes={totalMonthMinutes} /> */}
 
       {/* ── Sheet wrapper ── */}
-      <View className="flex-1 bg-[#f8fafc] rounded-tl-3xl rounded-tr-3xl overflow-hidden">
+      <View className="flex-1 bg-[#f8fafc] overflow-hidden">
 
         {/* Face Attendance button */}
-        <FaceAttendanceButton />
+        {/* <FacePunch /> */}
 
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 96, gap: 6 }}
+          contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 96, gap: 20 }}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -742,132 +710,45 @@ export default function LiteAttendanceScreen() {
           <WeekDayStrip
             today={today}
             selectedDate={selectedDate}
-            attendanceRows={currentMonthAttendanceRows}
+            attendanceRows={attendanceRows}
             onSelectDate={handleStripDateSelect}
             onOpenCalendar={() => setShowCalendar(true)}
-            loading={currentMonthDataNeeded ? currentMonthAttendanceLoading : attendanceLoading}
+            onMonthChange={(firstOfMonth) => {
+              setAttendanceRows([]);
+              setCurrentDate(firstOfMonth);
+            }}
+            loading={attendanceLoading}
           />
 
-          {/* ── Color Legend ── */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 }}
-          >
-            {[
-              { bg: '#2563eb', label: 'Present' },
-              { bg: '#fca5a5', label: 'Absent' },
-              { bg: '#fde68a', label: 'Half Day' },
-              { bg: '#f59e0b', label: 'Leave' },
-              { bg: '#cbd5e1', label: 'Week Off' },
-              { bg: '#a78bfa', label: 'Other' },
-            ].map((item) => (
-              <View
-                key={item.label}
-                className="flex-row items-center gap-1 bg-white rounded-full px-[7px] py-1"
-                style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}
-              >
-                <View className="w-[9px] h-[9px] rounded-full" style={{ backgroundColor: item.bg }} />
-                <Text className="text-[11px] font-semibold text-slate-600">{item.label}</Text>
-              </View>
-            ))}
-          </ScrollView>
+
+          {/* ── Monthly Summary — label + data both follow currentDate ── */}
+          <MonthlySummary attendanceRows={attendanceRows} selectedMonth={currentDate} />
 
           {/* ── Punch Detail for Selected Date ── */}
           {selectedDate && (
             <PunchRecords
               selectedDate={selectedDate}
               attendanceRow={selectedAttendanceRecord}
+              rawPunches={sortedPunches}
             />
           )}
 
+          {/* ── Today's Punches ── */}
+          {sortedPunches.length > 0 && (
+            <TodayPunches punches={sortedPunches} />
+          )}
+
           {/* ── Face Punch History ── */}
-          {facePunchHistory.length > 0 && (
-            <View
-              className="bg-white rounded-2xl overflow-hidden"
-              style={{ shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 }}
-            >
-              {/* Card header — matches PunchRecords style */}
-              <View className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100">
-                <View className="flex-row items-center gap-2">
-                  <View className="w-8 h-8 rounded-full bg-blue-50 items-center justify-center">
-                    <Ionicons name="scan-circle-outline" size={16} color="#2563eb" />
-                  </View>
-                  <Text className="text-[14px] font-bold text-slate-900">Face Punches</Text>
-                </View>
-                <View className="px-[10px] py-[3px] rounded-full bg-blue-50">
-                  <Text className="text-[11px] font-bold text-blue-700">
-                    {facePunchHistory.length} record{facePunchHistory.length !== 1 ? 's' : ''}
-                  </Text>
-                </View>
-              </View>
+          {/* {facePunchHistory.length > 0 && (
+            <FacePunchHistory records={facePunchHistory} />
+          )} */}
 
-              {/* Row list */}
-              <View className="px-4 py-3">
-                <Text className="text-[11px] font-bold text-slate-400 mb-2" style={{ letterSpacing: 0.6 }}>
-                  FACE PUNCHES · {facePunchHistory.length}
-                </Text>
-
-                <View className="gap-[6px]">
-                  {facePunchHistory.map((rec) => {
-                    const isSuccess = rec.status === 'SUCCESS' || rec.validated === true;
-                    const dt = rec.dateTime ? new Date(rec.dateTime) : null;
-                    const pad = (n: number) => String(n).padStart(2, '0');
-                    const timeLabel = dt ? `${pad(dt.getHours())}:${pad(dt.getMinutes())}` : '--';
-                    const dateLabel = dt
-                      ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                      : '—';
-                    const siteLabel = rec.matchedSiteCode
-                      ? rec.matchedSiteCode.replace(/_/g, ' ')
-                      : 'Face reader';
-
-                    return (
-                      <View
-                        key={rec._id}
-                        className="flex-row items-center gap-3 rounded-xl px-3 py-[10px]"
-                        style={{ backgroundColor: isSuccess ? '#f0fdf4' : '#fff7f7' }}
-                      >
-                        {/* Icon circle */}
-                        <View
-                          className="w-8 h-8 rounded-full items-center justify-center"
-                          style={{ backgroundColor: isSuccess ? '#dcfce7' : '#fee2e2' }}
-                        >
-                          <Ionicons
-                            name={isSuccess ? 'scan-circle' : 'scan-circle-outline'}
-                            size={16}
-                            color={isSuccess ? '#16a34a' : '#dc2626'}
-                          />
-                        </View>
-
-                        {/* Time + description */}
-                        <View className="flex-1">
-                          <Text className="text-[13px] font-bold" style={{ color: isSuccess ? '#15803d' : '#b91c1c' }}>
-                            {timeLabel}
-                          </Text>
-                          <Text className="text-[10px] text-slate-400 font-medium" numberOfLines={1}>
-                            {dateLabel}{rec.matchedSiteCode ? ` · ${siteLabel}` : ''}
-                          </Text>
-                        </View>
-
-                        {/* Status dot + label */}
-                        <View className="flex-row items-center gap-[5px]">
-                          <View
-                            className="w-[7px] h-[7px] rounded-full"
-                            style={{ backgroundColor: isSuccess ? '#16a34a' : '#dc2626' }}
-                          />
-                          <Text
-                            className="text-[11px] font-bold"
-                            style={{ color: isSuccess ? '#15803d' : '#b91c1c' }}
-                          >
-                            {isSuccess ? 'Verified' : 'Failed'}
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            </View>
+          {/* ── Day Summary ── */}
+          {selectedDate && (
+            <DaySummary
+              selectedDate={selectedDate}
+              attendanceRow={selectedAttendanceRecord}
+            />
           )}
 
           {/* ── Calendar Modal ── */}
@@ -878,14 +759,14 @@ export default function LiteAttendanceScreen() {
             onRequestClose={() => setShowCalendar(false)}
           >
             <View className="flex-1 bg-black/45 justify-end">
-              <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={() => setShowCalendar(false)} />
+              <Pressable className="absolute inset-0" onPress={() => setShowCalendar(false)} />
               <View className="bg-white rounded-tl-[28px] rounded-tr-[28px] px-[14px] pb-8" style={{ maxHeight: SCREEN_H * 0.88, elevation: 20 }}>
                 <View className="w-9 h-1 rounded-sm bg-slate-300 self-center mt-[10px] mb-1" />
 
                 {/* Calendar header */}
                 <View className="flex-row items-center justify-between bg-[#1e3a8a] rounded-2xl px-[14px] py-3 mb-3 mt-1">
                   <View className="gap-[3px]">
-                    <Text className="text-[15px] font-extrabold text-white" style={{ letterSpacing: 0.2 }}>Select Date</Text>
+                    <Text className="text-[15px] font-extrabold text-white tracking-[0.2px]">Select Date</Text>
                     <Pressable onPress={jumpToTodayMonth}>
                       <Text className="text-[10px] text-white/55 font-medium">{monthTitle} · Tap to jump today</Text>
                     </Pressable>
@@ -906,7 +787,7 @@ export default function LiteAttendanceScreen() {
                 {/* Weekday headers */}
                 <View className="flex-row mb-1 py-[6px]">
                   {DAY_NAMES.map((name) => (
-                    <Text key={name} className="text-center text-[11px] font-bold text-slate-500" style={{ width: '14.285%', letterSpacing: 0.2 }}>
+                    <Text key={name} className="text-center text-[11px] font-bold text-slate-500 tracking-[0.2px]" style={{ width: '14.285%' }}>
                       {name}
                     </Text>
                   ))}
@@ -918,41 +799,110 @@ export default function LiteAttendanceScreen() {
                     const isToday = isSameCalendarDay(cell.date, today);
                     const isFuture = isFutureCalendarDay(cell.date, today);
                     const isSelected = selectedDate ? isSameCalendarDay(cell.date, selectedDate) : false;
-                    const hasActivity = cell.isCurrentMonth && hasAttendanceForDay(cell.date, attendanceRows);
                     const dayRow = cell.isCurrentMonth ? getAttendanceRowForDay(cell.date, attendanceRows) : null;
                     const dayDetail = dayRow ? buildAttendanceDetail(dayRow) : null;
                     const attendanceDayColor = cell.isCurrentMonth ? getDayCardColor(dayDetail, Boolean(dayRow)) : null;
                     const cellKey = `${cell.date.getFullYear()}-${cell.date.getMonth()}-${cell.date.getDate()}-${index}`;
 
+                    // Resolve final bg color — selected always wins
+                    let cellBg: string;
+                    if (isSelected) {
+                      cellBg = '#2563eb';
+                    } else if (cell.isCurrentMonth && attendanceDayColor) {
+                      cellBg = attendanceDayColor;
+                    } else {
+                      cellBg = cell.isCurrentMonth ? '#f8fafc' : 'transparent';
+                    }
+
                     return (
                       <Pressable
                         key={cellKey}
-                        className="items-center justify-center py-[2px]"
-                        style={{ width: '14.285%', aspectRatio: 1, maxHeight: 46 }}
-                        disabled={isFuture}
+                        style={{ width: '14.285%', padding: 2 }}
+                        disabled={isFuture || !cell.isCurrentMonth}
                         onPress={() => handleCellPress(cell)}
                       >
                         <View
-                          className={`w-9 h-9 items-center justify-center rounded-full ${isFuture ? 'opacity-30' : ''} ${isToday && !isSelected ? 'border-2 border-blue-600 bg-blue-50' : ''} ${isSelected ? 'bg-blue-600' : ''}`}
                           style={[
-                            !isSelected && cell.isCurrentMonth && attendanceDayColor ? { backgroundColor: attendanceDayColor } : undefined,
-                            isSelected ? { shadowColor: '#2563eb', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 5 } : undefined,
+                            {
+                              borderRadius: 8,
+                              minHeight: 54,
+                              alignItems: 'center',
+                              paddingTop: 5,
+                              paddingBottom: 4,
+                              paddingHorizontal: 2,
+                              backgroundColor: cellBg,
+                              opacity: isFuture ? 0.3 : 1,
+                              borderWidth: isToday && !isSelected ? 1.5 : 0,
+                              borderColor: '#2563eb',
+                            },
+                            isSelected
+                              ? { shadowColor: '#2563eb', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 5 }
+                              : undefined,
                           ]}
                         >
+                          {/* Day number */}
                           <Text
-                            className={`text-[13px] font-semibold
-                              ${isFuture ? 'text-slate-300' : ''}
-                              ${!cell.isCurrentMonth ? 'text-slate-200 font-normal' : ''}
-                              ${isSelected ? 'text-white font-extrabold' : ''}
-                              ${!isSelected && cell.isCurrentMonth && hasActivity ? 'text-blue-800 font-bold' : ''}
-                              ${!isSelected && cell.isCurrentMonth && !hasActivity ? 'text-slate-900' : ''}
-                            `}
-                            style={!isSelected && cell.isCurrentMonth && attendanceDayColor ? { color: '#0f172a' } : undefined}
+                            style={{
+                              fontSize: 13,
+                              fontWeight: isSelected ? '800' : '600',
+                              color: isSelected || dayDetail?.attendanceID === 'PP'
+                                ? '#ffffff'
+                                : !cell.isCurrentMonth
+                                ? '#cbd5e1'
+                                : '#0f172a',
+                              lineHeight: 17,
+                            }}
                           >
-                            {cell.label}
+                            {String(cell.label).padStart(2, '0')}
                           </Text>
+
+                          {/* Attendance status badge */}
+                          {cell.isCurrentMonth && dayDetail?.attendanceID && !isSelected && (
+                            <Text
+                              style={{
+                                fontSize: 9,
+                                fontWeight: '700',
+                                color: dayDetail?.attendanceID === 'PP' ? '#ffffff' : '#1e3a8a',
+                                marginTop: 3,
+                                letterSpacing: 0.2,
+                              }}
+                              numberOfLines={1}
+                            >
+                              {dayDetail.attendanceID}
+                            </Text>
+                          )}
+
+                          {/* Leave code badge (overrides attendanceID display) */}
+                          {cell.isCurrentMonth && dayDetail?.leaveCode &&
+                            dayDetail.leaveCode.trim() !== '' &&
+                            dayDetail.leaveCode !== '00' &&
+                            dayDetail.leaveCode !== '0' &&
+                            !isSelected && (
+                            <Text
+                              style={{
+                                fontSize: 8,
+                                fontWeight: '700',
+                                color: '#6d28d9',
+                                marginTop: 2,
+                                letterSpacing: 0.2,
+                              }}
+                              numberOfLines={1}
+                            >
+                              {dayDetail.leaveCode.trim().substring(0, 4)}
+                            </Text>
+                          )}
+
+                          {/* Today dot */}
                           {isToday && !isSelected && (
-                            <View className="absolute bottom-1 w-1 h-1 rounded-full bg-blue-600" />
+                            <View
+                              style={{
+                                width: 4,
+                                height: 4,
+                                borderRadius: 2,
+                                backgroundColor: '#2563eb',
+                                marginTop: 2,
+                              }}
+                            />
                           )}
                         </View>
                       </Pressable>
@@ -961,17 +911,23 @@ export default function LiteAttendanceScreen() {
                 </View>
 
                 {/* Legend */}
-                <View className="flex-row flex-wrap items-center justify-center gap-3 mt-3 py-[10px] bg-[#f8fafc] rounded-xl">
+                <View className="flex-row flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-3 py-[10px] bg-[#f8fafc] rounded-xl">
                   {[
-                    { bg: '#e2e8f0', label: 'No data' },
-                    { bg: '#dbeafe', label: 'Today', border: true },
-                    { bg: '#2563eb', label: 'Selected' },
-                    { bg: '#dbeafe', label: 'Present' },
+                    { bg: '#2563eb', label: 'Present' },
+                    { bg: '#fed7aa', label: 'Half Day' },
+                    { bg: '#fee2e2', label: 'Absent' },
+                    { bg: '#f3f4f6', label: 'Week Off' },
+                    { bg: '#ede9fe', label: 'Leave' },
+                    { bg: '#fef3c7', label: 'Holiday' },
                   ].map((item) => (
                     <View key={item.label} className="flex-row items-center gap-[5px]">
                       <View
-                        className="w-2 h-2 rounded-full"
-                        style={[{ backgroundColor: item.bg }, item.border ? { borderWidth: 2, borderColor: '#2563eb' } : undefined]}
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 3,
+                          backgroundColor: item.bg,
+                        }}
                       />
                       <Text className="text-[10px] text-slate-500 font-semibold">{item.label}</Text>
                     </View>
