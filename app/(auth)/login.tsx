@@ -1,12 +1,10 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
 import { clearBiometricSession, isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
 import { recordPostLoginState } from '@/hooks/auth/install-guard';
-import { refreshAccessToken } from '@/hooks/auth/keycloak-refresh';
-import { clearAuthTokens, getAccessToken, saveAuthTokens } from '@/hooks/auth/token-store';
+import { bffLogin, fetchCsrf, makeSyntheticToken } from '@/hooks/auth/bff-session';
+import { clearAuthTokens, saveAuthTokens } from '@/hooks/auth/token-store';
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,73 +16,11 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
-WebBrowser.maybeCompleteAuthSession();
-
-const RAW_AUTH_OR_ISSUER_URL =
-  process.env.EXPO_PUBLIC_KEYCLOAK_AUTH_URL ?? process.env.EXPO_PUBLIC_KEYCLOAK_ISSUER ?? '';
-const KEYCLOAK_ISSUER = RAW_AUTH_OR_ISSUER_URL.includes('/protocol/openid-connect')
-  ? RAW_AUTH_OR_ISSUER_URL.split('/protocol/openid-connect')[0]
-  : RAW_AUTH_OR_ISSUER_URL;
-const KEYCLOAK_AUTH_URL = KEYCLOAK_ISSUER ? `${KEYCLOAK_ISSUER}/protocol/openid-connect/auth` : '';
-const KEYCLOAK_TOKEN_URL = KEYCLOAK_ISSUER ? `${KEYCLOAK_ISSUER}/protocol/openid-connect/token` : '';
-const KEYCLOAK_CLIENT_ID = process.env.EXPO_PUBLIC_KEYCLOAK_CLIENT_ID ?? '';
-const KEYCLOAK_CLIENT_SECRET = process.env.EXPO_PUBLIC_KEYCLOAK_CLIENT_SECRET ?? '';
-const KEYCLOAK_SCOPE = process.env.EXPO_PUBLIC_KEYCLOAK_SCOPE ?? 'openid profile email offline_access';
 const APP_FONT_FAMILY = 'Inter';
-
-type TokenResponse = {
-  access_token?: string;
-  refresh_token?: string;
-  id_token?: string;
-  token_type?: string;
-  expires_in?: number;
-  error?: string;
-  error_description?: string;
-};
-
-function toQueryString(params: Record<string, string>) {
-  return Object.entries(params)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&');
-}
-
-function parseUrlParams(url: string) {
-  const parsed = Linking.parse(url);
-  const qp = parsed.queryParams ?? {};
-  const code = typeof qp.code === 'string' ? qp.code : undefined;
-  const error = typeof qp.error === 'string' ? qp.error : undefined;
-  return { code, error };
-}
-
-async function exchangeCodeForTokens(code: string, redirectUri: string): Promise<TokenResponse> {
-  const body = toQueryString({
-    grant_type: 'authorization_code',
-    client_id: KEYCLOAK_CLIENT_ID,
-    code,
-    redirect_uri: redirectUri,
-  });
-  const finalBody = KEYCLOAK_CLIENT_SECRET
-    ? `${body}&${toQueryString({ client_secret: KEYCLOAK_CLIENT_SECRET })}`
-    : body;
-
-  const response = await fetch(KEYCLOAK_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: finalBody,
-  });
-
-  const json = (await response.json()) as TokenResponse;
-  if (!response.ok) {
-    return {
-      error: json.error ?? 'token_exchange_failed',
-      error_description: json.error_description ?? 'Keycloak token exchange failed.',
-    };
-  }
-  return json;
-}
 
 const FEATURES = [
   { icon: 'wallet-outline' as const,        title: 'Earned Wages',  desc: 'Access salary anytime'   },
@@ -125,31 +61,14 @@ export default function LoginScreen() {
   const orbPulse = useRef(new Animated.Value(0)).current;
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  const redirectUri = useMemo(() => Linking.createURL('/(auth)/login'), []);
-
-  const canStartAuth =
-    KEYCLOAK_ISSUER.length > 0 &&
-    KEYCLOAK_AUTH_URL.length > 0 &&
-    KEYCLOAK_TOKEN_URL.length > 0 &&
-    KEYCLOAK_CLIENT_ID.length > 0;
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const redirectSavedSession = async () => {
       const biometricActive = await isBiometricSessionActive();
       if (!biometricActive) return;
-
-      // Ensure we have a usable token before leaving the login screen.
-      // If access token is expired, try a silent refresh. If that also
-      // fails (refresh token gone), clear the session and stay here —
-      // this breaks the biometric ↔ login redirect loop.
-      const token = (await getAccessToken()) ?? (await refreshAccessToken());
-      if (!token) {
-        await clearBiometricSession();
-        await clearAuthTokens();
-        return;
-      }
-
       router.replace(isBiometricSessionUnlocked() ? getPostLoginRoute() : '/(auth)/biometric');
     };
     void redirectSavedSession();
@@ -187,53 +106,31 @@ export default function LoginScreen() {
   const pulseScale   = orbPulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.12] });
   const pulseOpacity = orbPulse.interpolate({ inputRange: [0, 1], outputRange: [0.24, 0.1] });
 
+  const canSubmit = username.trim().length > 0 && password.length > 0;
+
   const onLogin = async () => {
-    if (loading || !canStartAuth) {
-      if (!canStartAuth) {
-        setErrorMessage(
-          'Keycloak config is missing. Set EXPO_PUBLIC_KEYCLOAK_AUTH_URL (or EXPO_PUBLIC_KEYCLOAK_ISSUER) and EXPO_PUBLIC_KEYCLOAK_CLIENT_ID.',
-        );
-      }
+    if (loading) return;
+    if (!canSubmit) {
+      setErrorMessage('Please enter your username and password.');
       return;
     }
     setLoading(true);
     setErrorMessage('');
     try {
-      const authUrl = `${KEYCLOAK_AUTH_URL}?${toQueryString({
-        client_id: KEYCLOAK_CLIENT_ID,
-        response_type: 'code',
-        redirect_uri: redirectUri,
-        scope: KEYCLOAK_SCOPE,
-        prompt: 'login',
-      })}`;
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      if (result.type !== 'success' || !result.url) {
-        setErrorMessage('Sign-in was cancelled or did not complete.');
-        return;
-      }
-      const { code, error } = parseUrlParams(result.url);
-      if (error || !code) {
-        setErrorMessage(error ? `Authentication failed: ${error}` : 'Authentication code missing from callback.');
-        return;
-      }
-      const validation = await exchangeCodeForTokens(code, redirectUri);
-      if (!validation.access_token) {
-        setErrorMessage(validation.error_description ?? 'Keycloak token exchange failed. Please try again.');
-        return;
-      }
-      await saveAuthTokens({
-        accessToken: validation.access_token,
-        refreshToken: validation.refresh_token,
-        idToken: validation.id_token,
-        tokenType: validation.token_type,
-        expiresIn: validation.expires_in,
-      });
+      await fetchCsrf();
+      const profile = await bffLogin(username.trim(), password);
+
+      // Save a synthetic decodable token so JWT-decode callers (e.g. attendance) get employeeID/tenantCode
+      const syntheticToken = makeSyntheticToken(profile);
+      await saveAuthTokens({ accessToken: syntheticToken });
+
       await startBiometricSession();
-      await recordPostLoginState(validation.access_token);
+      await recordPostLoginState(syntheticToken);
       setBiometricSessionUnlocked(true);
       router.replace('/(auth)/permissions');
-    } catch {
-      setErrorMessage('Unable to complete login right now. Please retry.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Login failed. Please try again.';
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -284,18 +181,56 @@ export default function LoginScreen() {
         <View style={styles.copyBlock}>
           <Text style={styles.title}>Earned Wage Access</Text>
           <Text style={styles.subtitle}>
-            Securely access your EWA account and manage your workplace finances.
+            Sign in to your EWA account to manage your workplace finances.
           </Text>
+        </View>
+
+        {/* Username field */}
+        <View style={styles.inputWrap}>
+          <Ionicons name="person-outline" size={18} color="#64748b" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Username"
+            placeholderTextColor="#94a3b8"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="next"
+            editable={!loading}
+          />
+        </View>
+
+        {/* Password field */}
+        <View style={[styles.inputWrap, { marginTop: 10 }]}>
+          <Ionicons name="lock-closed-outline" size={18} color="#64748b" style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Password"
+            placeholderTextColor="#94a3b8"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="done"
+            onSubmitEditing={onLogin}
+            editable={!loading}
+          />
+          <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={10} style={styles.eyeButton}>
+            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94a3b8" />
+          </Pressable>
         </View>
 
         <Pressable
           style={({ pressed }) => [
             styles.primaryButtonWrap,
+            { marginTop: 18 },
             pressed && { opacity: 0.85 },
-            loading && { opacity: 0.7 },
+            (loading || !canSubmit) && { opacity: 0.6 },
           ]}
           onPress={onLogin}
-          disabled={loading}
+          disabled={loading || !canSubmit}
         >
           <View style={styles.primaryButton}>
             {loading ? (
@@ -304,7 +239,7 @@ export default function LoginScreen() {
                 <Text style={styles.primaryButtonText}>Signing in...</Text>
               </View>
             ) : (
-              <Text style={styles.primaryButtonText}>Sign in with IDDION</Text>
+              <Text style={styles.primaryButtonText}>Sign In</Text>
             )}
           </View>
         </Pressable>
@@ -458,7 +393,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingHorizontal: 6,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   title: {
     fontFamily: APP_FONT_FAMILY,
@@ -477,6 +412,28 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     maxWidth: 300,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 12,
+    height: 50,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    fontFamily: APP_FONT_FAMILY,
+    fontSize: 15,
+    color: '#0f172a',
+  },
+  eyeButton: {
+    paddingLeft: 8,
   },
   primaryButtonWrap: {
     borderRadius: 14,

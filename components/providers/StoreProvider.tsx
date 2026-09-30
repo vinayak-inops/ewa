@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { store, AppDispatch, RootState } from '@/store';
-import { initializeRoleFromToken } from '@/store/slices/roleSlice';
+import { initializeRoleFromBffProfile } from '@/store/slices/roleSlice';
 import { fetchHierarchy } from '@/store/slices/hierarchySlice';
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { getBffUserProfile } from '@/hooks/auth/bff-session';
 
 function RoleInitializer({ children }: { children: React.ReactNode }) {
   const dispatch = useDispatch<AppDispatch>();
@@ -13,14 +13,14 @@ function RoleInitializer({ children }: { children: React.ReactNode }) {
   const initializing = useRef(false);
   const hierarchyFetched = useRef(false);
 
-  // Phase 1: decode JWT and store identity
+  // Phase 1: load BFF profile and initialize identity
   useEffect(() => {
     if (isInitialized || initializing.current) return;
     initializing.current = true;
 
-    getAccessToken().then((token) => {
-      if (token) {
-        dispatch(initializeRoleFromToken(token));
+    getBffUserProfile().then((profile) => {
+      if (profile) {
+        dispatch(initializeRoleFromBffProfile(profile));
       } else {
         initializing.current = false;
       }

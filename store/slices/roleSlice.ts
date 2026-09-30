@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { decodeJwtPayload, extractEntitlementRole } from '@/utils/jwt';
-import { getAuthHeader } from '@/hooks/auth/token-store';
+import { BffUserProfile, getBffUserProfile } from '@/hooks/auth/bff-session';
+import { authedFetch } from '@/hooks/api/authed-fetch';
 
 export type RolePermission = {
   entitlementCode?: string;
@@ -77,27 +78,53 @@ export const initializeRoleFromToken = createAsyncThunk(
   }
 );
 
+/**
+ * Initialize role state directly from the BFF login profile.
+ * - entitlementCode: first role in profile.roles matching ECT-CLMS or ECT-CHT
+ * - org / tenantCode: profile.tenantCode
+ * - employeeId: profile.username
+ */
+export const initializeRoleFromBffProfile = createAsyncThunk(
+  'role/initializeFromBffProfile',
+  async (profile: BffUserProfile, { rejectWithValue }) => {
+    try {
+      // Reuse the same entitlement extraction logic by wrapping roles as JwtPayload
+      const roleType = extractEntitlementRole({ roles: profile.roles });
+
+      return {
+        roleType,
+        groups: [] as string[],
+        roles: profile.roles,
+        realmRoles: [] as string[],
+        employeeId: profile.username,
+        org: profile.tenantCode,
+        sub: null,
+        email: profile.email,
+        preferredUsername: profile.username,
+      };
+    } catch (e: unknown) {
+      return rejectWithValue(e instanceof Error ? e.message : 'Unknown error');
+    }
+  }
+);
+
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
 export const fetchRolePermissions = createAsyncThunk(
   'role/fetchPermissions',
   async ({ roleType, org }: { roleType: string; org: string | null }, { rejectWithValue }) => {
     try {
-      const authHeader = await getAuthHeader();
-      if (!authHeader) return rejectWithValue('No access token');
+      const profile = await getBffUserProfile();
+      if (!profile) return rejectWithValue('No active session');
 
       const body: object[] = [
         { field: 'entitlementCode', value: roleType, operator: 'eq' },
         ...(org ? [{ field: 'tenantCode', value: org, operator: 'eq' }] : []),
       ];
 
-      const res = await fetch(`${API_BASE_URL}/api/query/attendance/role_permissions/search`, {
+      const res = await authedFetch(`${API_BASE_URL}/api/query/attendance/role_permissions/search`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          Authorization: authHeader,
-        },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(body),
       });
 
@@ -152,6 +179,28 @@ const roleSlice = createSlice({
         state.preferredUsername = action.payload.preferredUsername;
       })
       .addCase(initializeRoleFromToken.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isInitialized = true;
+        state.error = action.payload as string;
+      })
+      .addCase(initializeRoleFromBffProfile.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(initializeRoleFromBffProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isInitialized = true;
+        state.roleType = action.payload.roleType;
+        state.groups = action.payload.groups;
+        state.roles = action.payload.roles;
+        state.realmRoles = action.payload.realmRoles;
+        state.employeeId = action.payload.employeeId;
+        state.org = action.payload.org;
+        state.sub = action.payload.sub;
+        state.email = action.payload.email;
+        state.preferredUsername = action.payload.preferredUsername;
+      })
+      .addCase(initializeRoleFromBffProfile.rejected, (state, action) => {
         state.isLoading = false;
         state.isInitialized = true;
         state.error = action.payload as string;

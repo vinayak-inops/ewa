@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useScreenVisibility } from '@/hooks/auth/useScreenVisibility';
 import { GateStatusCard } from './components/GateStatusCard';
 import { LaunchpadHeader } from './components/LaunchpadHeader';
 import { OffersSection } from './components/OffersSection';
@@ -18,8 +19,9 @@ import { TodaySection } from './components/TodaySection';
 // Main screen
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MainLaunchpadScreen() {
-  const router  = useRouter();
-  const insets  = useSafeAreaInsets();
+  const router   = useRouter();
+  const insets   = useSafeAreaInsets();
+  const visible  = useScreenVisibility();
 
   const gateStatus   = 'CLEARED\nTO WORK';
   const gateSubtitle = 'You can come to work tomorrow';
@@ -77,78 +79,106 @@ export default function MainLaunchpadScreen() {
         <TodaySection />
 
         {/* ── SHORTCUTS ── */}
-        <View className="mt-6 mx-4 mb-2">
+        {(visible.attendance || visible.ewa || visible.applications) && (
+          <View className="mt-6 mx-4 mb-2">
+            <Text className="text-slate-400 text-[11px] font-bold tracking-[1.6px] mb-3">
+              SHORTCUTS
+            </Text>
 
-          <Text className="text-slate-400 text-[11px] font-bold tracking-[1.6px] mb-3">
-            SHORTCUTS
-          </Text>
-
-          {/* Face punch — full width */}
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs-lite)/attendance/face-punch' as any)}
-            activeOpacity={0.8}
-            className="flex-row items-center bg-white rounded-xl px-4 py-4 mb-2.5"
-          >
-            <View className="mr-3">
-              <Ionicons name="scan-outline" size={22} color="#374151" />
-            </View>
-            <Text className="text-[#0f172a] text-[15px] font-medium flex-1">Face punch</Text>
-          </TouchableOpacity>
-
-          {/* Row 1 */}
-          <View className="flex-row gap-2.5 mb-2.5">
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs-lite)/ewa' as any)}
-              activeOpacity={0.8}
-              className="flex-1 bg-white rounded-xl p-4"
-            >
-              <View className="flex-row items-center mb-2.5">
-                <Ionicons name="cash-outline" size={22} color="#374151" />
-                <View className="ml-2 bg-[#1e3a5f] border border-[#2d5a8e] rounded-[20px] px-[7px] py-0.5">
-                  <Text className="text-[#bfdbfe] text-[9px] font-bold tracking-[0.4px]">Earn Wage</Text>
+            {/* Face punch — full width, only if attendance is enabled */}
+            {visible.attendance && (
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs-lite)/attendance/face-punch' as any)}
+                activeOpacity={0.8}
+                className="flex-row items-center bg-white rounded-xl px-4 py-4 mb-2.5"
+              >
+                <View className="mr-3">
+                  <Ionicons name="scan-outline" size={22} color="#374151" />
                 </View>
-              </View>
-              <Text className="text-[#0f172a] text-[13px] font-medium">Salary++</Text>
-            </TouchableOpacity>
+                <Text className="text-[#0f172a] text-[15px] font-medium flex-1">Face punch</Text>
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs-lite)/reports' as any)}
-              activeOpacity={0.8}
-              className="flex-1 bg-white rounded-xl p-4"
-            >
-              <View className="mb-2.5">
-                <Ionicons name="shield-checkmark-outline" size={22} color="#374151" />
+            {/* Row 1: Salary++ (ewa) + My documents (always) */}
+            {(visible.ewa) && (
+              <View className="flex-row gap-2.5 mb-2.5">
+                {visible.ewa && (
+                  <TouchableOpacity
+                    onPress={() => router.push('/(tabs-lite)/ewa' as any)}
+                    activeOpacity={0.8}
+                    className="flex-1 bg-white rounded-xl p-4"
+                  >
+                    <View className="flex-row items-center mb-2.5">
+                      <Ionicons name="cash-outline" size={22} color="#374151" />
+                      <View className="ml-2 bg-[#1e3a5f] border border-[#2d5a8e] rounded-[20px] px-[7px] py-0.5">
+                        <Text className="text-[#bfdbfe] text-[9px] font-bold tracking-[0.4px]">Earn Wage</Text>
+                      </View>
+                    </View>
+                    <Text className="text-[#0f172a] text-[13px] font-medium">Salary++</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  onPress={() => router.push('/(tabs-lite)/reports' as any)}
+                  activeOpacity={0.8}
+                  className="flex-1 bg-white rounded-xl p-4"
+                >
+                  <View className="mb-2.5">
+                    <Ionicons name="shield-checkmark-outline" size={22} color="#374151" />
+                  </View>
+                  <Text className="text-[#0f172a] text-[13px] font-medium">My documents</Text>
+                </TouchableOpacity>
               </View>
-              <Text className="text-[#0f172a] text-[13px] font-medium">My documents</Text>
-            </TouchableOpacity>
+            )}
+
+            {/* My documents alone if ewa is hidden */}
+            {!visible.ewa && (
+              <View className="flex-row gap-2.5 mb-2.5">
+                <TouchableOpacity
+                  onPress={() => router.push('/(tabs-lite)/reports' as any)}
+                  activeOpacity={0.8}
+                  className="flex-1 bg-white rounded-xl p-4"
+                >
+                  <View className="mb-2.5">
+                    <Ionicons name="shield-checkmark-outline" size={22} color="#374151" />
+                  </View>
+                  <Text className="text-[#0f172a] text-[13px] font-medium">My documents</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Row 2: Application + Attendance (each gated) */}
+            {(visible.applications || visible.attendance) && (
+              <View className="flex-row gap-2.5">
+                {visible.applications && (
+                  <TouchableOpacity
+                    onPress={() => router.push('/(tabs-lite)/applications' as any)}
+                    activeOpacity={0.8}
+                    className="flex-1 bg-white rounded-xl p-4"
+                  >
+                    <View className="mb-2.5">
+                      <Ionicons name="document-text-outline" size={22} color="#374151" />
+                    </View>
+                    <Text className="text-[#0f172a] text-[13px] font-medium">Application</Text>
+                  </TouchableOpacity>
+                )}
+
+                {visible.attendance && (
+                  <TouchableOpacity
+                    onPress={() => router.push('/(tabs-lite)/attendance' as any)}
+                    activeOpacity={0.8}
+                    className="flex-1 bg-white rounded-xl p-4"
+                  >
+                    <View className="mb-2.5">
+                      <Ionicons name="time-outline" size={22} color="#374151" />
+                    </View>
+                    <Text className="text-[#0f172a] text-[13px] font-medium">Attendance</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
-
-          {/* Row 2 */}
-          <View className="flex-row gap-2.5">
-            <TouchableOpacity
-              onPress={() => {}}
-              activeOpacity={0.8}
-              className="flex-1 bg-white rounded-xl p-4"
-            >
-              <View className="mb-2.5">
-                <Ionicons name="document-text-outline" size={22} color="#374151" />
-              </View>
-              <Text className="text-[#0f172a] text-[13px] font-medium">Application</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs-lite)/attendance' as any)}
-              activeOpacity={0.8}
-              className="flex-1 bg-white rounded-xl p-4"
-            >
-              <View className="mb-2.5">
-                <Ionicons name="time-outline" size={22} color="#374151" />
-              </View>
-              <Text className="text-[#0f172a] text-[13px] font-medium">Attendance</Text>
-            </TouchableOpacity>
-          </View>
-
-        </View>
+        )}
 
         {/* ── OFFERS FOR YOU ── */}
         <OffersSection

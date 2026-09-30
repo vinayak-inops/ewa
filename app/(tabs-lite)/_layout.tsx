@@ -1,45 +1,12 @@
-import { useRolePermissions } from '@/hooks/api/useRolePermissions';
-import type { RootState } from '@/store';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Redirect, Tabs } from 'expo-router';
-import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { isBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
-
-function useTabVisibility() {
-  const { loading } = useRolePermissions();
-  const permissions = useSelector((s: RootState) => s.role.permissions);
-
-  return useMemo(() => {
-    if (loading) return { ewa: true, applications: true, attendance: true };
-    if (!permissions || permissions.length === 0) return { ewa: false, applications: false, attendance: false };
-
-    const roleData = permissions[0] as Record<string, unknown>;
-
-    const hasActiveScreen = (service: unknown): boolean => {
-      if (!service || typeof service !== 'object') return false;
-      if (Array.isArray(service)) {
-        return service.some((s) => s.isActive !== false && s.enabled !== false);
-      }
-      return Object.values(service as Record<string, unknown>).some((screen) => {
-        if (!screen || typeof screen !== 'object') return false;
-        const s = screen as Record<string, unknown>;
-        return s.isActive !== false && s.enabled !== false;
-      });
-    };
-
-    return {
-      ewa: hasActiveScreen(roleData.ewa),
-      applications: hasActiveScreen(roleData.applicationApplier) || hasActiveScreen(roleData.applicationApprover),
-      attendance: hasActiveScreen(roleData.attendance) || hasActiveScreen(roleData.muster),
-    };
-  }, [permissions, loading]);
-}
+import { useScreenVisibility } from '@/hooks/auth/useScreenVisibility';
 
 // ─── Tab item config ──────────────────────────────────────────────────────────
 
@@ -77,7 +44,7 @@ function TabItem({ label, icon, iconActive, focused, disabled, onPress }: TabIte
 
 function LiteCustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const visible = useTabVisibility();
+  const visible = useScreenVisibility();
 
   const mainLaunchpadIndex  = state.routes.findIndex((r) => r.name === 'main-launchpad');
   const attendanceIndex     = state.routes.findIndex((r) => r.name === 'attendance');

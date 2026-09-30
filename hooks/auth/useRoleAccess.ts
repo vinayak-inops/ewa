@@ -1,7 +1,7 @@
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
-import { initializeRoleFromToken, clearRole, RoleState } from '@/store/slices/roleSlice';
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { initializeRoleFromBffProfile, clearRole, RoleState } from '@/store/slices/roleSlice';
+import { getBffUserProfile } from '@/hooks/auth/bff-session';
 
 export function useRole(): RoleState {
   return useSelector((s: RootState) => s.role);
@@ -38,9 +38,9 @@ export function useRoleActions() {
   const dispatch = useDispatch<AppDispatch>();
 
   const refresh = async () => {
-    const token = await getAccessToken();
-    if (token) {
-      dispatch(initializeRoleFromToken(token));
+    const profile = await getBffUserProfile();
+    if (profile) {
+      dispatch(initializeRoleFromBffProfile(profile));
     }
   };
 

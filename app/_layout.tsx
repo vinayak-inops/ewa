@@ -4,13 +4,14 @@ import { useRouter, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus, Text, TextInput } from 'react-native';
+import { AppState, AppStateStatus, Platform, Text, TextInput } from 'react-native';
 import 'react-native-reanimated';
 import "../global.css";
 
 import StoreProvider from '@/components/providers/StoreProvider';
 import AppLoadingScreen from '@/components/ui/AppLoadingScreen';
 import { isBiometricSessionUnlocked, setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
+import { onSessionExpired } from '@/hooks/auth/session-events';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Lock the session and require biometric re-auth after this much background time
@@ -20,7 +21,10 @@ function useBackgroundAuthLock() {
   const router = useRouter();
   const backgroundTimeRef = useRef<number | null>(null);
 
+  // On mobile: lock after 5 min in background (web has no biometric, skip)
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === 'background' || nextState === 'inactive') {
         backgroundTimeRef.current = Date.now();
@@ -36,6 +40,14 @@ function useBackgroundAuthLock() {
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
+  }, [router]);
+
+  // On mobile: when any API returns 401, clear everything and go to login
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    return onSessionExpired(() => {
+      router.replace('/(auth)/login');
+    });
   }, [router]);
 }
 

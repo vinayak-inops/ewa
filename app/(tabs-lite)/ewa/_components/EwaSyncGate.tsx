@@ -4,7 +4,7 @@ import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, View
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { usePostRequest } from '@/hooks/api/usePostRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { getBffUserProfile } from '@/hooks/auth/bff-session';
 
 type SyncDetail = {
   _id: string;
@@ -37,19 +37,6 @@ function getAppOrigin(): string {
   return process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/+$/, '') ?? '';
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const p = token.split('.')[1];
-    if (!p) return null;
-    const b = p.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b.padEnd(b.length + ((4 - (b.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch { return null; }
-}
-
 export function EwaSyncGate({ children }: Props) {
   const [unlocked, setUnlocked] = useState(false);
   const [employeeId, setEmployeeId] = useState('');
@@ -59,12 +46,10 @@ export function EwaSyncGate({ children }: Props) {
   const loginLinkFired = useRef(false);
 
   useEffect(() => {
-    getAccessToken().then((token) => {
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') || '');
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '');
+    getBffUserProfile().then((profile) => {
+      if (!profile) return;
+      setEmployeeId(profile.username);
+      setTenantCode(profile.tenantCode);
     });
   }, []);
 

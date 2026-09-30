@@ -1,22 +1,10 @@
 import { useState } from 'react';
-import { Platform } from 'react-native';
 
-import { getAuthHeader } from '@/hooks/auth/token-store';
+import { getBffUserProfile, ensureCsrf, getSessionCookieHeaders } from '@/hooks/auth/bff-session';
+import { handleUnauthorized } from './authed-fetch';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
-function getLoginRedirectUrl() {
-  const baseUrl = (process.env.EXPO_PUBLIC_NEXTAUTH_URL ?? '').trim();
-  if (baseUrl) {
-    return `${baseUrl.replace(/\/+$/, '')}/login`;
-  }
-
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.origin}/login`;
-  }
-
-  return '/login';
-}
 
 type SupportedFile = File | Blob;
 
@@ -90,14 +78,16 @@ export function usePostRequest<T>({
       setError(null);
       setUploadProgress(0);
 
-      const authHeader = requireAuth ? await getAuthHeader() : null;
-      if (requireAuth && !authHeader) {
-        throw new Error('No access token available');
+      if (requireAuth) {
+        const profile = await getBffUserProfile();
+        if (!profile) throw new Error('No active session. Please log in.');
       }
 
+      const xsrfToken = await ensureCsrf();
       const requestHeaders: Record<string, string> = {
         Accept: 'application/json',
-        ...(authHeader ? { Authorization: authHeader } : {}),
+        'X-XSRF-TOKEN': xsrfToken,
+        ...getSessionCookieHeaders(),
         ...headers,
       };
 
@@ -138,6 +128,7 @@ export function usePostRequest<T>({
       const responseData = await new Promise<T>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', requestUrl);
+        xhr.withCredentials = true;
 
         Object.entries(requestHeaders).forEach(([key, value]) => {
           xhr.setRequestHeader(key, value);
@@ -152,9 +143,8 @@ export function usePostRequest<T>({
 
         xhr.onload = () => {
 
-          if (xhr.status === 401 && Platform.OS === 'web' && typeof window !== 'undefined') {
-            window.location.assign(getLoginRedirectUrl());
-            resolve(null as T);
+          if (xhr.status === 401 || xhr.status === 403) {
+            handleUnauthorized().finally(() => resolve(null as T));
             return;
           }
 

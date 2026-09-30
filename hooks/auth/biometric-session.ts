@@ -2,7 +2,6 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const BIOMETRIC_SESSION_EXPIRES_KEY = 'ewa_biometric_session_expires_at';
-const BIOMETRIC_SESSION_DURATION_MS = 31 * 24 * 60 * 60 * 1000; // 31 days
 
 // In-memory flag: true only for the current app session after a successful biometric scan.
 // Resets to false on every cold start — forces a fresh scan each launch within the 31-day window.
@@ -32,18 +31,18 @@ async function deleteItem(key: string) {
 }
 
 /**
- * Call once after a successful Keycloak login.
- * Records a 31-day expiry in SecureStore so the app knows to show the
- * biometric screen (instead of Keycloak) on every cold start within that window.
+ * Call once after a successful login.
+ * Stores a marker so the app shows biometric unlock on next cold start
+ * instead of the credentials screen. Session validity is determined by
+ * the backend — a 401 from any API clears this marker automatically.
  */
 export async function startBiometricSession() {
-  const expiresAt = String(Date.now() + BIOMETRIC_SESSION_DURATION_MS);
-  await setItem(BIOMETRIC_SESSION_EXPIRES_KEY, expiresAt);
+  await setItem(BIOMETRIC_SESSION_EXPIRES_KEY, 'active');
 }
 
 /**
- * Wipes the persisted 31-day session marker.
- * Call on logout or when the user explicitly chooses Keycloak re-login.
+ * Wipes the session marker.
+ * Called on logout or when the backend returns 401/403.
  */
 export async function clearBiometricSession() {
   biometricSessionUnlocked = false;
@@ -51,18 +50,18 @@ export async function clearBiometricSession() {
 }
 
 /**
- * Returns true if a Keycloak login happened within the last 31 days.
- * Async because it reads from SecureStore.
+ * Returns true if the user has a saved session on this device.
+ * The backend is the source of truth for whether that session is still valid.
  */
 export async function isBiometricSessionActive(): Promise<boolean> {
   const raw = await getItem(BIOMETRIC_SESSION_EXPIRES_KEY);
-  if (!raw) return false;
-  const expiresAt = Number(raw);
-  return Number.isFinite(expiresAt) && Date.now() < expiresAt;
+  return raw === 'active';
 }
 
-/** In-memory only — true once the user passes biometrics in the current app session. */
+/** In-memory only — true once the user passes biometrics in the current app session.
+ *  On web there is no biometric hardware, so an active session is treated as unlocked. */
 export function isBiometricSessionUnlocked() {
+  if (Platform.OS === 'web') return true;
   return biometricSessionUnlocked;
 }
 

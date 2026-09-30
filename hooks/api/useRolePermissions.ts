@@ -1,8 +1,9 @@
-import { getAuthHeader } from '@/hooks/auth/token-store';
+import { getBffUserProfile } from '@/hooks/auth/bff-session';
 import { AppDispatch, RootState } from '@/store';
 import { RolePermission, setPermissions, setPermissionsError, setPermissionsLoading } from '@/store/slices/roleSlice';
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { authedFetch } from './authed-fetch';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
@@ -21,21 +22,17 @@ export function useRolePermissions() {
       dispatch(setPermissionsLoading());
 
       try {
-        const authHeader = await getAuthHeader();
-        if (!authHeader) throw new Error('No access token available');
+        const profile = await getBffUserProfile();
+        if (!profile) throw new Error('No active session');
 
         const body: object[] = [
           { field: 'entitlementCode', value: roleType, operator: 'eq' },
           ...(org ? [{ field: 'tenantCode', value: org, operator: 'eq' }] : []),
         ];
 
-        const res = await fetch(`${API_BASE_URL}/api/query/attendance/role_permissions/search`, {
+        const res = await authedFetch(`${API_BASE_URL}/api/query/attendance/role_permissions/search`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            Authorization: authHeader,
-          },
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify(body),
         });
 
@@ -45,12 +42,11 @@ export function useRolePermissions() {
         }
 
         const data: RolePermission[] = await res.json();
-        
         dispatch(setPermissions(data));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Request failed';
         dispatch(setPermissionsError(msg));
-        fetched.current = false; // allow retry on next mount
+        fetched.current = false;
       }
     };
 

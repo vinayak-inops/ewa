@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AnimatedSuccessState } from '@/components/ui/animated-success-state';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { getBffUserProfile } from '@/hooks/auth/bff-session';
 
 import { EwaActionsBar } from './_components/EwaActionsBar';
 import { EwaHeroCard } from './_components/EwaHeroCard';
@@ -13,7 +13,6 @@ import { EwaSyncGate } from './_components/EwaSyncGate';
 import { EwaTransactionList } from './_components/EwaTransactionList';
 import { EwaWithdrawalChart } from './_components/EwaWithdrawalChart';
 import {
-  decodeJwtPayload,
   formatAppliedDate,
   formatCurrency,
   hasDataObject,
@@ -33,16 +32,10 @@ export default function EwaScreen() {
 
   useEffect(() => {
     const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setEmployeeId(
-        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') || ''
-      );
-      setTenantCode(
-        String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || ''
-      );
+      const profile = await getBffUserProfile();
+      if (!profile) return;
+      setEmployeeId(profile.username);
+      setTenantCode(profile.tenantCode);
     };
     void run();
   }, []);

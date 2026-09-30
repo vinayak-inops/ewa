@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 
-import { getAuthHeader } from '@/hooks/auth/token-store';
+import { getBffUserProfile } from '@/hooks/auth/bff-session';
+import { authedFetch } from './authed-fetch';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 const CACHE_DURATION_MS = 5 * 60 * 1000;
@@ -58,18 +58,6 @@ function toAbsoluteUrl(url: string, params?: Record<string, string | number | bo
   return query ? `${base}${base.includes('?') ? '&' : '?'}${query}` : base;
 }
 
-function getLoginRedirectUrl() {
-  const baseUrl = (process.env.EXPO_PUBLIC_NEXTAUTH_URL ?? '').trim();
-  if (baseUrl) {
-    return `${baseUrl.replace(/\/+$/, '')}/login`;
-  }
-
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.origin}/login`;
-  }
-
-  return '/login';
-}
 
 export function useGetRequest<T>({
   url,
@@ -150,21 +138,18 @@ export function useGetRequest<T>({
         };
 
         if (requireAuth) {
-          const authHeader = await getAuthHeader();
-          if (!authHeader) throw new Error('No access token available');
-          headers.Authorization = authHeader;
+          const profile = await getBffUserProfile();
+          if (!profile) throw new Error('No active session');
         }
 
-        const response = await fetch(requestUrl, {
+        const response = await authedFetch(requestUrl, {
           method: normalizedMethod,
           headers,
           body: normalizedMethod === 'GET' ? undefined : JSON.stringify(normalizedRequestData ?? {}),
         });
 
-        if (response.status === 401 && Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.location.assign(getLoginRedirectUrl());
-          return;
-        }
+        // authedFetch handles 401/403 internally (clears session + redirects)
+        if (response.status === 401 || response.status === 403) return;
 
         if (!response.ok) {
           let body = '';

@@ -2,8 +2,9 @@ import { getPostLoginRoute } from '@/constants/app-variant';
 import { isBiometricSessionActive, isBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
 import { enforceCleanInstall } from '@/hooks/auth/install-guard';
 import { areRequiredPermissionsGranted } from '@/hooks/auth/permission-guard';
-import { clearAuthTokens, getAccessToken } from '@/hooks/auth/token-store';
-import { initializeRoleFromToken, fetchRolePermissions } from '@/store/slices/roleSlice';
+import { getBffUserProfile, clearBffUserProfile } from '@/hooks/auth/bff-session';
+import { clearAuthTokens } from '@/hooks/auth/token-store';
+import { initializeRoleFromBffProfile, fetchRolePermissions } from '@/store/slices/roleSlice';
 import { AppDispatch } from '@/store';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -18,26 +19,20 @@ export default function Index() {
     const run = async () => {
       await enforceCleanInstall();
 
-      const [biometricActive, token] = await Promise.all([
+      const [biometricActive, bffProfile] = await Promise.all([
         isBiometricSessionActive(),
-        getAccessToken(),
+        getBffUserProfile(),
       ]);
 
-      // No valid 31-day session → force Keycloak login
-      if (!biometricActive) {
-        if (token) await clearAuthTokens();
+      // No valid session → force login
+      if (!biometricActive || !bffProfile) {
+        await Promise.all([clearAuthTokens(), clearBffUserProfile()]);
         setTarget('/(auth)/login');
         return;
       }
 
       // 31-day session valid but not yet unlocked this app session → biometric screen
       if (!isBiometricSessionUnlocked()) {
-        setTarget('/(auth)/biometric');
-        return;
-      }
-
-      // Already unlocked this session — need a live token for role init
-      if (!token) {
         setTarget('/(auth)/biometric');
         return;
       }
@@ -50,7 +45,10 @@ export default function Index() {
         return;
       }
 
-      const roleResult = await dispatch(initializeRoleFromToken(token));
+      // Initialize role state from BFF profile
+      // entitlementCode comes from bffProfile.roles (e.g. "ECT-CHT-HRIS-EMP")
+      // tenantCode comes from bffProfile.tenantCode (e.g. "InOps_BMS")
+      const roleResult = await dispatch(initializeRoleFromBffProfile(bffProfile));
       const payload = (roleResult as any).payload;
       const roleType = payload?.roleType as string | null;
       const org = payload?.org as string | null;
