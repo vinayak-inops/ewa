@@ -1,7 +1,6 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
 import { clearBiometricSession, setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
-import { refreshAccessToken } from '@/hooks/auth/keycloak-refresh';
-import { clearAuthTokens, getAccessToken } from '@/hooks/auth/token-store';
+import { getBffUserProfile } from '@/hooks/auth/bff-session';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -40,9 +39,8 @@ export default function BiometricScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [biometricLabel, setBiometricLabel] = useState('fingerprint');
 
-  const fallbackToKeycloak = useCallback(async () => {
+  const fallbackToLogin = useCallback(async () => {
     await clearBiometricSession();
-    await clearAuthTokens();
     router.replace('/(auth)/login');
   }, [router]);
 
@@ -54,26 +52,22 @@ export default function BiometricScreen() {
     setErrorMessage('');
 
     try {
-      // Try the cached token first; if expired, attempt a silent refresh
-      const token = (await getAccessToken()) ?? (await refreshAccessToken());
-      if (!token) {
-        // Keycloak refresh token expired — go to re-login but keep the
-        // 31-day biometric session so the next cold start still shows
-        // fingerprint instead of Keycloak. The login screen resets it on success.
-        await clearAuthTokens();
+      // Verify the BFF session is still alive
+      const profile = await getBffUserProfile();
+      if (!profile) {
         router.replace('/(auth)/login');
         return;
       }
 
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       if (!hasHardware) {
-        await fallbackToKeycloak();
+        await fallbackToLogin();
         return;
       }
 
       const enrolled = await LocalAuthentication.isEnrolledAsync();
       if (!enrolled) {
-        await fallbackToKeycloak();
+        await fallbackToLogin();
         return;
       }
 
@@ -91,7 +85,7 @@ export default function BiometricScreen() {
         const fails = await incrementFailCount();
         if (fails >= MAX_BIOMETRIC_FAILS) {
           await resetFailCount();
-          await fallbackToKeycloak();
+          await fallbackToLogin();
         } else {
           setErrorMessage(
             `Authentication failed. ${MAX_BIOMETRIC_FAILS - fails} attempt(s) remaining.`
@@ -106,13 +100,13 @@ export default function BiometricScreen() {
     } catch (error) {
       if (__DEV__) {
       }
-      await fallbackToKeycloak();
+      await fallbackToLogin();
     } finally {
       isAuthenticatingRef.current = false;
       setIsAuthenticating(false);
       setIsChecking(false);
     }
-  }, [fallbackToKeycloak, router]);
+  }, [fallbackToLogin, router]);
 
   useEffect(() => {
     void authenticate();
@@ -139,8 +133,8 @@ export default function BiometricScreen() {
 
           {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
 
-          <Pressable style={styles.secondaryButton} onPress={fallbackToKeycloak} disabled={isAuthenticating}>
-            <Text style={styles.secondaryButtonText}>Use Keycloak login</Text>
+          <Pressable style={styles.secondaryButton} onPress={fallbackToLogin} disabled={isAuthenticating}>
+            <Text style={styles.secondaryButtonText}>Sign in again</Text>
           </Pressable>
 
           <Pressable

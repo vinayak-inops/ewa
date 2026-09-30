@@ -1,4 +1,4 @@
-import { getAuthHeader } from '@/hooks/auth/token-store'
+import { authedFetch } from '@/hooks/api/authed-fetch'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? ''
@@ -44,15 +44,11 @@ export function useGraphQLQuery<TData = any, TVariables = Record<string, unknown
       setLoading(true)
       setError(null)
 
-      const authHeader = await getAuthHeader()
-      if (!authHeader) throw new Error('No access token available')
-
-      const response = await fetch(GRAPHQL_URL, {
+      const response = await authedFetch(GRAPHQL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          Authorization: authHeader,
         },
         body: JSON.stringify({ query, variables: JSON.parse(variablesKey) }),
       })

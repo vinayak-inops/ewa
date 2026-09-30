@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-import { getAuthHeader } from '@/hooks/auth/token-store';
+import { authedFetch } from '@/hooks/api/authed-fetch';
 import { useUserEntitlement, type UserEntitlement } from '@/hooks/api/useUserEntitlement';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
@@ -129,12 +129,10 @@ export function EmployeeSearchField({
 
     try {
       setLoading(true);
-      const authHeader = await getAuthHeader();
-      const res = await fetch(GRAPHQL_URL, {
+      const res = await authedFetch(GRAPHQL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(authHeader ? { Authorization: authHeader } : {}),
         },
         body: JSON.stringify({
           query: gqlQuery,

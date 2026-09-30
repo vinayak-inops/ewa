@@ -39,7 +39,8 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { HEADER_SPACER_HEIGHT, ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken, getAuthHeader } from '@/hooks/auth/token-store';
+import { getAccessToken } from '@/hooks/auth/token-store';
+import { getSessionCookieHeaders } from '@/hooks/auth/bff-session';
 import { FaceCamera } from './components/FaceCamera';
 import { DailySummary } from './muster/DailySummary';
 import { FacePunch } from './muster/FacePunch';
@@ -175,9 +176,6 @@ async function submitPunch(opts: {
   geo: GeoCoords;
 }): Promise<PunchResponse> {
   const { base64Image, employeeID, tenantCode, geo } = opts;
-  const authHeader = await getAuthHeader();
-  if (!authHeader) throw new Error('Not authenticated');
-
   const now = new Date();
   const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
   const dateTime = ist.toISOString().replace('Z', '+05:30');
@@ -206,8 +204,9 @@ async function submitPunch(opts: {
 
   const res = await fetch(PUNCH_URL, {
     method: 'POST',
+    credentials: 'include',
     headers: {
-      Authorization: authHeader,
+      ...getSessionCookieHeaders(),
       'X-user': 'default-user',
       'X-Tenant': tenantCode || 'default',
     },

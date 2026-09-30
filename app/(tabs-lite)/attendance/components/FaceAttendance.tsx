@@ -28,7 +28,8 @@ import {
   View
 } from 'react-native';
 
-import { getAccessToken, getAuthHeader } from '@/hooks/auth/token-store';
+import { getAccessToken } from '@/hooks/auth/token-store';
+import { getSessionCookieHeaders } from '@/hooks/auth/bff-session';
 
 import { FaceCamera } from './FaceCamera';
 
@@ -135,9 +136,6 @@ async function submitPunch(opts: {
 }): Promise<PunchResponse> {
   const { base64Image, employeeID, tenantCode, geo } = opts;
 
-  const authHeader = await getAuthHeader();
-  if (!authHeader) throw new Error('Not authenticated');
-
   const now      = new Date();
   const ist      = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
   const dateTime = ist.toISOString().replace('Z', '+05:30');
@@ -159,9 +157,10 @@ async function submitPunch(opts: {
   form.append('punchPhoto', { uri: base64Image, name: 'punch.jpg', type: 'image/jpeg' } as any);
 
   const res = await fetch(PUNCH_URL, {
-    method:  'POST',
-    headers: { Authorization: authHeader, 'X-user': 'default-user', 'X-Tenant': tenantCode || 'default' },
-    body:    form,
+    method:      'POST',
+    credentials: 'include',
+    headers:     { ...getSessionCookieHeaders(), 'X-user': 'default-user', 'X-Tenant': tenantCode || 'default' },
+    body:        form,
   });
 
   if (!res.ok) {

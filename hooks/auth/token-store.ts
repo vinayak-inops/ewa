@@ -1,38 +1,13 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { getBffUserProfile, makeSyntheticToken } from './bff-session';
 
-const ACCESS_TOKEN_KEY = 'ewa_access_token';
+// Keys kept only for clearing any legacy tokens stored by older app versions.
+const ACCESS_TOKEN_KEY  = 'ewa_access_token';
 const REFRESH_TOKEN_KEY = 'ewa_refresh_token';
-const ID_TOKEN_KEY = 'ewa_id_token';
-const TOKEN_TYPE_KEY = 'ewa_token_type';
-const EXPIRES_AT_KEY = 'ewa_expires_at';
-
-type StoredTokenPayload = {
-  accessToken: string;
-  refreshToken?: string;
-  idToken?: string;
-  tokenType?: string;
-  expiresIn?: number;
-};
-
-let accessTokenMemory: string | null = null;
-let idTokenMemory: string | null = null;
-
-async function setItem(key: string, value: string) {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined') window.localStorage.setItem(key, value);
-    return;
-  }
-  await SecureStore.setItemAsync(key, value);
-}
-
-async function getItem(key: string) {
-  if (Platform.OS === 'web') {
-    if (typeof window === 'undefined') return null;
-    return window.localStorage.getItem(key);
-  }
-  return SecureStore.getItemAsync(key);
-}
+const ID_TOKEN_KEY      = 'ewa_id_token';
+const TOKEN_TYPE_KEY    = 'ewa_token_type';
+const EXPIRES_AT_KEY    = 'ewa_expires_at';
 
 async function deleteItem(key: string) {
   if (Platform.OS === 'web') {
@@ -42,38 +17,8 @@ async function deleteItem(key: string) {
   await SecureStore.deleteItemAsync(key);
 }
 
-export async function saveAuthTokens(payload: StoredTokenPayload) {
-  const tokenType = payload.tokenType ?? 'Bearer';
-  const expiresAt = payload.expiresIn ? String(Date.now() + payload.expiresIn * 1000) : '';
-
-  accessTokenMemory = payload.accessToken;
-  idTokenMemory = payload.idToken ?? null;
-
-  await setItem(ACCESS_TOKEN_KEY, payload.accessToken);
-  await setItem(TOKEN_TYPE_KEY, tokenType);
-
-  if (expiresAt) {
-    await setItem(EXPIRES_AT_KEY, expiresAt);
-  } else {
-    await deleteItem(EXPIRES_AT_KEY);
-  }
-
-  if (payload.refreshToken) {
-    await setItem(REFRESH_TOKEN_KEY, payload.refreshToken);
-  } else {
-    await deleteItem(REFRESH_TOKEN_KEY);
-  }
-
-  if (payload.idToken) {
-    await setItem(ID_TOKEN_KEY, payload.idToken);
-  } else {
-    await deleteItem(ID_TOKEN_KEY);
-  }
-}
-
+/** Clear any previously stored tokens (legacy Keycloak or synthetic tokens). */
 export async function clearAuthTokens() {
-  accessTokenMemory = null;
-  idTokenMemory = null;
   await Promise.all([
     deleteItem(ACCESS_TOKEN_KEY),
     deleteItem(REFRESH_TOKEN_KEY),
@@ -83,46 +28,32 @@ export async function clearAuthTokens() {
   ]);
 }
 
-export async function getAccessToken() {
-  const expiresAtRaw = await getItem(EXPIRES_AT_KEY);
-  const expiresAt = expiresAtRaw ? Number(expiresAtRaw) : NaN;
-  if (Number.isFinite(expiresAt) && Date.now() >= expiresAt) {
-    // Access token expired — clear only the access token and its expiry.
-    // Do NOT clear the refresh token here; the caller will use it to
-    // silently get a new access token. Clearing it here would break
-    // the biometric silent-refresh flow on every token expiry.
-    accessTokenMemory = null;
-    await deleteItem(ACCESS_TOKEN_KEY);
-    await deleteItem(EXPIRES_AT_KEY);
-    return null;
-  }
-
-  if (accessTokenMemory) return accessTokenMemory;
-  const stored = await getItem(ACCESS_TOKEN_KEY);
-  accessTokenMemory = stored ?? null;
-
-  return accessTokenMemory;
+/**
+ * Returns a synthetic decodable token derived from the stored BFF user profile.
+ * Callers that decode the JWT payload (for employeeID / tenantCode) continue to
+ * work without change. The token is never written to storage — it is generated
+ * on demand from the BFF profile, and the BFF SESSION cookie is the actual
+ * authentication credential for every API request.
+ */
+export async function getAccessToken(): Promise<string | null> {
+  const profile = await getBffUserProfile();
+  if (!profile) return null;
+  return makeSyntheticToken(profile);
 }
 
-export async function getRefreshToken() {
-  return getItem(REFRESH_TOKEN_KEY);
+/** No-op — the BFF session cookie is the auth credential; no token is stored. */
+export async function saveAuthTokens(_payload: unknown): Promise<void> {}
+
+export async function getRefreshToken(): Promise<string | null> {
+  return null;
 }
 
-export async function getIdToken() {
-  if (idTokenMemory) return idTokenMemory;
-  const stored = await getItem(ID_TOKEN_KEY);
-  idTokenMemory = stored ?? null;
-  
-  return idTokenMemory;
+export async function getIdToken(): Promise<string | null> {
+  return null;
 }
 
-export async function getAuthHeader() {
+export async function getAuthHeader(): Promise<string | null> {
   const token = await getAccessToken();
-  if (!token) {
-    return null;
-  }
-  const tokenType = (await getItem(TOKEN_TYPE_KEY)) ?? 'Bearer';
-  const header = `${tokenType} ${token}`;
- 
-  return header;
+  if (!token) return null;
+  return `Bearer ${token}`;
 }

@@ -1,4 +1,4 @@
-import { getAccessToken } from '@/hooks/auth/token-store'
+import { authedFetch } from '@/hooks/api/authed-fetch'
 import { useState } from 'react'
 
 interface ByteToBase64Result {
@@ -31,22 +31,11 @@ export const useByteToBase64 = (options: UseByteToBase64Options = {}) => {
     setError(null)
 
     try {
-      const token = await getAccessToken()
-      if (!token) {
-        const errorMsg = 'Authentication token is missing'
-        setError(errorMsg)
-        onError?.(errorMsg)
-        return { success: false, error: errorMsg, fileType }
-      }
-
       const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? ''
       const url = `${baseUrl}/api/query/attendance/document?path=${encodeURIComponent(serverPath)}`
 
-      const response = await fetch(url, {
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await authedFetch(url, {
+        headers: { Accept: 'application/json' },
       })
 
       if (!response.ok) {

@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import { getAuthHeader } from '@/hooks/auth/token-store';
+import { authedFetch } from '@/hooks/api/authed-fetch';
 
 export interface HierarchyData {
   _id?: string;
@@ -38,15 +38,11 @@ export const fetchHierarchy = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const authHeader = await getAuthHeader();
-      if (!authHeader) return rejectWithValue('No access token');
-
-      const res = await fetch(`${API_BASE_URL}/api/query/attendance/userEntitlements/search`, {
+      const res = await authedFetch(`${API_BASE_URL}/api/query/attendance/userEntitlements/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          Authorization: authHeader,
         },
         body: JSON.stringify([
           { field: 'employeeID', operator: 'eq', value: employeeId },

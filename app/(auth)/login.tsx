@@ -1,11 +1,10 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
-import { clearBiometricSession, isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
+import { isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
 import { recordPostLoginState } from '@/hooks/auth/install-guard';
-import { bffLogin, fetchCsrf, makeSyntheticToken } from '@/hooks/auth/bff-session';
-import { clearAuthTokens, saveAuthTokens } from '@/hooks/auth/token-store';
+import { bffLogin, fetchCsrf } from '@/hooks/auth/bff-session';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -120,12 +119,8 @@ export default function LoginScreen() {
       await fetchCsrf();
       const profile = await bffLogin(username.trim(), password);
 
-      // Save a synthetic decodable token so JWT-decode callers (e.g. attendance) get employeeID/tenantCode
-      const syntheticToken = makeSyntheticToken(profile);
-      await saveAuthTokens({ accessToken: syntheticToken });
-
       await startBiometricSession();
-      await recordPostLoginState(syntheticToken);
+      await recordPostLoginState(profile.username);
       setBiometricSessionUnlocked(true);
       router.replace('/(auth)/permissions');
     } catch (err) {
