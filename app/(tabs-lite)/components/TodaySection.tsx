@@ -25,30 +25,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
 
-// ─── JWT helper ───────────────────────────────────────────────────────────────
-
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const part   = token.split('.')[1];
-    if (!part) return null;
-    const b64    = part.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=');
-    return JSON.parse(
-      decodeURIComponent(
-        atob(padded)
-          .split('')
-          .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-          .join('')
-      )
-    ) as Record<string, unknown>;
-  } catch { return null; }
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -131,21 +112,7 @@ function Row({ label, value }: { label: string; value: string }) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function TodaySection() {
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
   const [apiRow,     setApiRow]     = useState<ApiRow | null>(null);
-
-  // Decode JWT on mount
-  useEffect(() => {
-    (async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const p = decodeJwtPayload(token);
-      if (!p) return;
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? ''));
-      setTenantCode(String(p.tenantCode  ?? p.tenant    ?? p.org   ?? ''));
-    })();
-  }, []);
 
   const today = useMemo(() => todayISO(), []);
 
@@ -153,12 +120,10 @@ export function TodaySection() {
     url:    'muster/muster/day',
     method: 'POST',
     data: {
-      employeeIDs: [employeeId],
-      date:        today,
-      tenantCode,
+      date: today,
     },
-    enabled:      Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode, today],
+    enabled:      true,
+    dependencies: [today],
     onSuccess: (rows) => setApiRow(Array.isArray(rows) && rows.length > 0 ? rows[0] : null),
     onError:   ()     => setApiRow(null),
   });

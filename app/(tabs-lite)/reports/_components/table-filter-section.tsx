@@ -5,7 +5,6 @@ import { useSelector } from 'react-redux';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { useGraphQLQuery } from '@/hooks/api/useGraphQLQuery';
 import { useHierarchyFilters } from '@/hooks/api/useHierarchyFilters';
-import { getAccessToken } from '@/hooks/auth/token-store';
 import type { RootState } from '@/store';
 
 import { TableContent } from './table-content';
@@ -98,22 +97,6 @@ interface RoleBasedReportsConfig {
   tenantCode?: string;
 }
 
-// ── JWT helper ────────────────────────────────────────────────────────────────
-
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -135,32 +118,21 @@ export function TableFilterSection({
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  const [tenantCode, setTenantCode] = useState('');
   const entitlementCode = useSelector((s: RootState) => s.role.roleType ?? '');
   const hierarchyFilters = useHierarchyFilters();
-
-  useEffect(() => {
-    getAccessToken().then((token) => {
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? ''));
-    });
-  }, []);
 
   // ── Role-based config (determines which filter fields to show) ────────────
 
   const roleConfigRequestData = useMemo(() => [
-    { field: 'tenantCode', operator: 'eq', value: tenantCode },
     { field: 'entitlementCode', operator: 'eq', value: entitlementCode },
-  ], [tenantCode, entitlementCode]);
+  ], [entitlementCode]);
 
   const { data: roleConfigRes, loading: roleConfigLoading } = useGetRequest<RoleBasedReportsConfig[]>({
     url: 'roleBasedReportsConfig/search',
     method: 'POST',
     data: roleConfigRequestData,
-    enabled: Boolean(tenantCode && entitlementCode),
-    dependencies: [tenantCode, entitlementCode],
+    enabled: Boolean(entitlementCode),
+    dependencies: [entitlementCode],
   });
 
   const roleConfig = useMemo<RoleBasedReportsConfig | null>(() => {
@@ -312,8 +284,8 @@ export function TableFilterSection({
   // ── API request builders (hierarchy-scoped) ──────────────────────────────
 
   const baseOrgCriteria = useMemo(
-    () => [{ field: 'tenantCode', operator: 'is', value: tenantCode }],
-    [tenantCode]
+    () => [{ field: 'tenantCode', operator: 'is', value: '' }],
+    []
   );
 
   const makeOrgRequest = useCallback((arrayField: string, filterCriteria: any[] = []) => ({
@@ -363,17 +335,17 @@ export function TableFilterSection({
 
   const contractorVars = useMemo(() => ({
     criteriaRequests: [
-      { field: 'tenantCode', operator: 'eq', value: tenantCode },
+      { field: 'tenantCode', operator: 'eq', value: '' },
       ...(hierarchyFilters.contractor?.length
         ? [{ field: 'contractorCode', operator: 'in', value: hierarchyFilters.contractor }]
         : []),
     ],
     collection: 'contractor',
-  }), [tenantCode, hierarchyFilters.contractor]);
+  }), [hierarchyFilters.contractor]);
 
   const shiftVars = useMemo(() => ({
     criteriaRequests: [
-      { field: 'tenantCode', operator: 'eq', value: tenantCode },
+      { field: 'tenantCode', operator: 'eq', value: '' },
       ...(hierarchyFilters.subsidiary?.length
         ? [{ field: 'subsidiary.subsidiaryCode', operator: 'in', value: hierarchyFilters.subsidiary }]
         : []),
@@ -382,67 +354,67 @@ export function TableFilterSection({
         : []),
     ],
     collection: 'shift',
-  }), [tenantCode, hierarchyFilters.subsidiary, hierarchyFilters.location]);
+  }), [hierarchyFilters.subsidiary, hierarchyFilters.location]);
 
   const contractEmpVars = useMemo(() => ({
-    criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: tenantCode }],
+    criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: '' }],
     collection: 'contract_employee',
-  }), [tenantCode]);
+  }), []);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
-  const enabled = Boolean(tenantCode);
+  const enabled = true;
 
   const { data: subsidiariesRes, loading: subsidiariesLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: subsidiariesData, enabled, dependencies: [tenantCode],
+    data: subsidiariesData, enabled, dependencies: [],
   });
   const { data: divisionsRes, loading: divisionsLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: divisionsData, enabled, dependencies: [tenantCode],
+    data: divisionsData, enabled, dependencies: [],
   });
   const { data: departmentsRes, loading: departmentsLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: departmentsData, enabled, dependencies: [tenantCode],
+    data: departmentsData, enabled, dependencies: [],
   });
   const { data: subDepartmentsRes, loading: subDepartmentsLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: subDepartmentsData, enabled, dependencies: [tenantCode],
+    data: subDepartmentsData, enabled, dependencies: [],
   });
   const { data: sectionsRes, loading: sectionsLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: sectionsData, enabled, dependencies: [tenantCode],
+    data: sectionsData, enabled, dependencies: [],
   });
   const { data: designationsRes, loading: designationsLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: designationsData, enabled, dependencies: [tenantCode],
+    data: designationsData, enabled, dependencies: [],
   });
   const { data: gradesRes, loading: gradesLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: gradesData, enabled, dependencies: [tenantCode],
+    data: gradesData, enabled, dependencies: [],
   });
   const { data: locationsRes, loading: locationsLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: locationsData, enabled, dependencies: [tenantCode],
+    data: locationsData, enabled, dependencies: [],
   });
   const { data: empCategoriesRes, loading: empCategoriesLoading } = useGetRequest<any[]>({
     url: 'organization/aggregate', method: 'POST',
-    data: empCategoriesData, enabled, dependencies: [tenantCode],
+    data: empCategoriesData, enabled, dependencies: [],
   });
   const { data: contractorsGql, loading: contractorsLoading } = useGraphQLQuery<{ fetchContractors: any[] }>({
     query: GQL_CONTRACTORS,
     variables: contractorVars,
-    skip: !tenantCode,
+    skip: false,
   });
   const { data: shiftsGql, loading: shiftsLoading } = useGraphQLQuery<{ fetchShifts: any[] }>({
     query: GQL_SHIFTS,
     variables: shiftVars,
-    skip: !tenantCode,
+    skip: false,
   });
   const { data: contractEmpGql, loading: contractEmpLoading } = useGraphQLQuery<{ fetchEmployees: any[] }>({
     query: GQL_CONTRACT_EMPLOYEES,
     variables: contractEmpVars,
-    skip: !tenantCode,
+    skip: false,
   });
 
   // ── Raw data normalization ────────────────────────────────────────────────

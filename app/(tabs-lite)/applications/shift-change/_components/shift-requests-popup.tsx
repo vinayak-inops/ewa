@@ -2,7 +2,6 @@ import AutoStatusUpdate from "@/components/ui/auto-status-update"
 import { useGetRequest } from "@/hooks/api/useGetRequest"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
 import { useRolePermissions } from "@/hooks/api/useRolePermissions"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { useScreenPermissions } from "@/hooks/auth/useScreenPermissions"
 import { formatDateTimeIST } from "@/utils/time/time-control"
 import { Ionicons } from "@expo/vector-icons"
@@ -82,20 +81,6 @@ interface ShiftRequestsPopupProps {
   onActionSuccess?: () => void
 }
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split(".")[1]
-    if (!payload) return null
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
-    const json = decodeURIComponent(
-      atob(padded).split("").map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join("")
-    )
-    return JSON.parse(json) as Record<string, unknown>
-  } catch {
-    return null
-  }
-}
 
 function safeParseDate(dateStr?: string): Date | undefined {
   if (!dateStr) return undefined
@@ -191,21 +176,6 @@ export default function ShiftRequestsPopup({
     return () => loop.stop()
   }, [submitSuccess])
 
-  const [employeeId, setEmployeeId] = useState("")
-  const [tenantCode, setTenantCode] = useState("")
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const payload = decodeJwtPayload(token)
-      if (!payload) return
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? "") || "")
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? "") || "")
-    }
-    void run()
-  }, [])
-
   const { loading: permsLoading } = useRolePermissions()
   const applierPerms = useScreenPermissions("applicationApplier", "shiftChange")
   const approverPerms = useScreenPermissions("applicationApprover", "shiftChange")
@@ -244,10 +214,10 @@ export default function ShiftRequestsPopup({
   }, [selectedRequest?.workflowState, userMode, sourceCollectionName])
 
   const buildRequestData = useMemo(() => {
-    const requestData: any[] = [{ field: "tenantCode", operator: "eq", value: tenantCode }]
+    const requestData: any[] = []
     if (selectedRequestId) requestData.push({ field: "_id", operator: "eq", value: selectedRequestId })
     return requestData
-  }, [tenantCode, selectedRequestId])
+  }, [selectedRequestId])
 
   const {
     data: attendanceResponse,
@@ -387,10 +357,10 @@ export default function ShiftRequestsPopup({
 
     const data: any = {
       _id: selectedRequest?.id,
-      tenantCode: selectedRequest?.tenantCode || tenantCode,
+      tenantCode: selectedRequest?.tenantCode || "",
       workflowName: selectedRequest?.workflowName || "shiftChange Application",
       stateEvent,
-      organizationCode: selectedRequest?.organizationCode || tenantCode,
+      organizationCode: selectedRequest?.organizationCode || "",
       isDeleted: selectedRequest?.isDeleted || false,
       employeeID: selectedRequest?.employeeID,
       fromDate: selectedRequest?.fromDate,
@@ -406,15 +376,15 @@ export default function ShiftRequestsPopup({
       Remarks: selectedRequest?.remarks,
       action: statusAction,
       comment: statusComment,
-      approverID: selectedRequest?.approverID || employeeId || "",
+      approverID: selectedRequest?.approverID || "",
     }
 
-    const approverId = selectedRequest?.approverID || employeeId
+    const approverId = selectedRequest?.approverID || ""
     if (statusAction === "approve" && approverId) data.approvedBy = approverId
     else if (statusAction === "reject" && approverId) data.rejectedBy = approverId
     else if (statusAction === "cancel" && approverId) data.cancelledBy = approverId
 
-    postShiftZone({ tenant: tenantCode, action: "insert", id: selectedRequest?.id, event: "application", collectionName, data })
+    postShiftZone({ tenant: selectedRequest?.tenantCode || "", action: "insert", id: selectedRequest?.id, event: "application", collectionName, data })
   }
 
   // ── Sub-components ────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { clearBiometricSession } from '@/hooks/auth/biometric-session';
-import { clearAuthTokens, getIdToken } from '@/hooks/auth/token-store';
+import { bffLogout } from '@/hooks/auth/bff-session';
+import { clearAuthTokens } from '@/hooks/auth/token-store';
 import { AppDispatch } from '@/store';
 import { clearRole } from '@/store/slices/roleSlice';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,19 +9,6 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StatusBar, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
-
-const RAW_AUTH_OR_ISSUER_URL =
-  process.env.EXPO_PUBLIC_KEYCLOAK_AUTH_URL ?? process.env.EXPO_PUBLIC_KEYCLOAK_ISSUER ?? '';
-const KEYCLOAK_ISSUER = RAW_AUTH_OR_ISSUER_URL.includes('/protocol/openid-connect')
-  ? RAW_AUTH_OR_ISSUER_URL.split('/protocol/openid-connect')[0]
-  : RAW_AUTH_OR_ISSUER_URL;
-const KEYCLOAK_LOGOUT_URL = KEYCLOAK_ISSUER ? `${KEYCLOAK_ISSUER}/protocol/openid-connect/logout` : '';
-
-function toQueryString(params: Record<string, string>) {
-  return Object.entries(params)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&');
-}
 
 // const INFO_ITEMS = [
 //   { icon: 'shield-outline' as const,       text: 'Your login session will be cleared from this device' },
@@ -41,18 +29,7 @@ export default function LogoutScreen() {
     setIsLoggingOut(true);
 
     try {
-      const idToken = await getIdToken();
-
-      // Silent server-side logout via fetch avoids opening an in-app browser
-      // that would show Keycloak's error page when the deep-link redirect URI
-      // isn't registered as a valid post-logout URI in the Keycloak client.
-      if (KEYCLOAK_LOGOUT_URL && idToken) {
-        const logoutUrl = `${KEYCLOAK_LOGOUT_URL}?${toQueryString({ id_token_hint: idToken })}`;
-        try {
-          await fetch(logoutUrl);
-        } catch (error) {
-        }
-      }
+      await bffLogout();
     } catch (error) {
     } finally {
       await clearBiometricSession();

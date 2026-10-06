@@ -19,7 +19,6 @@ import AutoStatusUpdate from '@/components/ui/auto-status-update';
 import { useByteToBase64 } from '@/hooks/api/file-handle/useByteToBase64';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { useGraphQLQuery } from '@/hooks/api/useGraphQLQuery';
-import { getAccessToken } from '@/hooks/auth/token-store';
 import ReportPreviewModal from './report-preview-modal';
 
 const C = {
@@ -116,19 +115,6 @@ function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const p = token.split('.')[1];
-    if (!p) return null;
-    const b = p.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b.padEnd(b.length + ((4 - (b.length % 4)) % 4), '=');
-    return JSON.parse(
-      decodeURIComponent(
-        atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-      )
-    ) as Record<string, unknown>;
-  } catch { return null; }
-}
 
 // ── GraphQL query strings ─────────────────────────────────────────────────────
 
@@ -339,17 +325,6 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  const [tenantCode, setTenantCode] = useState('');
-  useEffect(() => {
-    getAccessToken().then((token) => {
-      if (!token) return;
-      const p = decodeJwtPayload(token);
-      if (!p) return;
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? ''));
-    });
-  }, []);
-
   // ── Report fetch ──────────────────────────────────────────────────────────
   const { data: raw, loading } = useGetRequest<any>({
     url: `map/reports/search?_id=${encodeURIComponent(fileId)}`,
@@ -367,30 +342,30 @@ export default function ReportInfoSection({ fileId }: { fileId: string }) {
 
   // ── GraphQL — org hierarchy ───────────────────────────────────────────────
   const orgVars = useMemo(() => ({
-    criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: tenantCode }],
+    criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: '' }],
     collection: 'organization',
-  }), [tenantCode]);
+  }), []);
 
   const { data: orgData } = useGraphQLQuery<{ fetchOrganization: any[] }>({
-    query: GQL_ORG, variables: orgVars, skip: !tenantCode,
+    query: GQL_ORG, variables: orgVars, skip: false,
   });
 
   const { data: contractorData } = useGraphQLQuery<{ fetchContractors: any[] }>({
     query: GQL_CONTRACTORS,
     variables: useMemo(() => ({
-      criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: tenantCode }],
+      criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: '' }],
       collection: 'contractor',
-    }), [tenantCode]),
-    skip: !tenantCode,
+    }), []),
+    skip: false,
   });
 
   const { data: shiftData } = useGraphQLQuery<{ fetchShifts: any[] }>({
     query: GQL_SHIFTS,
     variables: useMemo(() => ({
-      criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: tenantCode }],
+      criteriaRequests: [{ field: 'tenantCode', operator: 'eq', value: '' }],
       collection: 'shift',
-    }), [tenantCode]),
-    skip: !tenantCode,
+    }), []),
+    skip: false,
   });
 
   // ── Normalize ─────────────────────────────────────────────────────────────

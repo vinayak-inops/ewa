@@ -7,7 +7,7 @@ import { AnimatedSuccessState } from '@/components/ui/animated-success-state';
 import AutoStatusUpdate from '@/components/ui/auto-status-update';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
 import { usePostRequest } from '@/hooks/api/usePostRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { getBffUserProfile } from '@/hooks/auth/bff-session';
 
 const WITHDRAWAL_COMMAND_URL = process.env.EXPO_PUBLIC_EWA_WITHDRAWAL_COMMAND_URL ?? 'EWA_withdrawal_application';
 const WITHDRAWAL_COLLECTION_NAME =
@@ -17,25 +17,6 @@ const EWA_ALLOWED_WITHDRAWAL_COMMAND_URL =
 const EWA_ALLOWED_WITHDRAWAL_COLLECTION_NAME =
   process.env.EXPO_PUBLIC_EWA_ALLOWED_WITHDRAWAL_COLLECTION_NAME ?? 'EWA_allowed_withdrawl';
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded)
-        .split('')
-        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join('')
-    );
-
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 function formatCurrency(value?: unknown) {
   const numericValue =
@@ -96,8 +77,6 @@ export default function LiteInformationScreen() {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
   const [ewaSummary, setEwaSummary] = useState<Record<string, any> | null>(null);
   const [successState, setSuccessState] = useState<{
     amount: number;
@@ -180,37 +159,12 @@ export default function LiteInformationScreen() {
     },
   });
 
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) { redirectToLogin(); return; }
-
-      const payload = decodeJwtPayload(token);
-      if (!payload) { redirectToLogin(); return; }
-
-      const resolvedEmployeeId =
-        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') || '';
-      const resolvedTenantCode =
-        String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '';
-
-      if (!resolvedEmployeeId || !resolvedTenantCode) { redirectToLogin(); return; }
-
-      setEmployeeId(resolvedEmployeeId);
-      setTenantCode(resolvedTenantCode);
-    };
-
-    void run();
-  }, [redirectToLogin]);
-
   const { refetch: refetchAvailableBalance } = useGetRequest<any[]>({
     url: 'EWA_allowed_withdrawl/search',
     method: 'POST',
-    data: [
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-    ],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode],
+    data: [],
+    enabled: true,
+    dependencies: [],
     onSuccess: (data) => {
       if (Array.isArray(data) && data.length > 0) {
         setEwaSummary(data[0]);
@@ -241,15 +195,15 @@ export default function LiteInformationScreen() {
       }
 
       const updatePayload = {
-        tenant: tenantCode,
+        tenant: '',
         action: 'update',
         id: recordId,
         collectionName: EWA_ALLOWED_WITHDRAWAL_COLLECTION_NAME,
         data: {
           ...ewaSummary,
-          employeeID: employeeId,
+          employeeID: '',
           available: Math.max(availableAmount - pendingWithdrawalAmount.current, 0),
-          tenantCode,
+          tenantCode: '',
         },
       };
 
@@ -268,10 +222,10 @@ export default function LiteInformationScreen() {
   const isSubmitting = creatingWithdrawalRequest || updatingAllowedWithdrawal;
 
   const handleSubmit = async () => {
-    if (!employeeId || !tenantCode) {
-      setError('Employee details are not available yet. Please try again in a moment.');
-      return;
-    }
+    const profile = await getBffUserProfile();
+    if (!profile) { redirectToLogin(); return; }
+    const employeeId = profile.username;
+    const tenantCode = profile.tenantCode;
     if (!recordId) {
       setError('Available balance record was not found for this employee.');
       return;
@@ -334,7 +288,7 @@ export default function LiteInformationScreen() {
             balanceLabel="Available Balance"
             balanceValue={availableBalance}
             employeeLabel="Employee ID"
-            employeeValue={employeeId || '-'}
+            employeeValue="-"
             reasonLabel="Reason"
             reasonValue={successState.reason || 'Not provided'}
             workflowState={successState.workflowState}

@@ -14,7 +14,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
 import { ReportPopup } from './report-popup';
 import { EMPTY_FILTER_DATA, TableMenuItem, TableType } from './types';
 
@@ -37,20 +36,6 @@ const TABLE_MENU_ITEMS: TableMenuItem[] = [
   { id: 'contractEmployees',  label: 'Contract Employees', icon: 'people-outline',        parent: 'contractEmployee' },
 ];
 
-// ── JWT helper ────────────────────────────────────────────────────────────────
-
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const p = token.split('.')[1];
-    if (!p) return null;
-    const b = p.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b.padEnd(b.length + ((4 - (b.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch { return null; }
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,20 +63,6 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  const [tenantCode, setTenantCode] = useState('');
-  const [employeeId, setEmployeeId] = useState('');
-
-  useEffect(() => {
-    getAccessToken().then((token) => {
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? ''));
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? ''));
-    });
-  }, []);
-
   // ── Search / filter ───────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('');
   const [activeChip, setActiveChip] = useState('All');
@@ -111,13 +82,11 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
 
   // ── API ───────────────────────────────────────────────────────────────────
   const offset = (currentPage - 1) * itemsPerPage;
-  const ready = Boolean(tenantCode && employeeId);
+  const ready = true;
 
   const requestBody = useMemo(() => {
     const criteria: any[] = [
-      { field: 'tenantCode', operator: 'eq', value: tenantCode },
       { field: 'createdOn',  operator: 'desc', value: '' },
-      { field: 'employeeId', operator: 'eq', value: employeeId },
     ];
     if (searchTerm.trim()) criteria.push({ field: 'reportName', operator: 'like', value: searchTerm.trim() });
     const chip = activeChip.toLowerCase();
@@ -125,20 +94,20 @@ export default function ReportsEditor({ open, setOpen, hideHeader = false }: Pro
     if (chip === 'pdf')   criteria.push({ field: 'extension', operator: 'eq', value: 'pdf' });
     if (chip === 'pending' || chip === 'completed') criteria.push({ field: 'status', operator: 'eq', value: chip });
     return criteria;
-  }, [tenantCode, employeeId, searchTerm, activeChip]);
+  }, [searchTerm, activeChip]);
 
   const { data: reportsRaw, loading, refetch: refetchReports } = useGetRequest<any>({
     url: `reports/search?offset=${offset}&limit=${itemsPerPage}`,
     method: 'POST', data: requestBody,
     enabled: ready,
-    dependencies: [tenantCode, employeeId, offset, searchTerm, activeChip],
+    dependencies: [offset, searchTerm, activeChip],
   });
 
   const { data: countRaw, refetch: refetchCount } = useGetRequest<any>({
     url: 'reports/count',
     method: 'POST', data: requestBody,
     enabled: ready,
-    dependencies: [tenantCode, employeeId, searchTerm, activeChip],
+    dependencies: [searchTerm, activeChip],
   });
 
   const reports: any[] = useMemo(() => {

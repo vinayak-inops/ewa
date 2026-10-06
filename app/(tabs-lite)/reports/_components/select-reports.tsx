@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,7 +12,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
 
 const PRIMARY = '#0a1c63';
 
@@ -82,18 +81,6 @@ function convertOptions(options: ReportOption[]): ReportItem[] {
   }));
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const p = token.split('.')[1];
-    if (!p) return null;
-    const b = p.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b.padEnd(b.length + ((4 - (b.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch { return null; }
-}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -117,32 +104,21 @@ export function SelectReports({
   const insets = useSafeAreaInsets();
   const footerBottom = Math.max(insets.bottom, 14) + 72 + 12;
 
-  const [tenantCode, setTenantCode] = useState('');
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ReportCategory>('all');
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    getAccessToken().then((token) => {
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? ''));
-    });
-  }, []);
-
   // ── Fetch reports ─────────────────────────────────────────────────────────
   const requestBody = useMemo(
-    () => [{ field: 'tenantCode', operator: 'eq', value: tenantCode }],
-    [tenantCode]
+    () => [],
+    []
   );
 
   const { data: configData, loading, error } = useGetRequest<TenantReportConfiguration[]>({
     url: 'tenantReportConfiguration/search',
     method: 'POST',
     data: requestBody,
-    enabled: Boolean(tenantCode),
-    dependencies: [tenantCode],
+    enabled: true,
+    dependencies: [],
   });
 
   // ── Parse reports ─────────────────────────────────────────────────────────

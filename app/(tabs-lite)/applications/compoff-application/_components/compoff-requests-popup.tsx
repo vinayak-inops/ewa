@@ -2,21 +2,12 @@ import AutoStatusUpdate from "@/components/ui/auto-status-update"
 import { useGetRequest } from "@/hooks/api/useGetRequest"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
 import { useRolePermissions } from "@/hooks/api/useRolePermissions"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { useScreenPermissions } from "@/hooks/auth/useScreenPermissions"
 import { Ionicons } from "@expo/vector-icons"
 import { AlertCircle, CheckCircle, Clock, Send, X, XCircle } from "lucide-react-native"
 import React, { useEffect, useRef, useState } from "react"
 import { ActivityIndicator, Animated, Easing, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
 
-function decodeJwtPayload(token: string) {
-  try {
-    const p = token.split(".")[1]; if (!p) return null
-    const b64 = p.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=")
-    return JSON.parse(decodeURIComponent(atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(""))) as Record<string, unknown>
-  } catch { return null }
-}
 
 interface CompoffRequest {
   _id: string
@@ -101,8 +92,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export default function CompoffRequestsPopup({ isOpen, onClose, selectedRequestId, initialSelectedRequest, userMode, sourceCollectionName, onActionSuccess }: Props) {
   const [selectedRequest, setSelectedRequest] = useState<CompoffRequest | null>(initialSelectedRequest)
-  const [employeeId, setEmployeeId] = useState("")
-  const [tenantCode, setTenantCode] = useState("")
   const [statusAction, setStatusAction] = useState<"approve" | "reject" | "cancel" | "">("")
   const [statusComment, setStatusComment] = useState("")
   const [statusError, setStatusError] = useState("")
@@ -111,18 +100,6 @@ export default function CompoffRequestsPopup({ isOpen, onClose, selectedRequestI
   const pulseAnim = useRef(new Animated.Value(0)).current
 
   const collectionName = sourceCollectionName
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const p = decodeJwtPayload(token)
-      if (!p) return
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? "") || "")
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? "") || "")
-    }
-    void run()
-  }, [])
 
   const { loading } = useGetRequest<any>({
     url: selectedRequestId ? `${collectionName}/${selectedRequestId}` : "",
@@ -179,14 +156,14 @@ export default function CompoffRequestsPopup({ isOpen, onClose, selectedRequestI
     const createdOnIST = `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}.${ms}+05:30`
 
     postAction({
-      tenant: tenantCode, action, id: selectedRequest._id, event: "application",
+      tenant: selectedRequest.tenantCode || "", action, id: selectedRequest._id, event: "application",
       collectionName: "leaveApplication",
       data: {
         _id: selectedRequest._id,
-        tenantCode: selectedRequest.tenantCode || tenantCode,
+        tenantCode: selectedRequest.tenantCode || "",
         workflowName: selectedRequest.workflowName || "compOff Application",
         stateEvent,
-        organizationCode: selectedRequest.organizationCode || tenantCode,
+        organizationCode: selectedRequest.organizationCode || "",
         isDeleted: selectedRequest.isDeleted ?? false,
         employeeID: selectedRequest.employeeID,
         fromDate: selectedRequest.fromDate,
@@ -195,12 +172,12 @@ export default function CompoffRequestsPopup({ isOpen, onClose, selectedRequestI
         toDuration: selectedRequest.toDuration,
         availForDates: selectedRequest.availForDates || [],
         remarks: selectedRequest.remarks,
-        uploadedBy: selectedRequest.uploadedBy || employeeId || "user",
+        uploadedBy: selectedRequest.uploadedBy || "user",
         createdOn: selectedRequest.createdOn || createdOnIST,
         uploadTime: selectedRequest.uploadTime,
         appliedDate: selectedRequest.appliedDate,
         workflowState: stateEvent, action, comment: statusComment,
-        approverID: employeeId,
+        approverID: selectedRequest.approverID || "",
       },
     })
   }

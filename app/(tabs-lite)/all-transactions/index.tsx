@@ -5,8 +5,6 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { AnimatedSuccessState } from '@/components/ui/animated-success-state';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type StatusFilter = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'FAILED';
@@ -26,23 +24,6 @@ function hasDataObject(value: unknown) {
   return Boolean(value && typeof value === 'object' && Object.keys(value as Record<string, unknown>).length > 0);
 }
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded)
-        .split('')
-        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 function formatCurrency(value?: unknown) {
   const numericValue =
@@ -81,10 +62,6 @@ function normalizeWorkflowState(value?: unknown) {
 export default function AllTransactionsScreen() {
   const router = useRouter();
 
-  // Auth / identity
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
-
   // UI state
   const [transactions, setTransactions] = useState<WithdrawalTransaction[]>([]);
   const [selectedTransaction, setSelectedTransaction] = useState<WithdrawalTransaction | null>(null);
@@ -96,25 +73,12 @@ export default function AllTransactionsScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const pageSize = 20;
 
-  // ── Decode JWT once on mount ────────────────────────────────────────────────
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? ''));
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? ''));
-    };
-    void run();
-  }, []);
-
-  // Reset pagination when identity or tab changes
+  // Reset pagination when tab changes
   useEffect(() => {
     setCurrentPage(1);
     setTransactions([]);
     setTotalCount(0);
-  }, [employeeId, tenantCode, activeTab]);
+  }, [activeTab]);
 
   // ── Collection name – mirrors web component logic ───────────────────────────
   // PENDING / FAILED  → source collection  (EWA_withdrawal_application)
@@ -130,8 +94,6 @@ export default function AllTransactionsScreen() {
   // ── Build request data – mirrors buildRequestData in web component ──────────
   const buildRequestData = useMemo(() => {
     const base: any[] = [
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
       { field: 'createdOn', value: '', operator: 'desc' },
     ];
 
@@ -166,7 +128,7 @@ export default function AllTransactionsScreen() {
     // }
 
     return base;
-  }, [activeTab, employeeId, tenantCode]);
+  }, [activeTab]);
 
   // Derived pagination offset
   const offset = useMemo(() => (currentPage - 1) * pageSize, [currentPage]);
@@ -178,7 +140,7 @@ export default function AllTransactionsScreen() {
     url: `${collectionName}/count`,
     method: 'POST',
     data: buildRequestData,
-    enabled: Boolean(employeeId && tenantCode),
+    enabled: true,
     dependencies: [collectionName, JSON.stringify(buildRequestData)],
     onSuccess: (data) => {
       setTotalCount(typeof data === 'number' && Number.isFinite(data) ? data : 0);
@@ -191,7 +153,7 @@ export default function AllTransactionsScreen() {
     url: `${collectionName}/search?offset=${offset}&limit=${pageSize}`,
     method: 'POST',
     data: buildRequestData,
-    enabled: Boolean(employeeId && tenantCode),
+    enabled: true,
     dependencies: [collectionName, JSON.stringify(buildRequestData), offset],
     onSuccess: (data) => {
       if (!Array.isArray(data)) {
@@ -231,24 +193,24 @@ export default function AllTransactionsScreen() {
     url: `EWA_withdrawal_application/count`,
     method: 'POST',
     data: [...buildRequestData],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode],
+    enabled: true,
+    dependencies: [],
   });
 
   const { data: rejectedCount } = useGetRequest<number>({
     url: `EWA_withdrawal_application/count`,
     method: 'POST',
     data: [...buildRequestData],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode],
+    enabled: true,
+    dependencies: [],
   });
 
   const { data: cancelledCount } = useGetRequest<number>({
     url: `EWA_withdrawal_application/count`,
     method: 'POST',
     data: [...buildRequestData],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode],
+    enabled: true,
+    dependencies: [],
   });
 
   // ── Pagination handlers ─────────────────────────────────────────────────────
@@ -298,7 +260,7 @@ export default function AllTransactionsScreen() {
             balanceLabel="Available Balance"
             balanceValue="-"
             employeeLabel="Employee ID"
-            employeeValue={employeeId || '-'}
+            employeeValue="-"
             reasonLabel="Applied Date"
             reasonValue={selectedTransaction.appliedDate}
             workflowState={selectedTransaction.workflowState}

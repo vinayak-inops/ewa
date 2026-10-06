@@ -13,12 +13,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HEADER_SPACER_HEIGHT, ScreenHeader } from '@/components/ui/ScreenHeader';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const NAVY   = '#12203a';
-const PAGE   = '#ffffff';
-const BORDER = '#eceef2';
-
 // ─── Row types ────────────────────────────────────────────────────────────────
 
 type ToggleRow = {
@@ -45,27 +39,13 @@ type SettingsRow = ToggleRow | NavRow;
 
 function Row({ row, isLast }: { row: SettingsRow; isLast: boolean }) {
   const inner = (
-    <View
-      style={{
-        flexDirection:     'row',
-        alignItems:        'center',
-        gap:               12,
-        paddingVertical:   12,
-        paddingHorizontal: 16,
-        backgroundColor:   PAGE,
-        borderBottomWidth: isLast ? 0 : 0.5,
-        borderBottomColor: BORDER,
-      }}
-    >
-      {/* Plain colored icon — no chip background */}
+    <View className={`flex-row items-center gap-3 py-3 px-4 bg-white ${isLast ? '' : 'border-b border-[#eceef2]'}`}>
       <Ionicons name={row.icon} size={18} color={row.iconColor} />
 
-      {/* Label */}
-      <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: '#1a1a1a' }}>
+      <Text className="flex-1 text-[14px] font-medium text-[#1a1a1a]">
         {row.label}
       </Text>
 
-      {/* Trailing */}
       {row.type === 'toggle' ? (
         <Switch
           value={row.value}
@@ -76,9 +56,9 @@ function Row({ row, isLast }: { row: SettingsRow; isLast: boolean }) {
           style={{ transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }] }}
         />
       ) : (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View className="flex-row items-center gap-1">
           {row.value ? (
-            <Text style={{ fontSize: 13, color: '#9aa0aa' }}>{row.value}</Text>
+            <Text className="text-[13px] text-[#9aa0aa]">{row.value}</Text>
           ) : null}
           <Ionicons name="chevron-forward" size={16} color="#b5b9c2" />
         </View>
@@ -87,7 +67,7 @@ function Row({ row, isLast }: { row: SettingsRow; isLast: boolean }) {
   );
 
   return row.type === 'nav' ? (
-    <Pressable onPress={row.onPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+    <Pressable onPress={row.onPress} className="active:opacity-70">
       {inner}
     </Pressable>
   ) : (
@@ -105,7 +85,6 @@ export default function SettingsScreen() {
   const [darkMode,   setDarkMode]   = useState(false);
 
   const rows: SettingsRow[] = [
-    // ── Preferences ──
     {
       type:      'toggle',
       icon:      'notifications-outline',
@@ -130,11 +109,10 @@ export default function SettingsScreen() {
       value:     'English',
       onPress:   () => {},
     },
-    // ── Account ──
     {
       type:      'nav',
       icon:      'lock-closed-outline',
-      iconColor: NAVY,
+      iconColor: '#12203a',
       label:     'Change password',
       onPress:   () => {},
     },
@@ -158,86 +136,52 @@ export default function SettingsScreen() {
   const accountRows    = rows.slice(3);
 
   return (
-    <View style={{ flex: 1, backgroundColor: PAGE }}>
-      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
+    <View className="flex-1 bg-white">
+      <StatusBar barStyle="light-content" backgroundColor="#12203a" />
 
-      {/* ── Header ── */}
       <ScreenHeader
         title="Settings"
         onBack={() => router.canGoBack() ? router.back() : undefined}
         rightContent={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <View className="flex-row items-center gap-4">
             <Pressable
               hitSlop={10}
               onPress={() => router.push('/(tabs-lite)/settings/notifications' as any)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
+              className="active:opacity-55"
             >
               <Ionicons name="notifications-outline" size={18} color="#fff" />
             </Pressable>
-            <Pressable hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+            <Pressable hitSlop={10} className="active:opacity-55">
               <Ionicons name="help-circle-outline" size={18} color="#fff" />
             </Pressable>
           </View>
         }
       />
 
-      {/* Spacer */}
       <View style={{ height: HEADER_SPACER_HEIGHT(insets.top) }} />
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ backgroundColor: PAGE }}>
-
-        {/* ━━━ Content block ━━━ */}
-        <View style={{ backgroundColor: PAGE }}>
+      <ScrollView showsVerticalScrollIndicator={false} className="bg-white">
+        <View className="bg-white">
 
           {/* ── Profile row ── */}
           <Pressable
-            style={({ pressed }) => ({
-              flexDirection:     'row',
-              alignItems:        'center',
-              gap:               12,
-              paddingHorizontal: 16,
-              paddingVertical:   16,
-              backgroundColor:   pressed ? '#e4e7ed' : PAGE,
-              borderBottomWidth: 0.5,
-              borderBottomColor: BORDER,
-            })}
+            onPress={() => router.push('/(tabs-lite)/profile' as any)}
+            className="flex-row items-center gap-3 px-4 py-4 border-b border-[#eceef2] active:bg-[#e4e7ed]"
           >
-            <View
-              style={{
-                width:           44,
-                height:          44,
-                borderRadius:    22,
-                backgroundColor: NAVY,
-                alignItems:      'center',
-                justifyContent:  'center',
-              }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: '500', color: '#fff' }}>SD</Text>
+            <View className="w-11 h-11 rounded-full bg-[#12203a] items-center justify-center">
+              <Text className="text-sm font-medium text-white">SD</Text>
             </View>
 
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '500', color: '#1a1a1a' }}>
-                Sathish Sinha D
-              </Text>
-              <Text style={{ fontSize: 12, color: '#8a8f98', marginTop: 2 }}>
-                EMP025 · DEPT07
-              </Text>
+            <View className="flex-1">
+              <Text className="text-[14px] font-medium text-[#1a1a1a]">Sathish Sinha D</Text>
+              <Text className="text-[12px] text-[#8a8f98] mt-0.5">EMP025 · DEPT07</Text>
             </View>
 
             <Ionicons name="chevron-forward" size={16} color="#b5b9c2" />
           </Pressable>
 
-          {/* ── Preferences section label ── */}
-          <Text
-            style={{
-              fontSize:          12,
-              fontWeight:        '500',
-              color:             '#9aa0aa',
-              paddingHorizontal: 16,
-              paddingTop:        14,
-              paddingBottom:     6,
-            }}
-          >
+          {/* ── Preferences ── */}
+          <Text className="text-[12px] font-medium text-[#9aa0aa] px-4 pt-3.5 pb-1.5">
             Preferences
           </Text>
 
@@ -245,17 +189,8 @@ export default function SettingsScreen() {
             <Row key={row.label} row={row} isLast={i === preferenceRows.length - 1} />
           ))}
 
-          {/* ── Account section label ── */}
-          <Text
-            style={{
-              fontSize:          12,
-              fontWeight:        '500',
-              color:             '#9aa0aa',
-              paddingHorizontal: 16,
-              paddingTop:        14,
-              paddingBottom:     6,
-            }}
-          >
+          {/* ── Account ── */}
+          <Text className="text-[12px] font-medium text-[#9aa0aa] px-4 pt-3.5 pb-1.5">
             Account
           </Text>
 
@@ -263,29 +198,17 @@ export default function SettingsScreen() {
             <Row key={row.label} row={row} isLast={i === accountRows.length - 1} />
           ))}
 
-          {/* ── Footer inside white block ── */}
-          <View style={{ padding: 16 }}>
+          {/* ── Footer ── */}
+          <View className="p-4">
             <Pressable
               onPress={() => router.push('/(tabs-lite)/profile/logout' as any)}
-              style={({ pressed }) => ({
-                flexDirection:   'row',
-                alignItems:      'center',
-                justifyContent:  'center',
-                gap:             6,
-                paddingVertical: 11,
-                borderRadius:    999,
-                borderWidth:     0.5,
-                borderColor:     '#f0d3d8',
-                backgroundColor: pressed ? '#fde8eb' : '#fff',
-              })}
+              className="flex-row items-center justify-center gap-1.5 py-[11px] rounded-full border border-[#f0d3d8] bg-white active:bg-[#fde8eb]"
             >
               <Ionicons name="log-out-outline" size={16} color="#e0435a" />
-              <Text style={{ fontSize: 14, fontWeight: '500', color: '#e0435a' }}>
-                Log out
-              </Text>
+              <Text className="text-[14px] font-medium text-[#e0435a]">Log out</Text>
             </Pressable>
 
-            <Text style={{ fontSize: 11, color: '#b5b9c2', textAlign: 'center', marginTop: 10 }}>
+            <Text className="text-[11px] text-[#b5b9c2] text-center mt-2.5">
               Version 2.4.1
             </Text>
           </View>

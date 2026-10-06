@@ -9,65 +9,33 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Image, Pressable, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { RootState } from '@/store';
+import { useSelector } from 'react-redux';
 
-// ─── JWT helper ───────────────────────────────────────────────────────────────
-
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const part   = token.split('.')[1];
-    if (!part) return null;
-    const b64    = part.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=');
-    return JSON.parse(
-      decodeURIComponent(
-        atob(padded)
-          .split('')
-          .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-          .join('')
-      )
-    ) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function LaunchpadHeader() {
   const router = useRouter();
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
   const [profile,    setProfile]    = useState<Record<string, any> | null>(null);
-
-  // Decode JWT on mount
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const p = decodeJwtPayload(token);
-      if (!p) return;
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? ''));
-      setTenantCode(String(p.tenantCode  ?? p.tenant    ?? p.org   ?? ''));
-    };
-    void run();
-  }, []);
+  const employeeId = useSelector((s: RootState) => s.role.employeeId);
+  const tenantCode = useSelector((s: RootState) => s.role.org);
 
   // Fetch employee profile
   useGetRequest<any[]>({
     url: 'contract_employee/search',
     method: 'POST',
     data: [
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
+      ...(tenantCode ? [{ field: 'tenantCode', operator: 'eq', value: tenantCode }] : []),
+      ...(employeeId ? [{ field: 'employeeID', operator: 'eq', value: employeeId }] : []),
     ],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode],
+    enabled: !!(tenantCode && employeeId),
+    dependencies: [tenantCode, employeeId],
     onSuccess: (rows) => setProfile(Array.isArray(rows) && rows.length > 0 ? rows[0] : null),
     onError:   ()     => setProfile(null),
   });
@@ -84,7 +52,7 @@ export function LaunchpadHeader() {
   }, [profile]);
 
   const department = profile?.deployment?.department?.departmentName as string | undefined;
-  const displayId  = (profile?.employeeID as string) || employeeId;
+  const displayId  = (profile?.employeeID as string) || '';
 
   const subtitle = [displayId, department].filter(Boolean).join('  ·  ');
 
@@ -101,8 +69,11 @@ export function LaunchpadHeader() {
       <SafeAreaView edges={['top']} className="bg-[#1e293b] border-b border-[#334155]">
         <View className="flex-row items-center justify-between px-[18px] pt-3 pb-3">
 
-          {/* ── Left: avatar + name + subtitle ── */}
-          <View className="flex-row items-center flex-1 mr-3 gap-3">
+          {/* ── Left: avatar + name + subtitle (tappable → profile) ── */}
+          <Pressable
+            onPress={() => router.push('/(tabs-lite)/profile' as any)}
+            className="flex-row items-center flex-1 mr-3 gap-3 active:opacity-70"
+          >
 
             {/* Avatar: photo if available, else styled placeholder */}
             <View style={{ width: 44, height: 44, borderRadius: 22, padding: 2, backgroundColor: '#6366f1' }}>
@@ -152,7 +123,7 @@ export function LaunchpadHeader() {
               )}
             </View>
 
-          </View>
+          </Pressable>
 
           {/* ── Right: notification + settings ── */}
           <View className="flex-row items-center gap-4">

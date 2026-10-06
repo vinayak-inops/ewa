@@ -1,8 +1,7 @@
 import { Ionicons } from "@expo/vector-icons"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { useGetRequest } from "@/hooks/api/useGetRequest"
-import { getAccessToken } from "@/hooks/auth/token-store"
 
 const ATTENDANCE_SEARCH_URL = process.env.EXPO_PUBLIC_ATTENDANCE_SEARCH_URL ?? "muster/muster/search"
 
@@ -32,16 +31,6 @@ type AttendanceDetail = {
 
 type GridDay = { date: Date; isCurrentMonth: boolean; label: number }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split(".")[1]; if (!payload) return null
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
-    const json = decodeURIComponent(atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(""))
-    return JSON.parse(json) as Record<string, unknown>
-  } catch { return null }
-}
 
 function getDaysInMonth(year: number, month: number) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDayOffset(year: number, month: number) { const d = new Date(year, month, 1).getDay(); return d === 0 ? 6 : d - 1 }
@@ -217,31 +206,17 @@ export default function AttendancePunchPanel({ onClose, onEditPunch }: Props) {
   const today = useMemo(() => new Date(), [])
   const [currentDate, setCurrentDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()))
-  const [employeeId, setEmployeeId] = useState("")
-  const [tenantCode, setTenantCode] = useState("")
   const [attendanceRows, setAttendanceRows] = useState<AttendanceRow[]>([])
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken(); if (!token) return
-      const p = decodeJwtPayload(token); if (!p) return
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? "") || "")
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? "") || "")
-    }
-    void run()
-  }, [])
 
   const selectedMonthNumber = currentDate.getMonth() + 1
 
   useGetRequest<any[]>({
     url: ATTENDANCE_SEARCH_URL, method: "POST",
     data: [
-      { field: "employeeID", value: employeeId, operator: "eq" },
-      { field: "tenantCode", value: tenantCode, operator: "eq" },
       { field: "month", value: selectedMonthNumber, operator: "eq" },
     ],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode, selectedMonthNumber],
+    enabled: true,
+    dependencies: [selectedMonthNumber],
     onSuccess: (data) => setAttendanceRows(normalizeAttendanceRows(data)),
     onError: () => setAttendanceRows([]),
   })

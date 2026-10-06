@@ -3,20 +3,11 @@ import { useGetRequest } from "@/hooks/api/useGetRequest"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
 import { useRolePermissions } from "@/hooks/api/useRolePermissions"
 import { useScreenPermissions } from "@/hooks/auth/useScreenPermissions"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { Ionicons } from "@expo/vector-icons"
 import { AlertCircle, CheckCircle, Clock, Send, X, XCircle } from "lucide-react-native"
 import React, { useEffect, useRef, useState } from "react"
 import { ActivityIndicator, Animated, Easing, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
 
-function decodeJwtPayload(token: string) {
-  try {
-    const p = token.split(".")[1]; if (!p) return null
-    const b64 = p.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=")
-    return JSON.parse(decodeURIComponent(atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(""))) as Record<string, unknown>
-  } catch { return null }
-}
 
 interface OutDutyRequest {
   _id: string
@@ -94,8 +85,6 @@ function mapBackend(i: any): OutDutyRequest {
 
 export default function OutDutyRequestsPopup({ isOpen, onClose, selectedRequestId, initialSelectedRequest, userMode, sourceCollectionName, onActionSuccess }: Props) {
   const [selectedRequest, setSelectedRequest] = useState<OutDutyRequest | null>(initialSelectedRequest)
-  const [employeeId, setEmployeeId] = useState("")
-  const [tenantCode, setTenantCode] = useState("")
   const [statusAction, setStatusAction] = useState<"approve" | "reject" | "cancel" | null>(null)
   const [statusComment, setStatusComment] = useState("")
   const [statusLoading, setStatusLoading] = useState(false)
@@ -127,18 +116,6 @@ export default function OutDutyRequestsPopup({ isOpen, onClose, selectedRequestI
   const ws = selectedRequest?.workflowState?.toUpperCase() || ""
   const isProcessed = ws === "APPROVED" || ws === "REJECTED" || ws === "CANCELLED" || ws === "FAILED"
   const showActionControls = collectionName !== "outDutyApplicationTransaction" && !isProcessed && (canApprove || canReject || canCancel)
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const p = decodeJwtPayload(token)
-      if (!p) return
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? "") || "")
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? "") || "")
-    }
-    void run()
-  }, [])
 
   const { loading } = useGetRequest<any>({
     url: selectedRequestId ? `${collectionName}/${selectedRequestId}` : "",
@@ -188,17 +165,17 @@ export default function OutDutyRequestsPopup({ isOpen, onClose, selectedRequestI
     const createdOnIST = `${ist.getFullYear()}-${pad(ist.getMonth() + 1)}-${pad(ist.getDate())}T${pad(ist.getHours())}:${pad(ist.getMinutes())}:${pad(ist.getSeconds())}.${String(ist.getMilliseconds()).padStart(3, "0")}+05:30`
 
     postAction({
-      tenant: tenantCode,
+      tenant: selectedRequest.tenantCode || "",
       action: statusAction,
       id: selectedRequest._id,
       event: "application",
       collectionName: "outDutyApplication",
       data: {
         _id: selectedRequest._id,
-        tenantCode: selectedRequest.tenantCode || tenantCode,
+        tenantCode: selectedRequest.tenantCode || "",
         workflowName: selectedRequest.workflowName || "outDuty Application",
         stateEvent,
-        organizationCode: selectedRequest.organizationCode || tenantCode,
+        organizationCode: selectedRequest.organizationCode || "",
         isDeleted: selectedRequest.isDeleted ?? false,
         employeeID: selectedRequest.employeeID,
         fromDate: selectedRequest.fromDate,
@@ -208,14 +185,14 @@ export default function OutDutyRequestsPopup({ isOpen, onClose, selectedRequestI
         Reason: selectedRequest.Reason,
         OutDutyAddress: selectedRequest.OutDutyAddress,
         remarks: selectedRequest.remarks,
-        uploadedBy: selectedRequest.uploadedBy || employeeId || "user",
+        uploadedBy: selectedRequest.uploadedBy || "user",
         createdOn: selectedRequest.createdOn || createdOnIST,
         uploadTime: selectedRequest.uploadTime,
         appliedDate: selectedRequest.appliedDate,
         workflowState: selectedRequest.workflowState,
         action: statusAction,
         comment: statusComment,
-        approverID: employeeId,
+        approverID: selectedRequest.approverID || "",
       },
     })
   }

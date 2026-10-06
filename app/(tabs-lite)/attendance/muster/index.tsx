@@ -5,7 +5,6 @@ import { BackHandler, Modal, Pressable, ScrollView, StatusBar, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
 
 const ATTENDANCE_SEARCH_URL = process.env.EXPO_PUBLIC_ATTENDANCE_SEARCH_URL ?? 'muster/muster/search';
 
@@ -43,20 +42,6 @@ type PunchRow = {
   processed: string;
 };
 
-// ── helpers ──────────────────────────────────────────────
-
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch { return null; }
-}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
@@ -247,8 +232,6 @@ export default function MusterDetailScreen() {
   const router = useRouter();
   const { date } = useLocalSearchParams<{ date?: string }>();
 
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
   const [attendanceRows, setAttendanceRows] = useState<AttendanceRow[]>([]);
   const [calMonthRows, setCalMonthRows] = useState<AttendanceRow[]>([]);
 
@@ -312,35 +295,21 @@ export default function MusterDetailScreen() {
   const selectedYear = selectedDate.getFullYear();
 
   useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? ''));
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? ''));
-    };
-    void run();
-  }, []);
-
-  useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { router.back(); return true; });
     return () => sub.remove();
   }, [router]);
 
   const searchData = useMemo(() => [
-    { field: 'employeeID', value: employeeId, operator: 'eq' },
-    { field: 'tenantCode', value: tenantCode, operator: 'eq' },
     { field: 'month', value: selectedMonthNumber, operator: 'eq' },
     { field: 'year', value: selectedYear, operator: 'eq' },
-  ], [employeeId, tenantCode, selectedMonthNumber, selectedYear]);
+  ], [selectedMonthNumber, selectedYear]);
 
   useGetRequest<any[]>({
     url: ATTENDANCE_SEARCH_URL,
     method: 'POST',
     data: searchData,
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode, selectedMonthNumber, selectedYear],
+    enabled: true,
+    dependencies: [selectedMonthNumber, selectedYear],
     onSuccess: (data) => setAttendanceRows(normalizeRows(data)),
     onError: () => setAttendanceRows([]),
   });
@@ -350,18 +319,16 @@ export default function MusterDetailScreen() {
   const calMonthDiffers = calAnchorMonthNumber !== selectedMonthNumber || calAnchorYear !== selectedYear;
 
   const calSearchData = useMemo(() => [
-    { field: 'employeeID', value: employeeId, operator: 'eq' },
-    { field: 'tenantCode', value: tenantCode, operator: 'eq' },
     { field: 'month', value: calAnchorMonthNumber, operator: 'eq' },
     { field: 'year', value: calAnchorYear, operator: 'eq' },
-  ], [employeeId, tenantCode, calAnchorMonthNumber, calAnchorYear]);
+  ], [calAnchorMonthNumber, calAnchorYear]);
 
   useGetRequest<any[]>({
     url: ATTENDANCE_SEARCH_URL,
     method: 'POST',
     data: calSearchData,
-    enabled: Boolean(employeeId && tenantCode && showCalendar && calMonthDiffers),
-    dependencies: [employeeId, tenantCode, calAnchorMonthNumber, calAnchorYear, showCalendar, calMonthDiffers],
+    enabled: Boolean(showCalendar && calMonthDiffers),
+    dependencies: [calAnchorMonthNumber, calAnchorYear, showCalendar, calMonthDiffers],
     onSuccess: (data) => setCalMonthRows(normalizeRows(data)),
     onError: () => setCalMonthRows([]),
   });

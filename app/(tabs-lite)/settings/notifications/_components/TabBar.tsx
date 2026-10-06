@@ -20,27 +20,12 @@ export function TabBar({ active, onChange }: Props) {
             className="mr-4 pt-[11px] pb-[10px] px-1"
           >
             <Text
-              style={{
-                fontSize:    13.5,
-                fontWeight:  isActive ? '700' : '500',
-                color:       isActive ? '#111827' : '#9CA3AF',
-                letterSpacing: 0.1,
-              }}
+              className={`text-[13.5px] tracking-[0.1px] ${isActive ? 'font-bold text-gray-900' : 'font-medium text-gray-400'}`}
             >
               {tab}
             </Text>
             {isActive && (
-              <View
-                style={{
-                  position:        'absolute',
-                  bottom:          0,
-                  left:            4,
-                  right:           4,
-                  height:          2.5,
-                  backgroundColor: '#111827',
-                  borderRadius:    2,
-                }}
-              />
+              <View className="absolute bottom-0 left-1 right-1 h-[2.5px] bg-gray-900 rounded-sm" />
             )}
           </Pressable>
         );

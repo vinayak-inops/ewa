@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import React, { useEffect, useMemo, useState } from "react"
 import {
   ActivityIndicator,
@@ -12,14 +11,6 @@ import {
   View,
 } from "react-native"
 
-function decodeJwtPayload(token: string) {
-  try {
-    const p = token.split(".")[1]; if (!p) return null
-    const b64 = p.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=")
-    return JSON.parse(decodeURIComponent(atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(""))) as Record<string, unknown>
-  } catch { return null }
-}
 
 function toyyyymmdd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -76,9 +67,6 @@ interface FormErrors {
 }
 
 export default function NewSpecialLeaveRequestModal({ isOpen, onClose, onSuccess }: Props) {
-  const [employeeId, setEmployeeId] = useState("")
-  const [tenantCode, setTenantCode] = useState("")
-
   const [leaveTitle, setLeaveTitle] = useState("")
   const [customLeaveTitle, setCustomLeaveTitle] = useState("")
   const [typeOfAbsence, setTypeOfAbsence] = useState<"Time Away" | "Leave of Absence">("Leave of Absence")
@@ -91,18 +79,6 @@ export default function NewSpecialLeaveRequestModal({ isOpen, onClose, onSuccess
   const [remarks, setRemarks] = useState("")
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState("")
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const payload = decodeJwtPayload(token)
-      if (!payload) return
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? "") || "")
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? "") || "")
-    }
-    void run()
-  }, [])
 
   const resetForm = () => {
     setLeaveTitle("")
@@ -160,19 +136,19 @@ export default function NewSpecialLeaveRequestModal({ isOpen, onClose, onSuccess
     const now = new Date()
 
     post({
-      tenant: tenantCode,
+      tenant: "",
       action: "insert",
       id: "",
       event: "application",
       collectionName: "specialLeaveApplication",
       data: {
-        tenantCode,
+        tenantCode: "",
         workflowName: "specialLeave Application",
         stateEvent: "NEXT",
-        uploadedBy: employeeId,
-        createdBy: employeeId,
+        uploadedBy: "",
+        createdBy: "",
         createdOn: now.toISOString(),
-        employeeID: employeeId,
+        employeeID: "",
         leaveCode: leaveCode.trim() || defaultLeaveCode,
         lastDayOfWork: lastDayOfWork ? dateInputToApi(lastDayOfWork) : "",
         fromDate: dateInputToApi(fromDate),
@@ -180,7 +156,7 @@ export default function NewSpecialLeaveRequestModal({ isOpen, onClose, onSuccess
         noOfDays: String(noOfDays),
         DOBOfChild: dobOfChild ? dateInputToApi(dobOfChild) : "",
         AdoptionPlacementDate: adoptionDate ? dateInputToApi(adoptionDate) : "",
-        organizationCode: tenantCode,
+        organizationCode: "",
         appliedDate: toyyyymmdd(now),
         workflowState: "INITIATED",
         remarks: remarks.trim(),

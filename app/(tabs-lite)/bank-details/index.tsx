@@ -3,8 +3,9 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
-import { useEffect, useMemo, useState } from 'react';
+import { RootState } from '@/store';
+import { useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 
 const APP_FONT_FAMILY = 'Inter';
 
@@ -23,23 +24,6 @@ function formatValue(value?: unknown): string {
   return 'Not provided';
 }
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded)
-        .split('')
-        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 function Field({ label, value }: FieldRow) {
   return (
@@ -52,48 +36,18 @@ function Field({ label, value }: FieldRow) {
 
 export default function BankDetailsScreen() {
   const router = useRouter();
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
   const [employeeProfile, setEmployeeProfile] = useState<Record<string, any> | null>(null);
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-
-      const resolvedEmployeeId =
-        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') ||
-        '';
-      const resolvedTenantCode =
-        String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '';
-
-      setEmployeeId(resolvedEmployeeId);
-      setTenantCode(resolvedTenantCode);
-    };
-
-    void run();
-  }, []);
+  const employeeId = useSelector((s: RootState) => s.role.employeeId);
+  const tenantCode = useSelector((s: RootState) => s.role.org);
 
   const { loading, error } = useGetRequest<any[]>({
     url: 'contract_employee/search',
     method: 'POST',
     data: [
-      {
-        field: 'employeeID',
-        value: employeeId,
-        operator: 'eq',
-      },
-      {
-        field: 'tenantCode',
-        value: tenantCode,
-        operator: 'eq',
-      },
+      ...(tenantCode ? [{ field: 'tenantCode', operator: 'eq', value: tenantCode }] : []),
+      ...(employeeId ? [{ field: 'employeeID', operator: 'eq', value: employeeId }] : []),
     ],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode],
+    enabled: !!(tenantCode && employeeId),
     onSuccess: (data) => {
       if (Array.isArray(data) && data.length > 0) {
         setEmployeeProfile(data[0]);

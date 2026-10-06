@@ -5,10 +5,11 @@ import { clearBiometricSession } from './biometric-session';
 import { clearAuthTokens } from './token-store';
 import { getBffUserProfile } from './bff-session';
 
-const INSTALL_SENTINEL_KEY = 'ewa_app_installed';
-const APP_VERSION_KEY      = 'ewa_app_version';
-const BIOMETRIC_STATE_KEY  = 'ewa_biometric_state';
-const LOGGED_IN_USER_KEY   = 'ewa_logged_in_user';
+const INSTALL_SENTINEL_KEY   = 'ewa_app_installed';
+const APP_VERSION_KEY        = 'ewa_app_version';
+const BIOMETRIC_STATE_KEY    = 'ewa_biometric_state';
+const LOGGED_IN_USER_KEY     = 'ewa_logged_in_user';
+const PERMISSIONS_GRANTED_KEY = 'ewa_permissions_granted';
 
 function getCurrentVersion(): string {
   const version = Constants.expoConfig?.version ?? '0.0.0';
@@ -32,6 +33,25 @@ async function wipeSession() {
     AsyncStorage.removeItem(BIOMETRIC_STATE_KEY),
     AsyncStorage.removeItem(LOGGED_IN_USER_KEY),
   ]);
+}
+
+/** Returns true if the user has already granted permissions on this device. */
+export async function hasGrantedPermissions(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(PERMISSIONS_GRANTED_KEY);
+    return value === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Call once the user grants permissions so the screen is never shown again. */
+export async function markPermissionsGranted(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PERMISSIONS_GRANTED_KEY, '1');
+  } catch {
+    // non-fatal
+  }
 }
 
 /**

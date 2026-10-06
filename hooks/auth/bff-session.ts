@@ -189,19 +189,3 @@ export async function clearBffUserProfile() {
   await removeItem(USER_PROFILE_KEY);
 }
 
-/**
- * Creates a synthetic decodable "token" so existing decodeJwtPayload callers
- * (e.g. attendance screen) can still read employeeID and tenantCode.
- */
-export function makeSyntheticToken(profile: BffUserProfile): string {
-  const payloadJson = JSON.stringify({
-    employeeID: profile.username,
-    employeeId: profile.username,
-    empId: profile.username,
-    tenantCode: profile.tenantCode,
-    email: profile.email,
-  });
-  // btoa is safe here since username/tenantCode/email are ASCII
-  const b64 = btoa(payloadJson);
-  return `eyJhbGciOiJub25lIn0.${b64}.bff`;
-}

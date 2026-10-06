@@ -18,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -39,7 +38,6 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { HEADER_SPACER_HEIGHT, ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
 import { getSessionCookieHeaders } from '@/hooks/auth/bff-session';
 import { FaceCamera } from './components/FaceCamera';
 import { DailySummary } from './muster/DailySummary';
@@ -112,25 +110,6 @@ type PunchResponse = {
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const part = token.split('.')[1];
-    if (!part) return null;
-    const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=');
-    return JSON.parse(
-      decodeURIComponent(
-        atob(padded)
-          .split('')
-          .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-          .join('')
-      )
-    ) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 async function requestLocation(): Promise<GeoCoords> {
   if (Platform.OS === 'android') {
@@ -473,21 +452,6 @@ export default function FacePunchScreen() {
   const gateName   = params.gateName   ?? 'Gate 3';
   const plantName  = params.plantName  ?? 'Plant 2';
 
-  const [employeeID, setEmployeeID] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const p = decodeJwtPayload(token);
-      if (!p) return;
-      setEmployeeID(String(p.employeeID ?? p.employeeId ?? p.empId ?? ''));
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? ''));
-    };
-    void run();
-  }, []);
-
   const [cardState, setCardState] = useState<PunchCardState>('ready');
   const [attempts,  setAttempts]  = useState(0);
   const [punchTime, setPunchTime] = useState('');
@@ -522,12 +486,10 @@ export default function FacePunchScreen() {
     method: 'POST',
     params: { offset: 0, limit: 20 },
     data: [
-      { field: 'employeeID', value: employeeID, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-      { field: 'date',       value: todayISOKey(), operator: 'eq' },
+      { field: 'date', value: todayISOKey(), operator: 'eq' },
     ],
-    enabled: Boolean(employeeID && tenantCode),
-    dependencies: [employeeID, tenantCode],
+    enabled: true,
+    dependencies: [],
     onSuccess: (data) => setTodayPunches(data ?? []),
     onError:   () => setTodayPunches([]),
   });
@@ -536,12 +498,9 @@ export default function FacePunchScreen() {
     url: FACE_PUNCH_URL,
     method: 'POST',
     params: { offset: 0, limit: 20 },
-    data: [
-      { field: 'employeeID', value: employeeID, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-    ],
-    enabled: Boolean(employeeID && tenantCode),
-    dependencies: [employeeID, tenantCode],
+    data: [],
+    enabled: true,
+    dependencies: [],
     onSuccess: (data) => {
       const sorted = [...(data ?? [])].sort(
         (a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
@@ -597,7 +556,7 @@ export default function FacePunchScreen() {
         fillRingOnce();
 
         try {
-          const result = await submitPunch({ base64Image: msg.data, employeeID, tenantCode, geo });
+          const result = await submitPunch({ base64Image: msg.data, employeeID: '', tenantCode: '', geo });
 
           if (result.status === 'SUCCESS' || result.validated === true) {
             const t = result.dateTime
@@ -634,7 +593,7 @@ export default function FacePunchScreen() {
         setAttempts((a) => a + 1);
       }
     },
-    [employeeID, tenantCode, geo, attempts, punchDirection, gateName, fillRingOnce, resetRing]
+    [geo, attempts, punchDirection, gateName, fillRingOnce, resetRing]
   );
 
   const handleCameraClose = useCallback(() => {

@@ -1,68 +1,35 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
-import { isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
-import { recordPostLoginState } from '@/hooks/auth/install-guard';
 import { bffLogin, fetchCsrf } from '@/hooks/auth/bff-session';
+import { isBiometricSessionActive, isBiometricSessionUnlocked, setBiometricSessionUnlocked, startBiometricSession } from '@/hooks/auth/biometric-session';
+import { hasGrantedPermissions, recordPostLoginState } from '@/hooks/auth/install-guard';
+import { AppDispatch } from '@/store';
+import { fetchRolePermissions, initializeRoleFromBffProfile } from '@/store/slices/roleSlice';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
   Image,
   Pressable,
-  SafeAreaView,
+  ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-
-const APP_FONT_FAMILY = 'Inter';
-
-const FEATURES = [
-  { icon: 'wallet-outline' as const,        title: 'Earned Wages',  desc: 'Access salary anytime'   },
-  { icon: 'document-text-outline' as const, title: 'Applications',  desc: 'Leave, OT, shift & more' },
-  { icon: 'calendar-outline' as const,      title: 'Attendance',    desc: 'Track your work records' },
-];
-
-function FeatureCard({ icon, title, desc, style }: { icon: typeof FEATURES[number]['icon']; title: string; desc: string; style?: object }) {
-  return (
-    <View style={[styles.featureCard, style]}>
-      <View style={styles.featureIconWrap}>
-        <Ionicons name={icon} size={20} color="#ffffff" />
-      </View>
-      <Text style={styles.featureTitle}>{title}</Text>
-      <Text style={styles.featureDesc}>{desc}</Text>
-    </View>
-  );
-}
-
-function FeatureGrid() {
-  return (
-    <View style={styles.featureWrap}>
-      <View style={styles.featureRow}>
-        <FeatureCard icon={FEATURES[0].icon} title={FEATURES[0].title} desc={FEATURES[0].desc} style={{ flex: 1, marginRight: 10 }} />
-        <FeatureCard icon={FEATURES[1].icon} title={FEATURES[1].title} desc={FEATURES[1].desc} style={{ flex: 1 }} />
-      </View>
-      <View style={[styles.featureRow, { justifyContent: 'center', marginTop: 10 }]}>
-        <FeatureCard icon={FEATURES[2].icon} title={FEATURES[2].title} desc={FEATURES[2].desc} style={{ width: '55%' }} />
-      </View>
-    </View>
-  );
-}
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const orbFloatA = useRef(new Animated.Value(0)).current;
-  const orbFloatB = useRef(new Animated.Value(0)).current;
-  const orbPulse = useRef(new Animated.Value(0)).current;
-  const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
+  const [loading, setLoading]           = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername]         = useState('');
+  const [password, setPassword]         = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [keepSigned, setKeepSigned]     = useState(false);
 
   useEffect(() => {
     const redirectSavedSession = async () => {
@@ -73,44 +40,12 @@ export default function LoginScreen() {
     void redirectSavedSession();
   }, [router]);
 
-  useEffect(() => {
-    const floatLoopA = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orbFloatA, { toValue: 1, duration: 4200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(orbFloatA, { toValue: 0, duration: 4200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    const floatLoopB = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orbFloatB, { toValue: 1, duration: 3600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(orbFloatB, { toValue: 0, duration: 3600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orbPulse, { toValue: 1, duration: 2800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(orbPulse, { toValue: 0, duration: 2800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    );
-    floatLoopA.start();
-    floatLoopB.start();
-    pulseLoop.start();
-    return () => { floatLoopA.stop(); floatLoopB.stop(); pulseLoop.stop(); };
-  }, [orbFloatA, orbFloatB, orbPulse]);
-
-  const orbATranslateY = orbFloatA.interpolate({ inputRange: [0, 1], outputRange: [0, 18] });
-  const orbATranslateX = orbFloatA.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
-  const orbBTranslateY = orbFloatB.interpolate({ inputRange: [0, 1], outputRange: [0, -16] });
-  const orbBTranslateX = orbFloatB.interpolate({ inputRange: [0, 1], outputRange: [0, 12] });
-  const pulseScale   = orbPulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.12] });
-  const pulseOpacity = orbPulse.interpolate({ inputRange: [0, 1], outputRange: [0.24, 0.1] });
-
   const canSubmit = username.trim().length > 0 && password.length > 0;
 
   const onLogin = async () => {
     if (loading) return;
     if (!canSubmit) {
-      setErrorMessage('Please enter your username and password.');
+      setErrorMessage('Please enter your employee ID and password.');
       return;
     }
     setLoading(true);
@@ -118,11 +53,23 @@ export default function LoginScreen() {
     try {
       await fetchCsrf();
       const profile = await bffLogin(username.trim(), password);
-
       await startBiometricSession();
       await recordPostLoginState(profile.username);
       setBiometricSessionUnlocked(true);
-      router.replace('/(auth)/permissions');
+      // Clear any leftover failure count from prior sessions
+      AsyncStorage.removeItem('ewa_biometric_fail_count').catch(() => {});
+
+      // Fetch and store role info in Redux before entering the app
+      const roleResult = await dispatch(initializeRoleFromBffProfile(profile));
+      const payload    = (roleResult as any).payload;
+      const roleType   = payload?.roleType as string | null;
+      const org        = payload?.org as string | null;
+      if (roleType) {
+        await dispatch(fetchRolePermissions({ roleType, org }));
+      }
+
+      const alreadyGranted = await hasGrantedPermissions();
+      router.replace(alreadyGranted ? getPostLoginRoute() : '/(auth)/permissions');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Login failed. Please try again.';
       setErrorMessage(msg);
@@ -132,341 +79,143 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a1c63" />
+    <SafeAreaView className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      {/* Blue top area */}
-      <View style={{ flex: 1 }}>
-      <View style={styles.topArea}>
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.orbTop, { transform: [{ translateX: orbATranslateX }, { translateY: orbATranslateY }] }]}
+      {/* Header row */}
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-slate-100">
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          className="w-9 h-9 rounded-[10px] border border-slate-200 items-center justify-center"
+        >
+          <Ionicons name="arrow-back" size={22} color="#0a1c63" />
+        </Pressable>
+        <Image
+          source={require('@/assets/images/logoiddion.png')}
+          style={{ width: 110, height: 34 }}
+          resizeMode="contain"
         />
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.orbBottom, { transform: [{ translateX: orbBTranslateX }, { translateY: orbBTranslateY }] }]}
-        />
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.orbCenter, { opacity: pulseOpacity, transform: [{ scale: pulseScale }] }]}
-        />
-
-        <View style={styles.logoRow}>
-          <Image source={require('@/assets/images/logoiddion.png')} style={styles.logoImage} resizeMode="contain" />
-        </View>
-
-        <View style={styles.taglineSection}>
-          <Text style={styles.tagline}>Get paid when{'\n'}you need it</Text>
-          <View style={styles.featureOuter}>
-            <FeatureGrid />
-          </View>
-        </View>
-      </View>
       </View>
 
-      {/* White bottom card */}
-      <View style={styles.bottomCard}>
-        <View style={styles.dragHandle} />
-
-        <View style={styles.progressRow}>
-          <View style={styles.progressActive} />
-          <View style={styles.progressInactive} />
-        </View>
-
-        <View style={styles.copyBlock}>
-          <Text style={styles.title}>Earned Wage Access</Text>
-          <Text style={styles.subtitle}>
-            Sign in to your EWA account to manage your workplace finances.
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Title */}
+        <View className="mb-7">
+          <Text className="text-[30px] font-extrabold text-[#0a1c63] tracking-[-0.6px] mb-2">
+            Welcome <Text className="italic font-bold">back</Text>
+          </Text>
+          <Text className="text-sm leading-[21px] text-slate-500">
+            Sign in with the details your employer registered with EWA.
           </Text>
         </View>
 
-        {/* Username field */}
-        <View style={styles.inputWrap}>
-          <Ionicons name="person-outline" size={18} color="#64748b" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor="#94a3b8"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
-            editable={!loading}
-          />
+        {/* Employee ID */}
+        <View className="mb-[18px]">
+          <Text className="text-[13px] font-semibold text-slate-900 mb-[7px]">
+            Employee ID or mobile number
+          </Text>
+          <View className="flex-row items-center bg-slate-50 rounded-xl border border-slate-200 px-4 h-[52px]">
+            <TextInput
+              className="flex-1 text-[15px] text-slate-900 p-0 m-0"
+              placeholder="Enter employee ID or mobile"
+              placeholderTextColor="#94a3b8"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+              editable={!loading}
+            />
+          </View>
         </View>
 
-        {/* Password field */}
-        <View style={[styles.inputWrap, { marginTop: 10 }]}>
-          <Ionicons name="lock-closed-outline" size={18} color="#64748b" style={styles.inputIcon} />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Password"
-            placeholderTextColor="#94a3b8"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="done"
-            onSubmitEditing={onLogin}
-            editable={!loading}
-          />
-          <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={10} style={styles.eyeButton}>
-            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94a3b8" />
-          </Pressable>
+        {/* Password */}
+        <View className="mb-[18px]">
+          <View className="flex-row justify-between items-center mb-[7px]">
+            <Text className="text-[13px] font-semibold text-slate-900">Password</Text>
+            <Pressable hitSlop={8}>
+              <Text className="text-[13px] font-semibold text-[#0a1c63]">Forgot password?</Text>
+            </Pressable>
+          </View>
+          <View className="flex-row items-center bg-slate-50 rounded-xl border border-slate-200 px-4 h-[52px]">
+            <TextInput
+              className="flex-1 text-[15px] text-slate-900 p-0 m-0"
+              placeholder="Enter password"
+              placeholderTextColor="#94a3b8"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={onLogin}
+              editable={!loading}
+            />
+            <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={10} className="pl-2">
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94a3b8" />
+            </Pressable>
+          </View>
         </View>
 
+        {/* Keep signed in */}
         <Pressable
-          style={({ pressed }) => [
-            styles.primaryButtonWrap,
-            { marginTop: 18 },
-            pressed && { opacity: 0.85 },
-            (loading || !canSubmit) && { opacity: 0.6 },
-          ]}
+          className="flex-row items-center gap-2.5 mb-6"
+          onPress={() => setKeepSigned((v) => !v)}
+        >
+          <View className={`w-5 h-5 rounded-[5px] border-[1.5px] items-center justify-center ${keepSigned ? 'bg-[#0a1c63] border-[#0a1c63]' : 'bg-white border-slate-300'}`}>
+            {keepSigned && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+          </View>
+          <Text className="text-[13px] text-slate-600">Keep me signed in on this device</Text>
+        </Pressable>
+
+        {/* Error */}
+        {!!errorMessage && (
+          <Text className="text-[13px] text-red-600 mb-[14px] text-center">{errorMessage}</Text>
+        )}
+
+        {/* Sign in button */}
+        <Pressable
+          className={`bg-[#f5c518] rounded-[14px] h-[54px] items-center justify-center mb-5 active:opacity-[0.88] ${(loading || !canSubmit) ? 'opacity-55' : 'opacity-100'}`}
           onPress={onLogin}
           disabled={loading || !canSubmit}
         >
-          <View style={styles.primaryButton}>
-            {loading ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color="#ffffff" />
-                <Text style={styles.primaryButtonText}>Signing in...</Text>
+          {loading ? (
+            <View className="flex-row items-center gap-2">
+              <ActivityIndicator color="#0a1c63" />
+              <Text className="text-base font-extrabold text-[#0a1c63]">Signing in…</Text>
+            </View>
+          ) : (
+            <View className="flex-row items-center">
+              <Text className="text-base font-extrabold text-[#0a1c63]">Sign in</Text>
+              <View className="ml-1.5">
+                <Ionicons name="arrow-forward" size={18} color="#0a1c63" />
               </View>
-            ) : (
-              <Text style={styles.primaryButtonText}>Sign In</Text>
-            )}
-          </View>
+            </View>
+          )}
         </Pressable>
 
-        <Text style={styles.secondaryText}>Your workspace is ready when you are</Text>
+        {/* Divider */}
+        <View className="flex-row items-center gap-2.5 mb-4">
+          <View className="flex-1 h-px bg-slate-200" />
+          <Text className="text-[13px] text-slate-400">or</Text>
+          <View className="flex-1 h-px bg-slate-200" />
+        </View>
 
-        {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-      </View>
+        {/* OTP button */}
+        <Pressable className="rounded-[14px] h-[54px] border-[1.5px] border-slate-200 items-center justify-center mb-8 active:opacity-80">
+          <Text className="text-[15px] font-bold text-[#0a1c63]">Sign in with OTP</Text>
+        </Pressable>
+
+        {/* Footer */}
+        <Text className="text-[13px] text-slate-400 text-center">
+          New to EWA?{' '}
+          <Text className="font-bold text-slate-500">Ask your HR team to invite you.</Text>
+        </Text>
+      </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0a1c63',
-  },
-  topArea: {
-    flex: 1,
-    backgroundColor: '#0a1c63',
-    overflow: 'hidden',
-    alignItems: 'center',
-  },
-
-  orbTop: {
-    position: 'absolute',
-    top: -70,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#1e3a8a',
-    opacity: 0.7,
-  },
-  orbBottom: {
-    position: 'absolute',
-    left: -40,
-    bottom: 20,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: '#172554',
-    opacity: 0.6,
-  },
-  orbCenter: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#1e3a8a',
-    top: '30%',
-    alignSelf: 'center',
-  },
-  logoRow: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  logoImage: {
-    width: 220,
-    height: 66,
-  },
-  taglineSection: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    width: '100%',
-  },
-  featureOuter: {
-    width: '100%',
-    marginTop: 0,
-  },
-  tagline: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#ffffff',
-    lineHeight: 38,
-    letterSpacing: -0.6,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  featureIconWrap: {
-    marginBottom: 8,
-  },
-  featureWrap: {
-    width: '100%',
-    marginTop: 16,
-  },
-  featureRow: {
-    flexDirection: 'row',
-  },
-  featureCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 14,
-    padding: 12,
-  },
-  featureIcon: {
-    marginBottom: 8,
-  },
-  featureTitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 2,
-  },
-  featureDesc: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.55)',
-    lineHeight: 15,
-  },
-  bottomCard: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 28,
-  },
-  dragHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#e2e8f0',
-    marginBottom: 18,
-    alignSelf: 'center',
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    columnGap: 6,
-    marginBottom: 12,
-  },
-  progressActive: {
-    width: 16,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#0a1c63',
-  },
-  progressInactive: {
-    width: 4,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#cbd5e1',
-  },
-  copyBlock: {
-    width: '100%',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    marginBottom: 16,
-  },
-  title: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 22,
-    lineHeight: 32,
-    fontWeight: '800',
-    color: '#0a1c63',
-    textAlign: 'center',
-    letterSpacing: -0.6,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#64748b',
-    textAlign: 'center',
-    maxWidth: 300,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 12,
-    height: 50,
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 15,
-    color: '#0f172a',
-  },
-  eyeButton: {
-    paddingLeft: 8,
-  },
-  primaryButtonWrap: {
-    borderRadius: 14,
-  },
-  primaryButton: {
-    width: '100%',
-    minHeight: 54,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0a1c63',
-  },
-  primaryButtonText: {
-    fontFamily: APP_FONT_FAMILY,
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center',
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: 10,
-  },
-  secondaryText: {
-    fontFamily: APP_FONT_FAMILY,
-    marginTop: 14,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0a1c63',
-    textAlign: 'center',
-  },
-  errorText: {
-    fontFamily: APP_FONT_FAMILY,
-    marginTop: 12,
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#c53030',
-    textAlign: 'center',
-  },
-});

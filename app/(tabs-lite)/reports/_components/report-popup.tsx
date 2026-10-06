@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { authedFetch } from '@/hooks/api/authed-fetch';
 import { BasicInformation } from './basic-information';
 import { SelectReports } from './select-reports';
 import { StepIndicator } from './step-indicator';
@@ -20,22 +20,6 @@ import { EMPTY_FILTER_DATA, TableMenuItem, TableType } from './types';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
-// ── JWT helpers (same pattern as attendance screen) ───────────────────────────
-
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,25 +43,8 @@ export function ReportPopup({
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // ── Auth state (from JWT, replaces useSession / useKeyclockRoleInfo / useAuthToken) ──
-  const [token, setToken] = useState<string | null>(null);
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
-  const [uploadedBy, setUploadedBy] = useState('');
-
-  useEffect(() => {
-    const run = async () => {
-      const t = await getAccessToken();
-      if (!t) return;
-      setToken(t);
-      const payload = decodeJwtPayload(t);
-      if (!payload) return;
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? ''));
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? ''));
-      setUploadedBy(String(payload.name ?? payload.preferred_username ?? payload.sub ?? ''));
-    };
-    void run();
-  }, []);
+  // ── Auth state (from BFF session profile) ────────────────────────────────
+  const [uploadedBy] = useState('');
 
   // ── Step state ────────────────────────────────────────────────────────────
 
@@ -151,18 +118,13 @@ export function ReportPopup({
   // ── Submit ────────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
-    if (!token) {
-      Alert.alert('Error', 'Authentication token is not available');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
       const finalData = {
         report: '',
-        tenantCode: tenantCode,
-        organization: tenantCode,
+        tenantCode: '',
+        organization: '',
         uploadedBy: uploadedBy,
         createdOn: new Date().toISOString(),
         reportName: selectedReport ?? '',
@@ -186,19 +148,18 @@ export function ReportPopup({
         reportTitle,
         reportDescription,
         workflowName: selectedWorkflowName ?? 'Report',
-        employeeId: employeeId,
+        employeeId: '',
         level: 1,
         employeeID: filterData.contractEmployees,
       };
 
-      const response = await fetch(`${API_BASE}/api/command/attendance/reports`, {
+      const response = await authedFetch(`${API_BASE}/api/command/attendance/reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          tenant: tenantCode,
+          tenant: '',
           action: 'insert',
           id: null,
           collectionName: 'reports',
@@ -221,7 +182,7 @@ export function ReportPopup({
         reportId = responseData._id;
       }
 
-      if (reportId && employeeId) {
+      if (reportId) {
         // Navigate to the reports screen with mode=all and the report id
         router.push(`/(tabs-lite)/reports/application?mode=all&id=${encodeURIComponent(reportId)}` as any);
         handleClose();

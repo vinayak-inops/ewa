@@ -1,19 +1,10 @@
 import { useGetRequest } from "@/hooks/api/useGetRequest"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { Filter, Search, X } from "lucide-react-native"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Modal, Text, TextInput, TouchableOpacity, View } from "react-native"
 import WfhRequestsPopup from "./wfh-requests-popup"
 import WfhTable, { WfhRecord } from "./wfh-table"
 
-function decodeJwtPayload(token: string) {
-  try {
-    const p = token.split(".")[1]; if (!p) return null
-    const b64 = p.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=")
-    return JSON.parse(decodeURIComponent(atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(""))) as Record<string, unknown>
-  } catch { return null }
-}
 
 const SEARCH_FIELDS = [
   { value: "employeeID",  label: "Employee ID"  },
@@ -38,21 +29,9 @@ export default function WfhCalendarSelectedDayTable({ isOpen, onClose, selectedD
   const [showFieldPicker, setShowFieldPicker] = useState(false)
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
-  const [tenantCode, setTenantCode] = useState("")
 
   const itemsPerPage = 10
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const p = decodeJwtPayload(token)
-      if (!p) return
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? "") || "")
-    }
-    void run()
-  }, [])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -76,7 +55,6 @@ export default function WfhCalendarSelectedDayTable({ isOpen, onClose, selectedD
 
   const requestData = useMemo(() => {
     const data: any[] = [
-      { field: "tenantCode",     value: tenantCode,       operator: "eq"  },
       { field: "workflowState",  value: "APPROVED",       operator: "eq"  },
       { field: "fromDate",       value: selectedDateKey,  operator: "lte" },
       { field: "toDate",         value: selectedDateKey,  operator: "gte" },
@@ -84,7 +62,7 @@ export default function WfhCalendarSelectedDayTable({ isOpen, onClose, selectedD
     ]
     if (debouncedSearch.trim()) data.push({ field: searchField, operator: "like", value: debouncedSearch.trim() })
     return data
-  }, [tenantCode, selectedDateKey, searchField, debouncedSearch])
+  }, [selectedDateKey, searchField, debouncedSearch])
 
   const { loading, refetch } = useGetRequest<any[]>({
     url: `wfhApplication/search?offset=${offset}&limit=${itemsPerPage}`,
@@ -112,8 +90,8 @@ export default function WfhCalendarSelectedDayTable({ isOpen, onClose, selectedD
   })
 
   useEffect(() => {
-    if (isOpen && tenantCode && selectedDateKey) refetch()
-  }, [isOpen, tenantCode, selectedDateKey, currentPage, debouncedSearch, searchField])
+    if (isOpen && selectedDateKey) refetch()
+  }, [isOpen, selectedDateKey, currentPage, debouncedSearch, searchField])
 
   const handleOpenDetails = useCallback((row: any) => {
     if (!row?._id) return

@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import { decodeJwtPayload, extractEntitlementRole } from '@/utils/jwt';
+import { extractEntitlementRole } from '@/utils/jwt';
 import { BffUserProfile, getBffUserProfile } from '@/hooks/auth/bff-session';
 import { authedFetch } from '@/hooks/api/authed-fetch';
 
@@ -46,37 +46,6 @@ const initialState: RoleState = {
   permissionsLoading: false,
   permissionsError: null,
 };
-
-export const initializeRoleFromToken = createAsyncThunk(
-  'role/initializeFromToken',
-  async (accessToken: string, { rejectWithValue }) => {
-    try {
-      const payload = decodeJwtPayload(accessToken);
-      if (!payload) {
-        return rejectWithValue('Failed to decode token');
-      }
-
-      const groups = (payload.groups as string[]) ?? [];
-      const roles = (payload.roles as string[]) ?? [];
-      const realmRoles = payload.realm_access?.roles ?? [];
-      const roleType = extractEntitlementRole(payload);
-
-      return {
-        roleType,
-        groups,
-        roles,
-        realmRoles,
-        employeeId: (payload.employeeId as string) ?? null,
-        org: (payload.org as string) ?? null,
-        sub: payload.sub ?? null,
-        email: payload.email ?? null,
-        preferredUsername: payload.preferred_username ?? null,
-      };
-    } catch (e: unknown) {
-      return rejectWithValue(e instanceof Error ? e.message : 'Unknown error');
-    }
-  }
-);
 
 /**
  * Initialize role state directly from the BFF login profile.
@@ -161,28 +130,6 @@ const roleSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(initializeRoleFromToken.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(initializeRoleFromToken.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isInitialized = true;
-        state.roleType = action.payload.roleType;
-        state.groups = action.payload.groups;
-        state.roles = action.payload.roles;
-        state.realmRoles = action.payload.realmRoles;
-        state.employeeId = action.payload.employeeId;
-        state.org = action.payload.org;
-        state.sub = action.payload.sub;
-        state.email = action.payload.email;
-        state.preferredUsername = action.payload.preferredUsername;
-      })
-      .addCase(initializeRoleFromToken.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isInitialized = true;
-        state.error = action.payload as string;
-      })
       .addCase(initializeRoleFromBffProfile.pending, (state) => {
         state.isLoading = true;
         state.error = null;

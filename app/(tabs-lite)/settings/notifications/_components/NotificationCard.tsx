@@ -31,13 +31,12 @@ export function NotificationCard({ item, onStar, onPress, isLast }: Props) {
           {/* Row 1: title + time + star */}
           <View className="flex-row items-center">
             <Text
-              className="flex-1 text-[#111827] text-[14px]"
-              style={{ fontWeight: '700' }}
+              className="flex-1 text-[#111827] text-[14px] font-bold"
               numberOfLines={1}
             >
               {item.title}
             </Text>
-            <Text className="text-[#9CA3AF] text-[12px] mr-2" style={{ fontWeight: '400' }}>
+            <Text className="text-[#9CA3AF] text-[12px] mr-2 font-normal">
               {item.time}
             </Text>
             <Pressable onPress={() => onStar(item.id)} hitSlop={10}>
@@ -51,8 +50,7 @@ export function NotificationCard({ item, onStar, onPress, isLast }: Props) {
 
           {/* Row 2: subtitle */}
           <Text
-            className="text-[#111827] text-[13px] mt-[3px]"
-            style={{ fontWeight: '600' }}
+            className="text-[#111827] text-[13px] mt-[3px] font-semibold"
             numberOfLines={1}
           >
             {item.subtitle}
@@ -60,8 +58,7 @@ export function NotificationCard({ item, onStar, onPress, isLast }: Props) {
 
           {/* Row 3: body */}
           <Text
-            className="text-[#9CA3AF] text-[12px] mt-[2px]"
-            style={{ fontWeight: '400' }}
+            className="text-[#9CA3AF] text-[12px] mt-[2px] font-normal"
             numberOfLines={1}
           >
             {item.body}
@@ -72,7 +69,7 @@ export function NotificationCard({ item, onStar, onPress, isLast }: Props) {
 
       {/* Divider */}
       {!isLast && (
-        <View style={{ height: 1, backgroundColor: '#E5E7EB', marginLeft: 68, marginRight: 16 }} />
+        <View className="h-px bg-gray-200 ml-[68px] mr-4" />
       )}
     </>
   );

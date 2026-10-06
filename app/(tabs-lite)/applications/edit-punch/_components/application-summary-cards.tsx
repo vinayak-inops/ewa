@@ -1,45 +1,17 @@
 import { useGetRequest } from "@/hooks/api/useGetRequest"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { CheckCircle, Clock, ListChecks, XCircle } from "lucide-react-native"
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect } from "react"
 import { Text, View } from "react-native"
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split(".")[1]
-    if (!payload) return null
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
-    const json = decodeURIComponent(
-      atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join("")
-    )
-    return JSON.parse(json) as Record<string, unknown>
-  } catch { return null }
-}
 
 interface SummaryCardsProps {
   refreshTrigger?: number
 }
 
 export default function ApplicationSummaryCards({ refreshTrigger }: SummaryCardsProps) {
-  const [tenantCode, setTenantCode] = useState("")
+  const base: any[] = []
 
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const payload = decodeJwtPayload(token)
-      if (!payload) return
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? "") || "")
-    }
-    void run()
-  }, [])
-
-  const base = useMemo(() => (
-    tenantCode ? [{ field: "tenantCode", value: tenantCode, operator: "eq" }] : []
-  ), [tenantCode])
-
-  const enabled = Boolean(tenantCode)
+  const enabled = true
 
   const { data: totalCount, refetch: refetchTotal } = useGetRequest<number>({
     url: "editPunchApplication/count",
@@ -77,9 +49,8 @@ export default function ApplicationSummaryCards({ refreshTrigger }: SummaryCards
   })
 
   useEffect(() => {
-    if (!tenantCode) return
     refetchTotal(); refetchPending(); refetchApproved(); refetchRejected(); refetchCancelled()
-  }, [tenantCode, refreshTrigger])
+  }, [refreshTrigger])
 
   const counts = {
     total: totalCount ?? 0,

@@ -2,7 +2,6 @@ import AutoStatusUpdate from "@/components/ui/auto-status-update"
 import { useGetRequest } from "@/hooks/api/useGetRequest"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
 import { useRolePermissions } from "@/hooks/api/useRolePermissions"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { useScreenPermissions } from "@/hooks/auth/useScreenPermissions"
 import { Ionicons } from "@expo/vector-icons"
 import { AlertCircle, CheckCircle, ChevronDown, Clock, Send, X, XCircle } from "lucide-react-native"
@@ -50,17 +49,6 @@ interface EditPunchRequestsPopupProps {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split(".")[1]
-    if (!payload) return null
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
-    return JSON.parse(decodeURIComponent(
-      atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join("")
-    )) as Record<string, unknown>
-  } catch { return null }
-}
 
 function mapRecord(item: any): EditPunchRecord {
   return {
@@ -143,8 +131,6 @@ export default function EditPunchRequestsPopup({
   userMode = "user",
   onActionSuccess,
 }: EditPunchRequestsPopupProps) {
-  const [tenantCode, setTenantCode] = useState("")
-  const [employeeId, setEmployeeId] = useState("")
   const [statusComment, setStatusComment] = useState("")
   const [statusLoading, setStatusLoading] = useState(false)
   const [statusError, setStatusError] = useState("")
@@ -152,18 +138,6 @@ export default function EditPunchRequestsPopup({
   const [showFullRemarks, setShowFullRemarks] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState<"approve" | "reject" | "cancel" | null>(null)
   const pulseAnim = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const payload = decodeJwtPayload(token)
-      if (!payload) return
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? "") || "")
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? "") || "")
-    }
-    void run()
-  }, [])
 
   const resetPopupState = () => {
     setStatusComment("")
@@ -189,12 +163,11 @@ export default function EditPunchRequestsPopup({
   }, [submitSuccess])
 
   const fetchData = useMemo(() => {
-    if (!selectedRequestId || !tenantCode) return null
+    if (!selectedRequestId) return null
     return [
-      { field: "tenantCode", operator: "eq", value: tenantCode },
       { field: "_id", operator: "eq", value: selectedRequestId },
     ]
-  }, [selectedRequestId, tenantCode])
+  }, [selectedRequestId])
 
   const { data: rawList, loading, refetch } = useGetRequest<any[]>({
     url: "editPunchApplication/search?offset=0&limit=1",
@@ -244,12 +217,12 @@ export default function EditPunchRequestsPopup({
     const createdOn = `${ist.getFullYear()}-${pad(ist.getMonth() + 1)}-${pad(ist.getDate())}T${pad(ist.getHours())}:${pad(ist.getMinutes())}:${pad(ist.getSeconds())}.${pad(ist.getMilliseconds())}+05:30`
 
     const { _id, ...rest } = record ?? {}
-    const approverId = record?.approverID || employeeId
+    const approverId = record?.approverID || ""
     const data: any = {
       ...rest,
       _id: record?._id,
-      tenantCode: record?.tenantCode || tenantCode,
-      organizationCode: record?.organizationCode || tenantCode,
+      tenantCode: record?.tenantCode || "",
+      organizationCode: record?.organizationCode || "",
       workflowName: record?.workflowName || "EditPunch Application",
       stateEvent,
       comment: statusComment,
@@ -261,7 +234,7 @@ export default function EditPunchRequestsPopup({
     else if (statusAction === "reject") data.rejectedBy = approverId
     else if (statusAction === "cancel") data.cancelledBy = approverId
 
-    postAction({ tenant: tenantCode, action: "insert", id: record?._id, event: "application", collectionName: "editPunchApplication", data })
+    postAction({ tenant: record?.tenantCode || "", action: "insert", id: record?._id, event: "application", collectionName: "editPunchApplication", data })
   }
 
   const { loading: permsLoading } = useRolePermissions()

@@ -1,9 +1,8 @@
 import { useRolePermissions } from '@/hooks/api/useRolePermissions';
-import { getAccessToken } from '@/hooks/auth/token-store';
 import { useCanAccess } from '@/hooks/auth/useScreenPermissions';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -15,20 +14,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 type ServiceDef = {
   title: string;
@@ -371,8 +356,6 @@ function CardGrid({
 export default function ApplicationsHubScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
 
   const { loading } = useRolePermissions();
 
@@ -408,18 +391,6 @@ export default function ApplicationsHubScreen() {
 
   const [leavePopupVisible, setLeavePopupVisible] = useState(false);
   const [leaveMode, setLeaveMode] = useState<'applier' | 'approver'>('applier');
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? '') || '');
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? '') || '');
-    };
-    void run();
-  }, []);
 
   return (
     <View className="flex-1 bg-[#0a1c63]">

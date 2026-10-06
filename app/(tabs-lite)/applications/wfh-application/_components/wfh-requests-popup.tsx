@@ -3,7 +3,6 @@ import { useGetRequest } from "@/hooks/api/useGetRequest"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
 import { useRolePermissions } from "@/hooks/api/useRolePermissions"
 import { useScreenPermissions } from "@/hooks/auth/useScreenPermissions"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { Ionicons } from "@expo/vector-icons"
 import { AlertCircle, CheckCircle, Clock, Send, X, XCircle } from "lucide-react-native"
 import React, { useEffect, useMemo, useRef, useState } from "react"
@@ -40,14 +39,6 @@ interface Props {
   onActionSuccess?: () => void
 }
 
-function decodeJwtPayload(token: string) {
-  try {
-    const p = token.split(".")[1]; if (!p) return null
-    const b64 = p.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=")
-    return JSON.parse(decodeURIComponent(atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(""))) as Record<string, unknown>
-  } catch { return null }
-}
 
 function mapBackend(item: any): WfhRequest {
   return {
@@ -102,8 +93,6 @@ export default function WfhRequestsPopup({ isOpen, onClose, initialSelectedReque
   const [statusError, setStatusError] = useState("")
   const [submitSuccess, setSubmitSuccess] = useState<"approve" | "reject" | "cancel" | null>(null)
   const pulseAnim = useRef(new Animated.Value(0)).current
-  const [employeeId, setEmployeeId] = useState("")
-  const [tenantCode, setTenantCode] = useState("")
 
   useEffect(() => {
     if (!submitSuccess) return
@@ -124,18 +113,6 @@ export default function WfhRequestsPopup({ isOpen, onClose, initialSelectedReque
   const canApprove = !permsLoading && !!activePerms?.approve
   const canReject  = !permsLoading && !!activePerms?.reject
   const canCancel  = !permsLoading && !!activePerms?.cancel
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const p = decodeJwtPayload(token)
-      if (!p) return
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? "") || "")
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? "") || "")
-    }
-    void run()
-  }, [])
 
   const reset = () => {
     setSelectedRequest(initialSelectedRequest || null)
@@ -160,10 +137,10 @@ export default function WfhRequestsPopup({ isOpen, onClose, initialSelectedReque
     url: `${collectionName}/search`,
     method: "POST",
     data: useMemo(() => {
-      const d: any[] = [{ field: "tenantCode", operator: "eq", value: tenantCode }]
+      const d: any[] = []
       if (selectedRequestId) d.push({ field: "_id", operator: "eq", value: selectedRequestId })
       return d
-    }, [tenantCode, selectedRequestId]),
+    }, [selectedRequestId]),
     enabled: Boolean(selectedRequestId),
     onSuccess: () => {},
     onError: () => {},
@@ -215,14 +192,14 @@ export default function WfhRequestsPopup({ isOpen, onClose, initialSelectedReque
     const pad = (n: number) => n < 10 ? `0${n}` : `${n}`
     const ist = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }))
     const createdOnIST = `${ist.getFullYear()}-${pad(ist.getMonth() + 1)}-${pad(ist.getDate())}T${pad(ist.getHours())}:${pad(ist.getMinutes())}:${pad(ist.getSeconds())}.${String(ist.getMilliseconds()).padStart(3, "0")}+05:30`
-    const approverId = selectedRequest?.approverID || employeeId
+    const approverId = selectedRequest?.approverID || ""
 
     const data: any = {
       _id: selectedRequest?.id,
-      tenantCode: selectedRequest?.tenantCode || tenantCode,
+      tenantCode: selectedRequest?.tenantCode || "",
       workflowName: selectedRequest?.workflowName || "wfh Application",
       stateEvent,
-      organizationCode: selectedRequest?.organizationCode || tenantCode,
+      organizationCode: selectedRequest?.organizationCode || "",
       isDeleted: selectedRequest?.isDeleted || false,
       employeeID: selectedRequest?.employeeID,
       fromDate: selectedRequest?.fromDate,
@@ -231,7 +208,7 @@ export default function WfhRequestsPopup({ isOpen, onClose, initialSelectedReque
       toDuration: selectedRequest?.toDuration,
       description: selectedRequest?.description,
       appliedDate: selectedRequest?.appliedDate,
-      uploadedBy: selectedRequest?.uploadedBy || employeeId || "user",
+      uploadedBy: selectedRequest?.uploadedBy || "user",
       createdOn: selectedRequest?.createdOn || createdOnIST,
       workflowState: selectedRequest?.workflowState,
       action: statusAction,
@@ -242,7 +219,7 @@ export default function WfhRequestsPopup({ isOpen, onClose, initialSelectedReque
     else if (statusAction === "reject" && approverId) data.rejectedBy = approverId
     else if (statusAction === "cancel" && approverId) data.cancelledBy = approverId
 
-    postAction({ tenant: tenantCode, action: "insert", id: selectedRequest?.id, event: "application", collectionName, data })
+    postAction({ tenant: selectedRequest?.tenantCode || "", action: "insert", id: selectedRequest?.id, event: "application", collectionName, data })
   }
 
   const DetailRow = ({ label, value }: { label: string; value: string }) => (

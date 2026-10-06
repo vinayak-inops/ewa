@@ -3,20 +3,11 @@ import { useGetRequest } from "@/hooks/api/useGetRequest"
 import { usePostRequest } from "@/hooks/api/usePostRequest"
 import { useRolePermissions } from "@/hooks/api/useRolePermissions"
 import { useScreenPermissions } from "@/hooks/auth/useScreenPermissions"
-import { getAccessToken } from "@/hooks/auth/token-store"
 import { Ionicons } from "@expo/vector-icons"
 import { AlertCircle, CheckCircle, Clock, Send, X, XCircle } from "lucide-react-native"
 import React, { useEffect, useRef, useState } from "react"
 import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
 
-function decodeJwtPayload(token: string) {
-  try {
-    const p = token.split(".")[1]; if (!p) return null
-    const b64 = p.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=")
-    return JSON.parse(decodeURIComponent(atob(padded).split("").map(c => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(""))) as Record<string, unknown>
-  } catch { return null }
-}
 
 interface EncashmentRequest {
   _id: string
@@ -80,7 +71,6 @@ export default function EncashmentRequestsPopup({ isOpen, onClose, selectedReque
   const [statusLoading, setStatusLoading] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState<"approve" | "reject" | "cancel" | null>(null)
   const pulseAnim = useRef(new Animated.Value(0)).current
-  const [employeeId, setEmployeeId] = useState("")
 
   useEffect(() => {
     if (!submitSuccess) return
@@ -91,20 +81,6 @@ export default function EncashmentRequestsPopup({ isOpen, onClose, selectedReque
     loop.start()
     return () => loop.stop()
   }, [submitSuccess])
-  const [tenantCode, setTenantCode] = useState("")
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken()
-      if (!token) return
-      const p = decodeJwtPayload(token)
-      if (!p) return
-      setEmployeeId(String(p.employeeID ?? p.employeeId ?? p.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? "") || "")
-      setTenantCode(String(p.tenantCode ?? p.tenant ?? p.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? "") || "")
-    }
-    void run()
-  }, [])
-
   const collectionForFetch = sourceCollectionName === "leaveEncashmentApplicationTransaction"
     ? "leaveEncashmentApplicationTransaction" : "leaveEncashmentApplication"
 
@@ -127,7 +103,7 @@ export default function EncashmentRequestsPopup({ isOpen, onClose, selectedReque
   })
 
   const handleSubmit = async () => {
-    if (!request?._id || !tenantCode || !statusAction) return
+    if (!request?._id || !statusAction) return
     setStatusError("")
     setStatusLoading(true)
     const stateEvent = statusAction === "approve" ? "APPROVE" : statusAction === "reject" ? "REJECT" : "CANCEL"
@@ -138,7 +114,7 @@ export default function EncashmentRequestsPopup({ isOpen, onClose, selectedReque
     const createdOn = `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}.${ms}+05:30`
 
     await post({
-      tenant: tenantCode,
+      tenant: "",
       action: "update",
       id: request._id,
       event: "application",
@@ -150,12 +126,12 @@ export default function EncashmentRequestsPopup({ isOpen, onClose, selectedReque
         appliedDate: request.appliedDate,
         remarks: statusComment || request.remarks || "",
         workflowName: "leaveEncashment Application",
-        tenantCode,
-        uploadedBy: request.uploadedBy || employeeId,
-        createdBy: request.uploadedBy || employeeId,
+        tenantCode: "",
+        uploadedBy: request.uploadedBy,
+        createdBy: request.uploadedBy,
         createdOn: request.createdOn || createdOn,
         uploadTime: createdOn,
-        organizationCode: tenantCode,
+        organizationCode: "",
         stateEvent,
         workflowState: request.workflowState,
       },

@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HEADER_SPACER_HEIGHT, ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
 import { DaySummary } from './muster/DaySummary';
 import { MonthlySummary } from './muster/MonthlySummary';
 import { PunchRecords, buildAttendanceDetail, type AttendanceDetail } from './muster/PunchRecords';
@@ -153,23 +152,6 @@ function isFutureCalendarDay(date: Date, today: Date) {
   return date.getTime() > new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 }
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded)
-        .split('')
-        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 type GridDay = {
   date: Date;
@@ -441,9 +423,6 @@ export default function LiteAttendanceScreen() {
   const today = useMemo(() => new Date(), []);
   const [currentDate, setCurrentDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
-
   // Pause all fetches when muster (or any child screen) is on top of this screen
   const [isFocused, setIsFocused] = useState(true);
   useFocusEffect(
@@ -463,22 +442,6 @@ export default function LiteAttendanceScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [facePunchHistory, setFacePunchHistory] = useState<FacePunchRecord[]>([]);
 
-  useEffect(() => {
-    if (viewAllMode) {
-      setEmployeeId(String(id));
-      return;
-    }
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') || '');
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || '');
-    };
-    void run();
-  }, [viewAllMode, id]);
-
   const selectedMonthNumber = currentDate.getMonth() + 1;
   const selectedYearNumber = currentDate.getFullYear();
   const currentMonthNumber = today.getMonth() + 1;
@@ -489,14 +452,12 @@ export default function LiteAttendanceScreen() {
     url: ATTENDANCE_SEARCH_URL,
     method: 'POST',
     data: [
-      { field: 'employeeID', value: employeeId,          operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode,          operator: 'eq' },
       { field: 'month',      value: selectedMonthNumber, operator: 'eq' },
       { field: 'year',       value: selectedYearNumber,  operator: 'eq' },
     ],
-    enabled: Boolean(employeeId && tenantCode && isFocused),
+    enabled: Boolean(isFocused),
     // ↓ year added so navigating across years also triggers a re-fetch
-    dependencies: [employeeId, tenantCode, selectedMonthNumber, selectedYearNumber, isFocused],
+    dependencies: [selectedMonthNumber, selectedYearNumber, isFocused],
     onSuccess: (data) => {
       const rows = normalizeAttendanceRows(data);
       setAttendanceRows(rows);
@@ -514,12 +475,10 @@ export default function LiteAttendanceScreen() {
     url: ATTENDANCE_SEARCH_URL,
     method: 'POST',
     data: [
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
       { field: 'month', value: currentMonthNumber, operator: 'eq' },
     ],
-    enabled: Boolean(employeeId && tenantCode && isFocused && currentMonthDataNeeded),
-    dependencies: [employeeId, tenantCode, currentMonthNumber, currentMonthDataNeeded, isFocused],
+    enabled: Boolean(isFocused && currentMonthDataNeeded),
+    dependencies: [currentMonthNumber, currentMonthDataNeeded, isFocused],
     onSuccess: (data) => {
       setCurrentMonthAttendanceRows(normalizeAttendanceRows(data));
     },
@@ -545,21 +504,18 @@ export default function LiteAttendanceScreen() {
   const punchParams = useMemo(() => ({ offset: punchOffset, limit: PUNCH_PAGE_SIZE }), [punchOffset]);
 
   const punchData = useMemo(() => {
-    const filters: Array<{ field: string; value: unknown; operator: string }> = [
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-    ];
+    const filters: Array<{ field: string; value: unknown; operator: string }> = [];
     if (selectedDateKey) filters.push({ field: 'date', value: selectedDateKey, operator: 'eq' });
     return filters;
-  }, [employeeId, tenantCode, selectedDateKey]);
+  }, [selectedDateKey]);
 
   useGetRequest<TodayPunch[]>({
     url: DATA_CHECK_URL,
     method: 'POST',
     params: punchParams,
     data: punchData,
-    enabled: Boolean(employeeId && tenantCode && selectedDateKey && isFocused),
-    dependencies: [employeeId, tenantCode, selectedDateKey, punchOffset, isFocused],
+    enabled: Boolean(selectedDateKey && isFocused),
+    dependencies: [selectedDateKey, punchOffset, isFocused],
     onSuccess: (data) => {
       const page = data ?? [];
       setTodayPunches((prev) => (punchOffset === 0 ? page : [...prev, ...page]));
@@ -580,12 +536,9 @@ export default function LiteAttendanceScreen() {
     url: FACE_PUNCH_URL,
     method: 'POST',
     params: { offset: 0, limit: 20 },
-    data: [
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
-    ],
-    enabled: Boolean(employeeId && tenantCode && isFocused),
-    dependencies: [employeeId, tenantCode, isFocused],
+    data: [],
+    enabled: Boolean(isFocused),
+    dependencies: [isFocused],
     onSuccess: (data) => {
       const sorted = [...(data ?? [])].sort(
         (a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()

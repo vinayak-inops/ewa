@@ -12,6 +12,7 @@
  *   inset automatically, so no runtime paddingTop calculation is needed.
  *   Ionicons `color` is a component prop, not a CSS style.
  */
+import { markPermissionsGranted } from '@/hooks/auth/install-guard';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -176,7 +177,8 @@ export default function PermissionsScreen() {
       if (enabled.notifications) await requestNotifications();
       if (enabled.contacts)      await requestContacts();
 
-      // All required permissions granted — let index.tsx re-evaluate and enter app
+      // Mark so the permissions screen is never shown again on this device
+      await markPermissionsGranted();
       router.replace('/');
     } catch {
       setBlockError('Something went wrong. Please try again.');

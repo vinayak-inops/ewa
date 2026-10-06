@@ -3,8 +3,9 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { RootState } from '@/store';
 import { useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 
 function formatDate(dateString?: string) {
   if (!dateString) return 'Not provided';
@@ -23,23 +24,6 @@ function formatValue(value?: unknown): string {
   return 'Not provided';
 }
 
-function decodeJwtPayload(token: string) {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded)
-        .split('')
-        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 function Field({ label, value }: { label: string; value: unknown }) {
   return (
@@ -52,37 +36,18 @@ function Field({ label, value }: { label: string; value: unknown }) {
 
 export default function LiteProfileScreen() {
   const router = useRouter();
-  const [employeeId, setEmployeeId] = useState<string>('');
-  const [tenantCode, setTenantCode] = useState<string>('');
   const [employeeProfile, setEmployeeProfile] = useState<Record<string, any> | null>(null);
-
-  useEffect(() => {
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const payload = decodeJwtPayload(token);
-      if (!payload) return;
-      if (__DEV__) {}
-
-      setEmployeeId(
-        String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? process.env.EXPO_PUBLIC_EMPLOYEE_ID ?? '') || ''
-      );
-      setTenantCode(
-        String(payload.tenantCode ?? payload.tenant ?? payload.org ?? process.env.EXPO_PUBLIC_TENANT_CODE ?? '') || ''
-      );
-    };
-    void run();
-  }, []);
+  const employeeId = useSelector((s: RootState) => s.role.employeeId);
+  const tenantCode = useSelector((s: RootState) => s.role.org);
 
   const { data: profileRows, loading: profileLoading, error: profileError } = useGetRequest<any[]>({
     url: 'contract_employee/search',
     method: 'POST',
     data: [
-      { field: 'employeeID', value: employeeId, operator: 'eq' },
-      { field: 'tenantCode', value: tenantCode, operator: 'eq' },
+      ...(tenantCode ? [{ field: 'tenantCode', operator: 'eq', value: tenantCode }] : []),
+      ...(employeeId ? [{ field: 'employeeID', operator: 'eq', value: employeeId }] : []),
     ],
-    enabled: Boolean(employeeId && tenantCode),
-    dependencies: [employeeId, tenantCode],
+    enabled: !!(tenantCode && employeeId),
     onSuccess: () => {},
     onError: () => { setEmployeeProfile(null); },
   });
@@ -103,7 +68,7 @@ export default function LiteProfileScreen() {
     return joined || 'Not provided';
   }, [employeeProfile]);
 
-  const displayedEmployeeId = employeeProfile?.employeeID ?? employeeId;
+  const displayedEmployeeId = employeeProfile?.employeeID ?? '';
 
   return (
     <View className="flex-1 bg-[#f8fafc]">

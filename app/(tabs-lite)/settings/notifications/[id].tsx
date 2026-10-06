@@ -6,8 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MOCK_NOTIFICATIONS } from './_components/types';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const CATEGORY_COLOR: Record<string, string> = {
   Attendance: '#15803d',
   Salary:     '#15803d',
@@ -19,8 +17,6 @@ const CATEGORY_BG: Record<string, string> = {
   Docs:       '#ede9fe',
 };
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
-
 export default function NotificationDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -31,8 +27,8 @@ export default function NotificationDetailScreen() {
 
   if (!item) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Notification not found.</Text>
+      <View className="flex-1 bg-white items-center justify-center">
+        <Text className="text-sm text-gray-400">Notification not found.</Text>
       </View>
     );
   }
@@ -42,41 +38,31 @@ export default function NotificationDetailScreen() {
   const tagBg    = CATEGORY_BG[category]    ?? '#f1f5f9';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+    <View className="flex-1 bg-white">
       <StatusBar barStyle="light-content" backgroundColor="#0B1424" />
 
-      {/* ── Single-line header ── */}
+      {/* Header */}
       <View
-        style={{
-          backgroundColor:   '#0B1424',
-          paddingTop:        insets.top + 14,
-          paddingBottom:     14,
-          paddingHorizontal: 16,
-          flexDirection:     'row',
-          alignItems:        'center',
-          gap:               12,
-        }}
+        className="bg-[#0B1424] pb-[14px] px-4 flex-row items-center gap-3"
+        style={{ paddingTop: insets.top + 14 }}
       >
         <Pressable
           onPress={() => router.replace('/(tabs-lite)/settings' as any)}
           hitSlop={12}
-          style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
+          className="active:opacity-55"
         >
           <Ionicons name="arrow-back" size={20} color="#fff" />
         </Pressable>
 
-        <Text
-          style={{ flex: 1, fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: 0.1 }}
-          numberOfLines={1}
-        >
+        <Text className="flex-1 text-base font-bold text-white tracking-[0.1px]" numberOfLines={1}>
           {subtitle}
         </Text>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <Pressable hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+        <View className="flex-row items-center gap-4">
+          <Pressable hitSlop={10} className="active:opacity-55">
             <Ionicons name="trash-outline" size={20} color="#fff" />
           </Pressable>
-          <Pressable hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+          <Pressable hitSlop={10} className="active:opacity-55">
             <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
           </Pressable>
         </View>
@@ -84,74 +70,38 @@ export default function NotificationDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        style={{ flex: 1, backgroundColor: '#fff' }}
+        className="flex-1 bg-white"
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
       >
-
-        {/* ── Title block ──────────────────────────────────
-            16px left/right, 20px top
-            title → chip: 4px
-            chip → divider: 12px                           */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
-          <Text style={{ fontSize: 17, fontWeight: '700', color: '#111827', lineHeight: 24 }}>
-            {subtitle}
-          </Text>
+        {/* Title block */}
+        <View className="px-4 pt-5">
+          <Text className="text-[17px] font-bold text-gray-900 leading-6">{subtitle}</Text>
 
           <View
-            style={{
-              marginTop:         4,
-              alignSelf:         'flex-start',
-              backgroundColor:   tagBg,
-              borderRadius:      20,
-              paddingHorizontal: 8,
-              paddingVertical:   2,
-            }}
+            className="mt-1 self-start rounded-full px-2 py-0.5"
+            style={{ backgroundColor: tagBg }}
           >
-            <Text style={{ fontSize: 12, fontWeight: '600', color: tagColor }}>
+            <Text className="text-xs font-semibold" style={{ color: tagColor }}>
               {category}
             </Text>
           </View>
 
-          <View style={{ height: 0.5, backgroundColor: '#E5E7EB', marginTop: 12 }} />
+          <View className="h-[0.5px] bg-gray-200 mt-3" />
         </View>
 
-        {/* ── Sender row ───────────────────────────────────
-            14px top/bottom, 16px left/right
-            icon tile 36×36 rounded 8px
-            icon → text: 10px
-            name → "to": 2px
-            "to" → chevron: 4px                           */}
-        <View
-          style={{
-            flexDirection:     'row',
-            alignItems:        'flex-start',
-            paddingHorizontal: 16,
-            paddingVertical:   14,
-            gap:               10,
-          }}
-        >
+        {/* Sender row */}
+        <View className="flex-row items-start px-4 py-[14px] gap-2.5">
           <View
-            style={{
-              width:           36,
-              height:          36,
-              borderRadius:    8,
-              backgroundColor: detail.senderIconBg,
-              alignItems:      'center',
-              justifyContent:  'center',
-              flexShrink:      0,
-            }}
+            className="w-9 h-9 rounded-lg items-center justify-center shrink-0"
+            style={{ backgroundColor: detail.senderIconBg }}
           >
             <Ionicons name={detail.senderIcon as any} size={17} color={detail.senderIconColor} />
           </View>
 
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: '#111827' }}>
-                {detail.sender}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#9CA3AF', marginRight: 10 }}>
-                {detail.timestamp}
-              </Text>
+          <View className="flex-1">
+            <View className="flex-row items-center">
+              <Text className="flex-1 text-sm font-bold text-gray-900">{detail.sender}</Text>
+              <Text className="text-xs text-gray-400 mr-2.5">{detail.timestamp}</Text>
               <Pressable onPress={() => setStarred((s) => !s)} hitSlop={10}>
                 <Ionicons
                   name={starred ? 'star' : 'star-outline'}
@@ -161,113 +111,56 @@ export default function NotificationDetailScreen() {
               </Pressable>
             </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 }}>
-              <Text style={{ fontSize: 12, color: '#6B7280' }}>to {detail.recipient}</Text>
+            <View className="flex-row items-center mt-0.5 gap-1">
+              <Text className="text-xs text-gray-500">to {detail.recipient}</Text>
               <Ionicons name="chevron-down" size={11} color="#9CA3AF" />
             </View>
           </View>
         </View>
 
-        <View style={{ height: 0.5, backgroundColor: '#E5E7EB', marginHorizontal: 16 }} />
+        <View className="h-[0.5px] bg-gray-200 mx-4" />
 
-        {/* ── Body + info card + helper ──────────────────── */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+        {/* Body */}
+        <View className="px-4 pt-4">
+          <Text className="text-sm font-bold text-gray-900 leading-[22px]">{detail.message}</Text>
 
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', lineHeight: 22 }}>
-            {detail.message}
-          </Text>
-
-          {/* Info card — 12px below paragraph */}
-          <View
-            style={{
-              marginTop:         12,
-              backgroundColor:   '#F9FAFB',
-              borderRadius:      10,
-              borderWidth:       0.5,
-              borderColor:       '#E5E7EB',
-              paddingHorizontal: 14,
-              paddingVertical:   4,
-            }}
-          >
+          {/* Info card */}
+          <View className="mt-3 bg-gray-50 rounded-[10px] border-[0.5px] border-gray-200 px-[14px] py-1">
             {detail.rows.map((row, i) => (
               <React.Fragment key={row.label}>
-                <View
-                  style={{
-                    flexDirection:   'row',
-                    alignItems:      'center',
-                    justifyContent:  'space-between',
-                    paddingVertical: 10,
-                  }}
-                >
-                  <Text style={{ fontSize: 14, color: '#6B7280', fontWeight: '400' }}>
-                    {row.label}
-                  </Text>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: row.valueColor ?? '#111827' }}>
+                <View className="flex-row items-center justify-between py-2.5">
+                  <Text className="text-sm text-gray-500 font-normal">{row.label}</Text>
+                  <Text
+                    className="text-sm font-bold"
+                    style={{ color: row.valueColor ?? '#111827' }}
+                  >
                     {row.value}
                   </Text>
                 </View>
                 {i < detail.rows.length - 1 && (
-                  <View style={{ height: 0.5, backgroundColor: '#E5E7EB' }} />
+                  <View className="h-[0.5px] bg-gray-200" />
                 )}
               </React.Fragment>
             ))}
           </View>
 
-          {/* Helper text */}
           {detail.footer && (
-            <Text style={{ fontSize: 13, color: '#9CA3AF', lineHeight: 20, marginTop: 12 }}>
-              {detail.footer}
-            </Text>
+            <Text className="text-[13px] text-gray-400 leading-5 mt-3">{detail.footer}</Text>
           )}
         </View>
 
-        {/* ── Action buttons ────────────────────────────── */}
-        <View
-          style={{
-            flexDirection:     'row',
-            gap:               10,
-            paddingHorizontal: 16,
-            paddingTop:        16,
-            paddingBottom:     8,
-          }}
-        >
-          <Pressable
-            style={({ pressed }) => ({
-              flex:            1,
-              flexDirection:   'row',
-              alignItems:      'center',
-              justifyContent:  'center',
-              gap:             6,
-              paddingVertical: 12,
-              borderRadius:    50,
-              borderWidth:     0.5,
-              borderColor:     '#D1D5DB',
-              backgroundColor: pressed ? '#F9FAFB' : '#fff',
-            })}
-          >
+        {/* Action buttons */}
+        <View className="flex-row gap-2.5 px-4 pt-4 pb-2">
+          <Pressable className="flex-1 flex-row items-center justify-center gap-1.5 py-3 rounded-full border-[0.5px] border-gray-300 bg-white active:bg-gray-50">
             <Ionicons name="arrow-undo-outline" size={16} color="#374151" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>Reply</Text>
+            <Text className="text-sm font-semibold text-gray-700">Reply</Text>
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => ({
-              flex:            1,
-              flexDirection:   'row',
-              alignItems:      'center',
-              justifyContent:  'center',
-              gap:             6,
-              paddingVertical: 12,
-              borderRadius:    50,
-              borderWidth:     0.5,
-              borderColor:     '#D1D5DB',
-              backgroundColor: pressed ? '#F9FAFB' : '#fff',
-            })}
-          >
+          <Pressable className="flex-1 flex-row items-center justify-center gap-1.5 py-3 rounded-full border-[0.5px] border-gray-300 bg-white active:bg-gray-50">
             <Ionicons name="arrow-redo-outline" size={16} color="#374151" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>Forward</Text>
+            <Text className="text-sm font-semibold text-gray-700">Forward</Text>
           </Pressable>
         </View>
-
       </ScrollView>
     </View>
   );

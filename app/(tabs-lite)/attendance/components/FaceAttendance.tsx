@@ -28,7 +28,6 @@ import {
   View
 } from 'react-native';
 
-import { getAccessToken } from '@/hooks/auth/token-store';
 import { getSessionCookieHeaders } from '@/hooks/auth/bff-session';
 
 import { FaceCamera } from './FaceCamera';
@@ -59,26 +58,6 @@ type PunchResponse = {
   errorDescription:  string;
 };
 
-// ─── JWT decode ───────────────────────────────────────────────────────────────
-
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const part = token.split('.')[1];
-    if (!part) return null;
-    const b64    = part.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=');
-    return JSON.parse(
-      decodeURIComponent(
-        atob(padded)
-          .split('')
-          .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-          .join('')
-      )
-    ) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 // ─── Location ─────────────────────────────────────────────────────────────────
 
@@ -185,22 +164,7 @@ export function FaceAttendanceModal({
   const [state,       setState]       = useState<PunchState>('idle');
   const [errorMsg,    setErrorMsg]    = useState('');
   const [punchResult, setPunchResult] = useState<PunchResponse | null>(null);
-  const employeeID = useRef('');
-  const tenantCode = useRef('');
   const camKey     = useRef(0);
-
-  useEffect(() => {
-    if (!visible) return;
-    const run = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const p = decodeJwtPayload(token);
-      if (!p) return;
-      employeeID.current = String(p.employeeID ?? p.employeeId ?? p.empId ?? '');
-      tenantCode.current = String(p.tenantCode  ?? p.tenant    ?? p.org   ?? '');
-    };
-    void run();
-  }, [visible]);
 
   useEffect(() => {
     if (visible) {
@@ -234,8 +198,8 @@ export function FaceAttendanceModal({
           setState('uploading');
           const result = await submitPunch({
             base64Image: msg.data,
-            employeeID:  employeeID.current,
-            tenantCode:  tenantCode.current,
+            employeeID:  '',
+            tenantCode:  '',
             geo,
           });
           setPunchResult(result);

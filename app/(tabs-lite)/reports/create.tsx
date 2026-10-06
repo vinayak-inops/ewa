@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getAccessToken } from '@/hooks/auth/token-store';
+import { authedFetch } from '@/hooks/api/authed-fetch';
 import { BasicInformation } from './_components/basic-information';
 import { SelectReports } from './_components/select-reports';
 import { StepIndicator } from './_components/step-indicator';
@@ -30,43 +30,9 @@ const TABLE_MENU_ITEMS: TableMenuItem[] = [
   { id: 'contractEmployees',  label: 'Contract Employees', icon: 'people-outline',        parent: 'contractEmployee' },
 ];
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const json = decodeURIComponent(
-      atob(padded).split('').map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
-    );
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 export default function CreateReportScreen() {
   const router = useRouter();
-
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  const [token, setToken] = useState<string | null>(null);
-  const [employeeId, setEmployeeId] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
-  const [uploadedBy, setUploadedBy] = useState('');
-
-  useEffect(() => {
-    const run = async () => {
-      const t = await getAccessToken();
-      if (!t) return;
-      setToken(t);
-      const payload = decodeJwtPayload(t);
-      if (!payload) return;
-      setEmployeeId(String(payload.employeeID ?? payload.employeeId ?? payload.empId ?? ''));
-      setTenantCode(String(payload.tenantCode ?? payload.tenant ?? payload.org ?? ''));
-      setUploadedBy(String(payload.name ?? payload.preferred_username ?? payload.sub ?? ''));
-    };
-    void run();
-  }, []);
 
   // ── Step state ────────────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,17 +68,13 @@ export default function CreateReportScreen() {
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!token) {
-      Alert.alert('Error', 'Authentication token is not available');
-      return;
-    }
     setIsSubmitting(true);
     try {
       const finalData = {
         report: '',
-        tenantCode,
-        organization: tenantCode,
-        uploadedBy,
+        tenantCode: '',
+        organization: '',
+        uploadedBy: '',
         createdOn: new Date().toISOString(),
         reportName: selectedReport ?? '',
         subsidiaries: filterData.subsidiaries,
@@ -135,19 +97,18 @@ export default function CreateReportScreen() {
         reportTitle,
         reportDescription,
         workflowName: selectedWorkflowName ?? 'Report',
-        employeeId,
+        employeeId: '',
         level: 1,
         employeeID: filterData.contractEmployees,
       };
 
-      const response = await fetch(`${API_BASE}/api/command/attendance/reports`, {
+      const response = await authedFetch(`${API_BASE}/api/command/attendance/reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          tenant: tenantCode,
+          tenant: '',
           action: 'insert',
           id: null,
           collectionName: 'reports',
@@ -166,7 +127,7 @@ export default function CreateReportScreen() {
         reportId = responseData._id;
       }
 
-      if (reportId && employeeId) {
+      if (reportId) {
         router.replace(`/(tabs-lite)/reports/application?mode=all&id=${encodeURIComponent(reportId)}` as any);
       } else {
         Alert.alert('Success', 'Report submitted successfully!');
