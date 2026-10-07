@@ -28,7 +28,8 @@ import {
   View
 } from 'react-native';
 
-import { getSessionCookieHeaders } from '@/hooks/auth/bff-session';
+import { ensureSessionLoaded, getSessionCookieHeaders } from '@/hooks/auth/bff-session';
+import { handleUnauthorized } from '@/hooks/api/authed-fetch';
 
 import { FaceCamera } from './FaceCamera';
 
@@ -135,12 +136,18 @@ async function submitPunch(opts: {
   form.append('event', eventJson);
   form.append('punchPhoto', { uri: base64Image, name: 'punch.jpg', type: 'image/jpeg' } as any);
 
+  await ensureSessionLoaded();
   const res = await fetch(PUNCH_URL, {
     method:      'POST',
     credentials: 'include',
     headers:     { ...getSessionCookieHeaders(), 'X-user': 'default-user', 'X-Tenant': tenantCode || 'default' },
     body:        form,
   });
+
+  if (res.status === 401 || res.status === 403) {
+    await handleUnauthorized();
+    throw new Error(`Session expired (${res.status}). Please log in again.`);
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');

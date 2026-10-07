@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { getBffUserProfile, ensureCsrf, getSessionCookieHeaders } from '@/hooks/auth/bff-session';
+import { getBffUserProfile, ensureCsrf, ensureSessionLoaded, getSessionCookieHeaders } from '@/hooks/auth/bff-session';
 import { handleUnauthorized } from './authed-fetch';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
@@ -77,6 +77,8 @@ export function usePostRequest<T>({
       setLoading(true);
       setError(null);
       setUploadProgress(0);
+
+      await ensureSessionLoaded();
 
       if (requireAuth) {
         const profile = await getBffUserProfile();

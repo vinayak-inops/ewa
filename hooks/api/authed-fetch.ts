@@ -1,6 +1,13 @@
 import { Platform } from 'react-native';
 
-import { bffLogout, clearBffUserProfile, ensureCsrf, getSessionCookieHeaders } from '@/hooks/auth/bff-session';
+import {
+  bffLogout,
+  clearBffUserProfile,
+  ensureCsrf,
+  ensureSessionLoaded,
+  getSessionCookieHeaders,
+  updateCookiesFromResponse,
+} from '@/hooks/auth/bff-session';
 import { clearBiometricSession } from '@/hooks/auth/biometric-session';
 import { emitSessionExpired } from '@/hooks/auth/session-events';
 import { clearAuthTokens } from '@/hooks/auth/token-store';
@@ -34,6 +41,8 @@ export async function handleUnauthorized() {
 export async function authedFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const method = (options.method ?? 'GET').toUpperCase();
 
+  await ensureSessionLoaded();
+
   const extraHeaders: Record<string, string> = {
     ...getSessionCookieHeaders(),
   };
@@ -53,7 +62,10 @@ export async function authedFetch(url: string, options: RequestInit = {}): Promi
 
   if (response.status === 401 || response.status === 403) {
     await handleUnauthorized();
+  } else {
+    await updateCookiesFromResponse(response);
   }
 
   return response;
 }
+

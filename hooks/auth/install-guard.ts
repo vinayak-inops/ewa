@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { clearBiometricSession } from './biometric-session';
 import { clearAuthTokens } from './token-store';
-import { getBffUserProfile } from './bff-session';
+import { getBffUserProfile, clearBffUserProfile } from './bff-session';
 
 const INSTALL_SENTINEL_KEY   = 'ewa_app_installed';
 const APP_VERSION_KEY        = 'ewa_app_version';
@@ -28,7 +28,7 @@ async function getBiometricSignature(): Promise<string> {
 }
 
 async function wipeSession() {
-  await Promise.all([clearBiometricSession(), clearAuthTokens()]);
+  await Promise.all([clearBiometricSession(), clearAuthTokens(), clearBffUserProfile()]);
   await Promise.all([
     AsyncStorage.removeItem(BIOMETRIC_STATE_KEY),
     AsyncStorage.removeItem(LOGGED_IN_USER_KEY),
@@ -72,11 +72,11 @@ export async function recordPostLoginState(username: string): Promise<void> {
 /**
  * Call once at app startup, before any auth checks.
  *
- * Wipes all stored credentials when any of these are true:
+ * Wipes stored credentials only when:
  *   #1 Fresh install or reinstall — sentinel key missing
- *   #1 App version OR build number changed
  *   #2 Biometric enrollment on the device changed since last login
  *   #5 A different user (different username) is now logged in on this device
+ * (App updates preserve the session so user is not logged out unnecessarily)
  */
 export async function enforceCleanInstall(): Promise<void> {
   try {
@@ -91,12 +91,17 @@ export async function enforceCleanInstall(): Promise<void> {
     const isFirstInstall = sentinel === null;
     const isUpdate       = !isFirstInstall && storedVersion !== currentVersion;
 
-    // #1 fresh install or app update
-    if (isFirstInstall || isUpdate) {
-      await Promise.all([clearBiometricSession(), clearAuthTokens()]);
+    // #1 fresh install: wipe all legacy state and set sentinel
+    if (isFirstInstall) {
+      await wipeSession();
       await AsyncStorage.setItem(INSTALL_SENTINEL_KEY, '1');
       await AsyncStorage.setItem(APP_VERSION_KEY, currentVersion);
       return;
+    }
+
+    // App version updated: update version marker without wiping session
+    if (isUpdate) {
+      await AsyncStorage.setItem(APP_VERSION_KEY, currentVersion);
     }
 
     // #2 biometric enrollment changed

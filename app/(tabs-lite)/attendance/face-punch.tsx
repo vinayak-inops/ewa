@@ -38,7 +38,8 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { HEADER_SPACER_HEIGHT, ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useGetRequest } from '@/hooks/api/useGetRequest';
-import { getSessionCookieHeaders } from '@/hooks/auth/bff-session';
+import { handleUnauthorized } from '@/hooks/api/authed-fetch';
+import { ensureSessionLoaded, getSessionCookieHeaders } from '@/hooks/auth/bff-session';
 import { FaceCamera } from './components/FaceCamera';
 import { DailySummary } from './muster/DailySummary';
 import { FacePunch } from './muster/FacePunch';
@@ -181,6 +182,7 @@ async function submitPunch(opts: {
   form.append('event', eventJson);
   form.append('punchPhoto', { uri: base64Image, name: 'punch.jpg', type: 'image/jpeg' } as any);
 
+  await ensureSessionLoaded();
   const res = await fetch(PUNCH_URL, {
     method: 'POST',
     credentials: 'include',
@@ -191,6 +193,11 @@ async function submitPunch(opts: {
     },
     body: form,
   });
+
+  if (res.status === 401 || res.status === 403) {
+    await handleUnauthorized();
+    throw new Error(`Session expired (${res.status}). Please log in again.`);
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');

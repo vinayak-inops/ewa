@@ -1,7 +1,7 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
 import { isBiometricSessionActive, isBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
 import { enforceCleanInstall, hasGrantedPermissions } from '@/hooks/auth/install-guard';
-import { getBffUserProfile, clearBffUserProfile } from '@/hooks/auth/bff-session';
+import { getBffUserProfile, clearBffUserProfile, ensureSessionLoaded } from '@/hooks/auth/bff-session';
 import { clearAuthTokens } from '@/hooks/auth/token-store';
 import { initializeRoleFromBffProfile } from '@/store/slices/roleSlice';
 import { AppDispatch } from '@/store';
@@ -17,6 +17,7 @@ export default function Index() {
   useEffect(() => {
     const run = async () => {
       await enforceCleanInstall();
+      await ensureSessionLoaded();
 
       const [biometricActive, bffProfile] = await Promise.all([
         isBiometricSessionActive(),

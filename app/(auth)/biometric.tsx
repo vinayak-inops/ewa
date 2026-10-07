@@ -1,8 +1,8 @@
 import { getPostLoginRoute } from '@/constants/app-variant';
 import { clearBiometricSession, setBiometricSessionUnlocked } from '@/hooks/auth/biometric-session';
-import { getBffUserProfile } from '@/hooks/auth/bff-session';
+import { getBffUserProfile, ensureSessionLoaded } from '@/hooks/auth/bff-session';
 import { AppDispatch } from '@/store';
-import { initializeRoleFromBffProfile } from '@/store/slices/roleSlice';
+import { fetchRolePermissions, initializeRoleFromBffProfile } from '@/store/slices/roleSlice';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -55,6 +55,7 @@ export default function BiometricScreen() {
     setErrorMessage('');
 
     try {
+      await ensureSessionLoaded();
       const profile = await getBffUserProfile();
       if (!profile) {
         // Clear session so next cold start goes to welcome, not biometric loop
@@ -99,11 +100,14 @@ export default function BiometricScreen() {
       resetFailCount().catch(() => {}); // non-blocking, failure is non-fatal
 
       // Restore role info into Redux from the locally-cached BFF profile.
-      // fetchRolePermissions is intentionally skipped here — the BFF session
-      // cookie is in-memory and gone after a cold start, so any authedFetch
-      // would 401, clear the session, and kick the user back to login.
       try {
-        await dispatch(initializeRoleFromBffProfile(profile));
+        const roleResult = await dispatch(initializeRoleFromBffProfile(profile));
+        const payload    = (roleResult as any).payload;
+        const roleType   = payload?.roleType as string | null;
+        const org        = payload?.org as string | null;
+        if (roleType) {
+          dispatch(fetchRolePermissions({ roleType, org })).catch(() => {});
+        }
       } catch {
         // Non-fatal — role info loads lazily in the app if needed
       }
